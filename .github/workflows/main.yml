@@ -22,9 +22,10 @@ jobs:
         run: |
           pip install google-search-results notebook
 
-      - name: Run notebook securely (serp_secure_push_final)
+      - name: Run notebook securely (serp_secure_push_final_v2)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-   jupyter nbconvert --to notebook --execute serp_secure_push_final_v2.ipynb --output executed_notebook.ipynb
+          jupyter nbconvert --to notebook --execute serp_secure_push_final_v2.ipynb --output executed_notebook.ipynb
+
 
