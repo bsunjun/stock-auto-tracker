@@ -1,0 +1,30 @@
+name: Run Colab notebook daily
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # 매일 오전 9시 KST (0시 UTC)
+  workflow_dispatch:     # 수동 실행도 가능
+
+jobs:
+  run-colab:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install google-search-results
+
+    - name: Run notebook securely (serp_secure_push)
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: |
+        pip install notebook
+        jupyter nbconvert --to notebook --execute serp_secure_push.ipynb --output executed_notebook.ipynb
