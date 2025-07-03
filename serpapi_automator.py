@@ -152,4 +152,5 @@ def push_to_github():
     subprocess.run(["git", "add", FILE_JSON, FILE_CSV], check=True)
     commit_msg = f"🗓️  update prices {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-        repo_https = f"https://x-access-token:{GH_TOKEN}@github.com/{GITHUB_USERNAME}/{GITHUB_REPO}.git"
+    repo_https = f"https://x-access-token:{GH_TOKEN}@github.com/{GITHUB_USERNAME}/{GITHUB_REPO}.git"
+    subprocess.run(["git", "push", repo_https, "HEAD:main"], check=True)
