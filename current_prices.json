@@ -2,31 +2,31 @@
   "NAVER": {
     "name": "NAVER",
     "ticker": "KRX:035420",
-    "price": "₩262,500.00",
-    "change": 1.94
+    "price": "₩253,000.00",
+    "change": 0.4
   },
   "두산에너빌리티": {
     "name": "두산에너빌리티",
     "ticker": "KRX:034020",
-    "price": "₩68,400.00",
-    "change": 3.95
+    "price": "₩61,900.00",
+    "change": 0.49
   },
   "LS": {
     "name": "LS",
     "ticker": "KRX:006260",
-    "price": "₩197,000.00",
-    "change": 5.74
+    "price": "₩185,100.00",
+    "change": 0.75
   },
   "리노공업": {
     "name": "리노공업",
     "ticker": "KRX:058470",
-    "price": "₩50,900.00",
-    "change": 0.39
+    "price": "₩51,500.00",
+    "change": 4.67
   },
   "현대로템": {
     "name": "현대로템",
     "ticker": "KRX:064350",
-    "price": "₩196,500.00",
-    "change": 2.24
+    "price": "₩196,100.00",
+    "change": 3.4
   }
 }
