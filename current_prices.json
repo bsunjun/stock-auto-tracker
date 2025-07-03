@@ -1,32 +1,58 @@
 {
-  "NAVER": {
-    "name": "NAVER",
-    "ticker": "KRX:035420",
-    "price": "₩253,000.00",
-    "change": 0.4
-  },
-  "두산에너빌리티": {
-    "name": "두산에너빌리티",
-    "ticker": "KRX:034020",
-    "price": "₩61,900.00",
-    "change": 0.49
-  },
-  "LS": {
-    "name": "LS",
-    "ticker": "KRX:006260",
-    "price": "₩185,100.00",
-    "change": 0.75
-  },
   "리노공업": {
     "name": "리노공업",
     "ticker": "KRX:058470",
-    "price": "₩51,500.00",
-    "change": 4.67
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "에스티팜": {
+    "name": "에스티팜",
+    "ticker": "KRX:237690",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "에이피알": {
+    "name": "에이피알",
+    "ticker": "KRX:278470",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "ENF테크": {
+    "name": "ENF테크",
+    "ticker": "KRX:102710",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "알테오젠": {
+    "name": "알테오젠",
+    "ticker": "KRX:196170",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
   },
   "현대로템": {
     "name": "현대로템",
     "ticker": "KRX:064350",
-    "price": "₩196,100.00",
-    "change": 3.4
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "세아베스틸지주": {
+    "name": "세아베스틸지주",
+    "ticker": "KRX:001430",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
+  },
+  "YG PLUS": {
+    "name": "YG PLUS",
+    "ticker": "KRX:037270",
+    "price": null,
+    "change_pct": null,
+    "timestamp": "2025-07-03T17:49:18+09:00"
   }
 }
