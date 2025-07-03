@@ -152,24 +152,4 @@ def push_to_github():
     subprocess.run(["git", "add", FILE_JSON, FILE_CSV], check=True)
     commit_msg = f"🗓️  update prices {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-    repo_https = f"https://{GITHUB_USERNAME}:{GH_TOKEN}@github.com/{GITHUB_USERNAME}/{GITHUB_REPO}.git"
-    subprocess.run(["git", "push", repo_https, "HEAD:main"], check=True)
-    print("🚀  GitHub 푸시 완료")
-
-###############################################################################
-# 6. Main routine
-###############################################################################
-
-def main():
-    rows = collect_portfolio()
-    save_outputs(rows)
-    push_to_github()
-
-    # 뉴스 예시 로그 — 첫 포트 종목 3건만
-    sample = next(iter(PORTFOLIO.keys()))
-    for art in fetch_news(sample):
-        print("📰", art["title"])
-
-
-if __name__ == "__main__":
-    main()
+        repo_https = f"https://x-access-token:{GH_TOKEN}@github.com/{GITHUB_USERNAME}/{GITHUB_REPO}.git"
