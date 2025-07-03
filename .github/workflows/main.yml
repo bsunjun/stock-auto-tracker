@@ -1,31 +1,27 @@
-name: Run Colab notebook daily
+# .github/workflows/serp_run.yml  ─  스크립트 실행용
+
+name: Run SerpApi Automator
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # 매일 오전 9시 KST (0시 UTC 기준)
+    - cron: '0 0 * * *'        # 매일 09:00 KST
   workflow_dispatch:
 
 jobs:
-  run-colab:
+  run-script:
     runs-on: ubuntu-latest
-
+    env:
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      GH_TOKEN:    ${{ secrets.GH_TOKEN }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          pip install google-search-results notebook
+      - name: Install deps
+        run: pip install -r requirements.txt   # requests==2.32.3
 
-      - name: Run notebook securely (serp_secure_push_final_v2)
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          jupyter nbconvert --to notebook --execute serp_secure_push_final_v2.ipynb --output executed_notebook.ipynb
-
-
+      - name: Run automator script
+        run: python serpapi_automator.py
