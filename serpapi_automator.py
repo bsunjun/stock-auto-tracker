@@ -1,175 +1,77 @@
-#!/usr/bin/env python
-"""
-SerpApi 자동 주가·뉴스 수집 → JSON/CSV 저장 → GitHub 푸시 스크립트
-────────────────────────────────────────────────────────────
-• **Colab 로컬 실행** : `!python serpapi_automator.py`
-• **GitHub Actions**  : `SERPAPI_KEY` · `GH_TOKEN` 시크릿만 등록하면 주기적으로 실행
-
-### 설계 원칙 v1.0.1
-1. **API 키 노출 금지**   → 환경변수 `SERPAPI_KEY` 사용.
-2. **엔진 단일 호출**     → `google_finance` / `google_news` 별도 요청.
-3. **예외 견고성**        → 실패 시 `error` 필드에 기록, 스크립트 계속 실행.
-4. **출력 포맷**         → JSON(dict) + CSV(table) 동시 생성.
-5. **Git 푸시**          → `GH_TOKEN` 있으면 자동 커밋·푸시, 없으면 스킵.
-"""
-from __future__ import annotations
-
-import csv
-import json
-import os
-import subprocess
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict, List
-
-import requests
-
-###############################################################################
-# 1. 환경변수 · 상수 설정
-###############################################################################
-SERP_API_KEY: str | None = os.getenv("SERPAPI_KEY")
-GH_TOKEN: str | None = os.getenv("GH_TOKEN")  # Actions 환경에서만 필요
-
-if not SERP_API_KEY:
-    raise RuntimeError("⚠️  SERPAPI_KEY 환경변수가 설정돼 있지 않습니다.")
-
-# Git 기본 정보 — 필요 시 사용자 값으로 교체
-GITHUB_USERNAME = "bsunjun"
-GITHUB_EMAIL = "bsunjun@gmail.com"
-GITHUB_REPO = "stock-auto-tracker"
-
-# **현재 작업 디렉터리(=GitHub Actions에서 checkout 된 repo 루트)**
-REPO_DIR = Path(".")
-FILE_JSON = "current_prices.json"
-FILE_CSV = "current_prices.csv"
-JSON_PATH = REPO_DIR / FILE_JSON
-CSV_PATH = REPO_DIR / FILE_CSV
-
-# 포트폴리오 (티커 → SerpApi 쿼리)
-PORTFOLIO: Dict[str, str] = {
-    "리노공업": "KRX:058470",
-    "에스티팜": "KRX:237690",
-    "에이피알": "KRX:278470",
-    "ENF테크": "KRX:102710",
-    "알테오젠": "KRX:196170",
-    "현대로템": "KRX:064350",
-    "세아베스틸지주": "KRX:001430",
-    "YG PLUS": "KRX:037270",
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyN5q6Gq1fmllsDKg8E4vQwj",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/bsunjun/stock-auto-tracker/blob/main/serpapi_automator.py\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 5,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "MHxOZSDVZW5e",
+        "outputId": "099fae00-7029-417c-b933-a26d70668380"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "✅  저장 완료 (JSON / CSV)\n",
+            "[main 9281a4d] 🗓️  update prices 2025-07-03 08:49:26\n",
+            " 2 files changed, 67 insertions(+), 32 deletions(-)\n",
+            " create mode 100644 current_prices.csv\n",
+            " rewrite current_prices.json (71%)\n",
+            "Enumerating objects: 6, done.\n",
+            "Counting objects: 100% (6/6), done.\n",
+            "Delta compression using up to 2 threads\n",
+            "Compressing objects: 100% (4/4), done.\n",
+            "Writing objects: 100% (4/4), 876 bytes | 876.00 KiB/s, done.\n",
+            "Total 4 (delta 1), reused 0 (delta 0), pack-reused 0\n",
+            "remote: Resolving deltas: 100% (1/1), completed with 1 local object.\u001b[K\n",
+            "To https://github.com/bsunjun/stock-auto-tracker.git\n",
+            "   a760bd6..9281a4d  HEAD -> main\n",
+            "🚀  GitHub 푸시 완료\n",
+            "📰 리노공업 주요 주주 美투자자문사, 지분 1% 장내매도\n",
+            "📰 한 달 새 30% 뛰었다…리노공업, 실적 전망 톺아보니 [종목+]\n",
+            "📰 리노공업, 5년째 이익률 40%…\"AP 전쟁 수혜\"\n"
+          ]
+        }
+      ],
+      "source": [
+        "# [셀 1] — 키 주입\n",
+        "from google.colab import userdata, output\n",
+        "import os\n",
+        "os.environ[\"SERPAPI_KEY\"] = userdata.get(\"SERPAPI_KEY\")   # 이미 쓰던 방식\n",
+        "os.environ[\"GH_TOKEN\"]    = userdata.get(\"GH_TOKEN\")      # 새로 저장한 토큰\n",
+        "\n",
+        "# [셀 2] — 스クリ프트 실행\n",
+        "!python serpapi_automator.py\n"
+      ]
+    }
+  ]
 }
-
-###############################################################################
-# 2. SerpApi 호출 유틸리티
-###############################################################################
-
-def _serp_search(engine: str, query: str) -> dict:  # noqa: D401
-    """엔진 단일 호출 wrapper."""
-    url = "https://serpapi.com/search.json"
-    params = {
-        "engine": engine,
-        "q": query,
-        "api_key": SERP_API_KEY,
-        "hl": "ko",
-        "gl": "kr",
-        "no_cache": "true",
-    }
-    resp = requests.get(url, params=params, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
-
-
-def fetch_price(ticker: str) -> dict:
-    data = _serp_search("google_finance", ticker)
-    summary = data.get("summary", {})
-    return {
-        "price": summary.get("price"),
-        "change_pct": summary.get("price_movement", {}).get("percentage"),
-    }
-
-
-def fetch_news(keyword: str, n: int = 3) -> List[dict]:
-    data = _serp_search("google_news", keyword)
-    articles = data.get("news_results", [])[:n]
-    return [
-        {"title": a.get("title"), "link": a.get("link"), "snippet": a.get("snippet")}
-        for a in articles
-    ]
-
-###############################################################################
-# 3. 데이터 수집
-###############################################################################
-
-def collect_portfolio() -> List[dict]:
-    rows: List[dict] = []
-    now_kst = datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="seconds")
-    for name, ticker in PORTFOLIO.items():
-        try:
-            price_info = fetch_price(ticker)
-            row = {
-                "name": name,
-                "ticker": ticker,
-                "price": price_info["price"],
-                "change_pct": price_info["change_pct"],
-                "timestamp": now_kst,
-            }
-        except Exception as exc:  # noqa: BLE001
-            row = {
-                "name": name,
-                "ticker": ticker,
-                "price": None,
-                "change_pct": None,
-                "error": str(exc),
-                "timestamp": now_kst,
-            }
-        rows.append(row)
-    return rows
-
-###############################################################################
-# 4. 저장 (JSON / CSV)
-###############################################################################
-
-def save_outputs(rows: List[dict]):
-    # JSON
-    with JSON_PATH.open("w", encoding="utf-8") as jf:
-        json.dump({r["name"]: r for r in rows}, jf, ensure_ascii=False, indent=2)
-    # CSV
-    with CSV_PATH.open("w", newline="", encoding="utf-8") as cf:
-        writer = csv.DictWriter(cf, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-    print("✅  저장 완료 (JSON / CSV)")
-
-###############################################################################
-# 5. GitHub 푸시 (옵션)
-###############################################################################
-
-def push_to_github():
-    if not GH_TOKEN:
-        print("ℹ️  GH_TOKEN 없음 → 푸시 스킵")
-        return
-    # git config 이미 되어 있을 수 있음. — 실패 무시
-    subprocess.run(["git", "config", "--global", "user.email", GITHUB_EMAIL], check=False)
-    subprocess.run(["git", "config", "--global", "user.name", GITHUB_USERNAME], check=False)
-    subprocess.run(["git", "add", FILE_JSON, FILE_CSV], check=True)
-    commit_msg = f"🗓️  update prices {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-    repo_https = f"https://{GITHUB_USERNAME}:{GH_TOKEN}@github.com/{GITHUB_USERNAME}/{GITHUB_REPO}.git"
-    subprocess.run(["git", "push", repo_https, "HEAD:main"], check=True)
-    print("🚀  GitHub 푸시 완료")
-
-###############################################################################
-# 6. Main routine
-###############################################################################
-
-def main():
-    rows = collect_portfolio()
-    save_outputs(rows)
-    push_to_github()
-
-    # 뉴스 예시 로그 — 첫 포트 종목 3건만
-    sample = next(iter(PORTFOLIO.keys()))
-    for art in fetch_news(sample):
-        print("📰", art["title"])
-
-
-if __name__ == "__main__":
-    main()
