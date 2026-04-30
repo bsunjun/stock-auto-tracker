@@ -1,0 +1,74 @@
+[
+  {
+    "ticker": "KRX:402340",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "broker_a_op_up.pdf",
+    "source_pdf_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Bridge filename_only stub; structured_extraction (parser) supplies broker/targets/horizon. After merge: complete=true, direction=up."
+  },
+  {
+    "ticker": "KRX:058470",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "broker_b_op_only_up_sales_flat.pdf",
+    "source_pdf_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "extraction_method": "filename_only",
+    "_fixture_note": "OP up + sales flat → primary=OP. After merge: complete=true, direction=up."
+  },
+  {
+    "ticker": "KRX:028260",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "broker_c_net_income_down.pdf",
+    "source_pdf_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "extraction_method": "filename_only",
+    "_fixture_note": "NI down + EPS down → primary=NI. After merge: complete=true, direction=down."
+  },
+  {
+    "ticker": "KRX:035420",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "target_price_only.pdf",
+    "source_pdf_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Parser emits NOTHING to structured_extraction (target-price only). After merge: bridge filename_only stays, complete=false."
+  },
+  {
+    "ticker": "KRX:035720",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "malformed_no_numeric.pdf",
+    "source_pdf_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "extraction_method": "filename_only",
+    "_fixture_note": "All metric values are sentinels. Parser emits NOTHING. After merge: complete=false."
+  },
+  {
+    "ticker": "KRX:373220",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "horizon_missing.pdf",
+    "source_pdf_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Parser finds metrics (so structured emits a row) but with empty horizon. After merge: missing_fields includes 'horizon' → complete=false → strict gate rejects."
+  }
+]

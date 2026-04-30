@@ -17,6 +17,7 @@ phase3_report_pipeline/
 │   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9 / #10)
 │   ├── wisereport_sample_select.py       # PR #11 — 실제 Drive 에서 PDF 10개만 read-only 선택 + sha256/size/mtime 인벤토리
 │   │                                     #          (PDF 본문 파싱 아님 — broker/target/horizon 추출은 별도 PR)
+│   ├── extract_report_estimate_table.py  # PR #12 — deterministic-first PDF estimate table parser (synthetic-text 검증; --pdf 경로는 미구현)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
@@ -24,6 +25,7 @@ phase3_report_pipeline/
 │   ├── parsed_meta.strict_fixture.json   # PR #7 strict gate fixture (8 records)
 │   ├── estimate_revision_rows.rolling_fixture.json # PR #8 strict-estimate fixture
 │   ├── pipeline_runner_fixture/          # PR #9 dry-run runner fixture (bridge/structured/extra/expected/README)
+│   ├── estimate_table_fixtures/          # PR #12 — synthetic Korean text fixtures + bridge_meta.synthetic
 │   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── docs/
@@ -52,6 +54,7 @@ phase3_report_pipeline/
 3. 사람/외부 파서가 `manual_meta.json` 생성 (형식: `examples/parsed_meta.example.json` 참고)
 3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4, OCR/Vision 미호출)
 3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
+3b'. (선택, no-cost) `extract_report_estimate_table.py` → deterministic-first parser (PR #12). primary metric 우선순위: `operating_profit > net_income > sales > eps`. 목표주가는 `secondary_reference` 로만 기록되며 primary estimate row 로 emit 되지 않는다. PR #12 는 synthetic text fixture 검증만 수행했고, `--pdf` 경로(real PDF body)는 의도적으로 미구현이다.
 3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
 4. `build_report_estimate_v132.py --strict` → `output/<date>/estimate_revision_rows{,_rejected_rows,_summary}.json` (PR #7)
 4b. (선택, rolling/promotion 측면에서 dry-run 전용) `run_estimate_revision_dryrun.py` 로 3c/4 + rolling 검증을 한 번에 (PR #9). runner 의 `--apply` 는 거부된다. 단, `merge_meta`/`build_report_estimate` 는 다음 단계 입력 JSON 생성을 위해 `/tmp` workdir 안에서만 내부적으로 `--apply` 로 호출된다 — repo/Drive/templates/latest/promote/Super Pack/실제 rolling CSV 어디에도 쓰지 않는다.
