@@ -109,6 +109,23 @@ def _strip_json_fences(text: str) -> str:
     return s.strip()
 
 
+def _safe_float(v: object, default: float = 0.0) -> float:
+    """Coerce v to float, returning default for None / non-numeric inputs.
+
+    The Vision response is structurally untrusted: the model may emit
+    'high' / '70%' / '' / null in the confidence slot. A bare float() would
+    raise ValueError, which is not RuntimeError and would not be caught by
+    main()'s handler — crashing --apply after the API call. Default-on-fail
+    keeps the record returnable.
+    """
+    if v is None:
+        return default
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
 def _extract_page1_pdf(src_path: Path) -> Path:
     """Write a temp 1-page PDF containing only page 1 of src and return its path.
 
@@ -203,7 +220,7 @@ def call_vision_estimate(pdf_path: Path, model: str, api_key: str) -> dict:
             "old_target": parsed.get("old_target"),
             "new_target": parsed.get("new_target"),
             "horizon": parsed.get("horizon"),
-            "confidence": float(parsed.get("confidence") or 0.0),
+            "confidence": _safe_float(parsed.get("confidence")),
             "extraction_method": "vision_ocr_estimate",
             "model": model,
             "extracted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
