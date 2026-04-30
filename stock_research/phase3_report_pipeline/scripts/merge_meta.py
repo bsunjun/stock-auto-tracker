@@ -44,7 +44,10 @@ from typing import List
 
 REQUIRED_FIELDS = ["ticker", "broker", "report_date", "old_target", "new_target", "horizon"]
 MERGE_FIELDS = ["broker", "old_target", "new_target", "horizon"]
+TARGET_FIELDS = {"old_target", "new_target"}
 PRIORITY = {"manual": 3, "structured_extraction": 2, "filename_only": 1}
+VALID_DIRECTIONS = {"up", "down", "flat"}
+SENTINELS_NULL = {"", "n/a", "na", "-", "—", "–", "null", "none"}
 MERGE_VERSION = "phase3:merge_meta:v1"
 
 
@@ -80,6 +83,31 @@ def derive_direction(old: object, new: object) -> str:
     return "flat"
 
 
+def normalize_target(v: object) -> tuple[float | None, str]:
+    """Normalize a target value.
+
+    Returns (numeric_value_or_None, status) where status is:
+      'ok'            : numeric / numeric-string ('80,000', '95000', '80000.0')
+      'absent'        : None / sentinel string ('' / 'N/A' / '-' / 'null' / ...)
+      'parse_failed'  : non-recognizable string ('abc', '1.2.3', etc.)
+    """
+    if v is None:
+        return None, "absent"
+    if isinstance(v, bool):
+        return None, "parse_failed"
+    if isinstance(v, (int, float)):
+        return float(v), "ok"
+    if isinstance(v, str):
+        s = v.strip().lower().replace(",", "").replace("krw", "").replace("원", "").strip()
+        if s in SENTINELS_NULL:
+            return None, "absent"
+        try:
+            return float(s), "ok"
+        except ValueError:
+            return None, "parse_failed"
+    return None, "parse_failed"
+
+
 def bridge_method(rec: dict) -> str:
     """The record-level extraction_method that gates priority for bridge fields."""
     m = (rec.get("extraction_method") or "").strip()
@@ -91,6 +119,7 @@ def merge_record(bridge_rec: dict, ext_rec: dict | None) -> dict:
     b_method = bridge_method(bridge_rec)
     provenance: dict[str, str] = {}
     conflicts: list[dict] = []
+    parse_failures: list[str] = []
 
     for field in MERGE_FIELDS:
         b_val = bridge_rec.get(field)
@@ -107,8 +136,22 @@ def merge_record(bridge_rec: dict, ext_rec: dict | None) -> dict:
 
         candidates.sort(key=lambda x: -x[0])
         kept_pri, kept_val, kept_src = candidates[0]
-        out[field] = kept_val
-        provenance[field] = kept_src
+
+        if field in TARGET_FIELDS:
+            norm_val, status = normalize_target(kept_val)
+            if status == "ok":
+                out[field] = norm_val
+                provenance[field] = kept_src
+            elif status == "absent":
+                # treat as if the candidate had no value; missing_fields will flag below
+                pass
+            else:  # parse_failed
+                out[field] = None
+                provenance[field] = kept_src
+                parse_failures.append(field)
+        else:
+            out[field] = kept_val
+            provenance[field] = kept_src
 
         if len(candidates) >= 2 and candidates[1][1] != kept_val:
             other_pri, other_val, other_src = candidates[1]
@@ -128,8 +171,15 @@ def merge_record(bridge_rec: dict, ext_rec: dict | None) -> dict:
             missing.append(f)
     if out.get("ticker") and not is_krx(out["ticker"]):
         missing.append("ticker_unmapped")
+    if parse_failures:
+        missing.append("target_parse_failed")
     out["missing_fields"] = missing
-    out["complete"] = len(missing) == 0
+    if parse_failures:
+        out["parse_failures"] = parse_failures
+
+    # Double guard: complete=true requires BOTH (a) no missing fields AND
+    # (b) direction is one of up/down/flat (i.e., targets were numeric).
+    out["complete"] = (len(missing) == 0) and (out["direction"] in VALID_DIRECTIONS)
 
     out["merge_provenance"] = provenance
     if conflicts:
@@ -172,7 +222,24 @@ def main(argv: List[str] | None = None) -> int:
         print("error: --structured must be a JSON array", file=sys.stderr)
         return 2
 
-    by_sha = {r.get("source_pdf_sha256"): r for r in structured if r.get("source_pdf_sha256")}
+    by_sha: dict[str, dict] = {}
+    dups: list[str] = []
+    for r in structured:
+        sha = r.get("source_pdf_sha256")
+        if not sha:
+            continue
+        if sha in by_sha:
+            dups.append(sha)
+            continue
+        by_sha[sha] = r
+    if dups:
+        sample = ", ".join(s[:12] + "…" for s in dups[:3])
+        print(
+            f"error: duplicate source_pdf_sha256 in --structured: {len(dups)} dup(s); "
+            f"examples: {sample}",
+            file=sys.stderr,
+        )
+        return 2
 
     merged: list[dict] = []
     matched_to_extraction = 0

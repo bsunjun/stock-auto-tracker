@@ -10,17 +10,23 @@ SAFETY DEFAULTS:
 - Default page limit is 5; bypass with --max-pages.
 - The anthropic SDK is imported lazily so --help and --dry-run work even
   when the package isn't installed.
+- estimate mode extracts ONLY page 1 to a temporary single-page PDF
+  before sending to the API. The full PDF is NEVER transmitted. The
+  temp file is removed in a finally block. This requires `pypdf`
+  (lazy-imported; install with `pip install pypdf`).
 
 Modes (--extract-mode):
 - raw       (default) per-page text dump.
             Output: [{pdf, page, text, model, usage_tokens}, ...]
 - estimate  page-1 structured extraction of broker / old_target /
             new_target / horizon for downstream merge_meta.py.
-            Forces page=1 (single API call per PDF).
+            Forces page=1 (single API call per PDF). Sends ONLY page 1
+            (extracted to a temp PDF) to the API; full PDF is NOT sent.
             Output: [{source_pdf_sha256, filename, page, broker,
                       old_target, new_target, horizon, model,
                       confidence, extraction_method, raw_text_excerpt,
-                      extracted_at}]
+                      extracted_at, payload_bytes_sent,
+                      original_pdf_bytes}]
             Shape matches examples/structured_extraction.example.json.
 
 Written to --output if given, else stdout.
@@ -33,6 +39,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -91,69 +98,129 @@ def sha256_of(path: Path, buf_size: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
-def call_vision_estimate(pdf_path: Path, model: str, api_key: str) -> dict:
-    """Single page-1 structured-extraction call. Imported lazily."""
+def _strip_json_fences(text: str) -> str:
+    """Remove leading ```json / ``` and trailing ``` fences if present."""
+    s = text.strip()
+    if s.startswith("```"):
+        nl = s.find("\n")
+        s = s[nl + 1:] if nl != -1 else s[3:]
+    if s.endswith("```"):
+        s = s[:-3]
+    return s.strip()
+
+
+def _extract_page1_pdf(src_path: Path) -> Path:
+    """Write a temp 1-page PDF containing only page 1 of src and return its path.
+
+    Caller MUST unlink the returned path (call_vision_estimate does so in finally).
+    Lazy-imports `pypdf`; raises RuntimeError if pypdf is not installed.
+    """
     try:
-        from anthropic import Anthropic  # type: ignore
+        from pypdf import PdfReader, PdfWriter  # type: ignore
     except ImportError as exc:
         raise RuntimeError(
-            "anthropic SDK is not installed. Install with: pip install anthropic"
+            "pypdf is required for --extract-mode estimate. "
+            "Install with: pip install pypdf"
         ) from exc
 
-    client = Anthropic(api_key=api_key)
-    pdf_b64 = base64.standard_b64encode(pdf_path.read_bytes()).decode("ascii")
+    reader = PdfReader(str(src_path))
+    if len(reader.pages) == 0:
+        raise RuntimeError(f"PDF has 0 pages: {src_path}")
 
-    msg = client.messages.create(
-        model=model,
-        max_tokens=512,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": pdf_b64,
-                    },
-                    "context": "Extract investment-opinion box from page 1 only.",
-                },
-                {"type": "text", "text": ESTIMATE_PROMPT},
-            ],
-        }],
-    )
-    raw = "".join(getattr(b, "text", "") for b in (msg.content or []))
-    raw = raw.strip()
-    parsed: dict = {"broker": None, "old_target": None, "new_target": None,
-                    "horizon": None, "confidence": 0.0}
-    parse_error: str | None = None
+    writer = PdfWriter()
+    writer.add_page(reader.pages[0])
+
+    fd, tmp = tempfile.mkstemp(prefix="phase3_p1_", suffix=".pdf")
+    os.close(fd)
+    out_path = Path(tmp)
+    with out_path.open("wb") as f:
+        writer.write(f)
+    return out_path
+
+
+def call_vision_estimate(pdf_path: Path, model: str, api_key: str) -> dict:
+    """Single page-1 structured-extraction call.
+
+    Sends ONLY page 1 (extracted to a temp single-page PDF) to the API.
+    The full PDF is never transmitted. The temp file is cleaned up
+    in a finally block.
+    """
+    page1_path: Path | None = None
     try:
-        loaded = json.loads(raw)
-        if isinstance(loaded, dict):
-            parsed.update({k: loaded.get(k) for k in parsed.keys()})
-    except json.JSONDecodeError as exc:
-        parse_error = str(exc)
-        parsed["confidence"] = 0.0
+        page1_path = _extract_page1_pdf(pdf_path)
+        page1_bytes = page1_path.read_bytes()
+        original_sha = sha256_of(pdf_path)
+        original_size = pdf_path.stat().st_size
 
-    usage = getattr(msg, "usage", None)
-    return {
-        "source_pdf_sha256": sha256_of(pdf_path),
-        "filename": pdf_path.name,
-        "page": 1,
-        "broker": parsed.get("broker"),
-        "old_target": parsed.get("old_target"),
-        "new_target": parsed.get("new_target"),
-        "horizon": parsed.get("horizon"),
-        "confidence": float(parsed.get("confidence") or 0.0),
-        "extraction_method": "vision_ocr_estimate",
-        "model": model,
-        "extracted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "raw_text_excerpt": raw[:200] if not parse_error else f"[parse_error:{parse_error[:60]}]",
-        "usage_tokens": {
-            "input": getattr(usage, "input_tokens", None),
-            "output": getattr(usage, "output_tokens", None),
-        },
-    }
+        try:
+            from anthropic import Anthropic  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError(
+                "anthropic SDK is not installed. Install with: pip install anthropic"
+            ) from exc
+
+        client = Anthropic(api_key=api_key)
+        pdf_b64 = base64.standard_b64encode(page1_bytes).decode("ascii")
+
+        msg = client.messages.create(
+            model=model,
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": pdf_b64,
+                        },
+                        "context": "This is page 1 only of a Korean broker research report.",
+                    },
+                    {"type": "text", "text": ESTIMATE_PROMPT},
+                ],
+            }],
+        )
+        raw_full = "".join(getattr(b, "text", "") for b in (msg.content or []))
+        raw = _strip_json_fences(raw_full)
+        parsed: dict = {"broker": None, "old_target": None, "new_target": None,
+                        "horizon": None, "confidence": 0.0}
+        parse_error: str | None = None
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, dict):
+                parsed.update({k: loaded.get(k) for k in parsed.keys()})
+        except json.JSONDecodeError as exc:
+            parse_error = str(exc)
+            parsed["confidence"] = 0.0
+
+        usage = getattr(msg, "usage", None)
+        return {
+            "source_pdf_sha256": original_sha,
+            "filename": pdf_path.name,
+            "page": 1,
+            "broker": parsed.get("broker"),
+            "old_target": parsed.get("old_target"),
+            "new_target": parsed.get("new_target"),
+            "horizon": parsed.get("horizon"),
+            "confidence": float(parsed.get("confidence") or 0.0),
+            "extraction_method": "vision_ocr_estimate",
+            "model": model,
+            "extracted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "raw_text_excerpt": raw[:200] if not parse_error else f"[parse_error:{parse_error[:60]}]",
+            "payload_bytes_sent": len(page1_bytes),
+            "original_pdf_bytes": original_size,
+            "usage_tokens": {
+                "input": getattr(usage, "input_tokens", None),
+                "output": getattr(usage, "output_tokens", None),
+            },
+        }
+    finally:
+        if page1_path is not None and page1_path.exists():
+            try:
+                page1_path.unlink()
+            except OSError:
+                pass
 
 
 def parse_pages_spec(spec: str | None, max_pages: int) -> list[int]:
@@ -256,7 +323,10 @@ def main(argv: List[str] | None = None) -> int:
 
     if args.dry_run:
         if args.extract_mode == "estimate":
-            print("[DRY-RUN] estimate mode: would issue 1 structured-extraction call on page 1.")
+            print("[DRY-RUN] estimate mode: would extract page 1 to a temp 1-page PDF and "
+                  "send ONLY that to the API.")
+            print("[DRY-RUN] full PDF is NOT transmitted. Temp file auto-cleanup in finally.")
+            print("[DRY-RUN] runtime dependency for --apply: pypdf (pip install pypdf)")
             print("[DRY-RUN] expected output schema matches "
                   "examples/structured_extraction.example.json.")
         print("[DRY-RUN] no API call performed. Re-run with --apply to invoke Vision.")
