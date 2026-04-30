@@ -1,0 +1,38 @@
+[
+  {
+    "ticker": "SK스퀘어",
+    "broker": "NH투자증권",
+    "report_date": "2026-04-30",
+    "old_target": 80000,
+    "new_target": 95000,
+    "horizon": "12M",
+    "filename": "20260430_[SK스퀘어] 참 좋은 주식.pdf",
+    "confidence": 0.85,
+    "extraction_method": "manual",
+    "notes": "Fully filled example. Bridge maps Korean name 'SK스퀘어' → KRX:402340 via ticker_map. Values are illustrative; replace with actual values from PDF body."
+  },
+  {
+    "ticker": "KRX:028260",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "20260430_[삼성물산] 양호한 출발.pdf",
+    "confidence": 0.0,
+    "extraction_method": "filename_only",
+    "notes": "Filename-only example: ticker pre-mapped to KRX, but broker / targets / horizon left blank → bridge will record missing_fields=['broker','old_target','new_target','horizon']."
+  },
+  {
+    "ticker": "대한조선",
+    "broker": "한국투자증권",
+    "report_date": "2026-04-30",
+    "old_target": 50000,
+    "new_target": 50000,
+    "horizon": "12M",
+    "filename": "20260430_[대한조선] 대한조선-실적, 수주, 주주환원 모두 완벽.pdf",
+    "confidence": 0.7,
+    "extraction_method": "manual",
+    "notes": "ticker_map miss example: '대한조선' is intentionally absent from ticker_map.example.csv → bridge marks 'ticker_unmapped' in missing_fields. flat direction (old==new) is also exercised."
+  }
+]
