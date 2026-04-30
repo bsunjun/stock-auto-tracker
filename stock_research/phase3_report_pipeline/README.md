@@ -14,7 +14,8 @@ phase3_report_pipeline/
 │   ├── bridge_scan_to_parsed_meta.py     # scan + manual + ticker_map → parsed_meta.json (PR #4)
 │   ├── merge_meta.py                     # bridge + structured_extraction → merged parsed_meta (PR #5)
 │   ├── build_report_estimate_v132.py     # parsed_meta.json → estimate_revision_rows.json (v1.3.2; PR #7 --strict)
-│   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9)
+│   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9 / #10)
+│   ├── wisereport_sample_select.py       # PR #11 — 실제 Drive 에서 PDF 10개만 read-only 선택 + sha256/size/mtime 인벤토리
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
