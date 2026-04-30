@@ -241,6 +241,18 @@ python3 scripts/promote_report_outputs.py --date 2026-04-30 --apply --confirm-pr
 - parsed_meta.json 형식 불일치 (list of dict 아님)
 - 페이지 한도 초과 요청 (Vision OCR `--max-pages` 가드)
 
+## Real-data sample dry-run (PR #11)
+
+> **PR #11 is not a PDF body parser.** It is the safe sampling and
+> operator-run procedure for the later real-data test.
+
+실제 WiseReport PDF 샘플로 파이프라인을 점검하는 절차는 별도 문서에 있다 —
+[`REALDATA_SAMPLE_RUN.md`](REALDATA_SAMPLE_RUN.md). PR #11 의 entry point 는
+`scripts/wisereport_sample_select.py` 이며, hard-cap 10 PDFs / Drive 읽기 전용 /
+저장소 바깥 workdir 만 허용한다. 이 절차는 모바일 / Claude 샌드박스가 아니라
+Drive 가 마운트된 운영자 호스트에서 직접 실행한다. 실데이터 결과는 repo 에
+커밋하지 않고 PR comment 또는 외부 채팅에 요약만 paste 한다.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)

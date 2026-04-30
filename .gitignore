@@ -12,3 +12,18 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# real-data sample workdirs (PR #11+). The wisereport_sample_select.py
+# script and the dry-run runner produce inventories / parsed_meta / rows
+# / summary files that may contain real WiseReport metadata. The intended
+# location is always OUTSIDE the repo (e.g. /tmp/...). These patterns are
+# a defense-in-depth backstop for the case where someone creates such a
+# workdir inside the repo by mistake.
+/_realdata/
+**/_realdata/
+/tmp_workdir/
+**/tmp_workdir/
+/pr11_realdata/
+**/pr11_realdata/
+/_pipeline_workdir/
+**/_pipeline_workdir/
