@@ -57,15 +57,23 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
 
 
 def derive_direction(old: object, new: object) -> str:
+    """Return 'up' / 'down' / 'flat' / 'unknown' (data-insufficient)."""
     try:
         o, n = float(old), float(new)
     except (TypeError, ValueError):
-        return ""
+        return "unknown"
     if n > o:
         return "up"
     if n < o:
         return "down"
     return "flat"
+
+
+def _stringify_target(v: object) -> str:
+    """Stringify a target value; null/None becomes empty string (not the literal 'None')."""
+    if v is None:
+        return ""
+    return str(v)
 
 
 def project(meta: list[dict]) -> list[dict]:
@@ -77,8 +85,8 @@ def project(meta: list[dict]) -> list[dict]:
             "date": m.get("report_date") or m.get("date") or "",
             "ticker": m.get("ticker", ""),
             "broker": m.get("broker", ""),
-            "old_target": str(m.get("old_target", "")),
-            "new_target": str(m.get("new_target", "")),
+            "old_target": _stringify_target(m.get("old_target")),
+            "new_target": _stringify_target(m.get("new_target")),
             "direction": derive_direction(m.get("old_target"), m.get("new_target")),
             "horizon": m.get("horizon", ""),
             "source_key": sk,

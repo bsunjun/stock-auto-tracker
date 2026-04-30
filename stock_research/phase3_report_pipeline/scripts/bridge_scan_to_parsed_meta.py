@@ -75,10 +75,15 @@ def load_ticker_map(path: Path) -> dict[str, str]:
 
 
 def derive_direction(old: object, new: object) -> str:
+    """Return 'up' / 'down' / 'flat' / 'unknown'.
+
+    'unknown' is the canonical marker when either value is null or non-numeric;
+    consumers must treat it as data-insufficient (NEVER a tradeable signal).
+    """
     try:
         o, n = float(old), float(new)
     except (TypeError, ValueError):
-        return ""
+        return "unknown"
     if n > o:
         return "up"
     if n < o:
