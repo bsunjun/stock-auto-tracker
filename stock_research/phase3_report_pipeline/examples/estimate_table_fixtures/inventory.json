@@ -1,0 +1,52 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "Synthetic inventory for PR #12C. The selected[] entries point at synthetic text fixtures under texts/. shas are deterministic placeholders (NOT real PDF hashes).",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 6,
+  "selected_count": 6,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "broker_a_op_up.pdf",
+      "ticker_hint": "SK스퀘어",
+      "source_pdf_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "broker_b_op_only_up_sales_flat.pdf",
+      "ticker_hint": "리노공업",
+      "source_pdf_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "filename": "broker_c_net_income_down.pdf",
+      "ticker_hint": "대한조선",
+      "source_pdf_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "filename": "target_price_only.pdf",
+      "ticker_hint": "NAVER",
+      "source_pdf_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "filename": "malformed_no_numeric.pdf",
+      "ticker_hint": "카카오",
+      "source_pdf_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "filename": "horizon_missing.pdf",
+      "ticker_hint": "LG에너지솔루션",
+      "source_pdf_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

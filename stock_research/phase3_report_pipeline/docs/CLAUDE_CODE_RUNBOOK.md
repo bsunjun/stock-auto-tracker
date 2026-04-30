@@ -253,6 +253,62 @@ python3 scripts/promote_report_outputs.py --date 2026-04-30 --apply --confirm-pr
 Drive 가 마운트된 운영자 호스트에서 직접 실행한다. 실데이터 결과는 repo 에
 커밋하지 않고 PR comment 또는 외부 채팅에 요약만 paste 한다.
 
+## Deterministic estimate table parser (PR #12)
+
+> **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
+> synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
+> operator host 에서 별도 제한 실행한다. OCR/Vision fallback 은 아직 실행하지 않으며,
+> 본 PR 은 trade-signal 생성 도구가 아니다.
+
+핵심 원칙:
+- **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**
+  이다. 목표주가는 `secondary_reference` 로만 취급되며 primary estimate row
+  로 emit 되지 않는다.
+- primary metric 선택 우선순위: `operating_profit > net_income > sales > eps`
+  (PR #12 의 `PRIMARY_METRIC_PRIORITY` 상수). `merge_meta.py` 가 sha256 당 1 row
+  만 허용하므로 PDF 당 정확히 한 개의 primary metric row 만 emit 된다.
+- 목표주가는 항상 `secondary_reference` audit 로만 기록된다.
+  `target_price_secondary.json` 은 **primary emission 여부와 무관**하게
+  목표주가 numeric pair 가 있는 모든 PDF 를 audit 로 보관한다 (primary 도
+  같이 emit 된 PDF 는 `primary_metric_present=true`, 목표주가-only 는 `false`).
+  - 목표주가-only 리포트는 `structured_extraction.json` 에 절대 들어가지 않는다.
+  - `target_price_secondary.json` 은 audit-only — `merge_meta.py` /
+    `build_report_estimate_v132.py` / `rolling_append.py` 어느 것도 소비하지 않는다.
+  - target price 가 `N/A` / 비numeric 이면 secondary 에도 기록되지 않는다.
+- `horizon_missing` / `malformed` row 는 strict gate 에서 reject 대상이다.
+  parser 가 metric 을 찾았더라도 `horizon` 이 비어있으면 build `--strict` 가 거부.
+- **모든 row 의 `direct_trade_signal` 은 항상 `False`**. main() 의 hard invariant
+  로 emit 단계에서 다시 한 번 검증한다.
+
+CLI 사용 예시 (synthetic 검증):
+```
+python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
+    --inventory stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/inventory.json \
+    --text-dir  stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/texts \
+    --date 2026-04-30 \
+    --workdir /tmp/phase3_pr12 \
+    --apply
+```
+
+산출 (workdir 내):
+- `structured_extraction.json` — primary metric row (PDF 당 최대 1개; merge_meta
+  호환)
+- `estimate_table_breakdown.json` — audit-only (모든 metric breakdown)
+- `target_price_secondary.json` — audit-only. **모든** PDF 의 목표주가 numeric
+  pair 를 보관 (primary 도 같이 emit 된 PDF 포함). `merge_meta.py` /
+  `build_report_estimate_v132.py` / `rolling_append.py` 는 이 파일을 소비하지
+  않는다.
+
+체인 연결 (`merge_meta → build --strict → rolling --strict-estimate dry-run`)
+은 PR #9/#10 의 `run_estimate_revision_dryrun.py` 가 그대로 받아 처리한다.
+synthetic fixture 6 records 기준 기대 결과:
+- `rows_in / accepted / rejected = 6 / 3 / 3`
+- `direct_trade_signal_all_false = true`
+- `rolling validated/rejected/dup/to_add = 3 / 0 / 1 / 2`
+
+`--pdf` 입력 경로는 의도적으로 미구현이다. pdfplumber 연동은 별도 PR 에서 cost
+gate 와 함께 다룬다.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)
