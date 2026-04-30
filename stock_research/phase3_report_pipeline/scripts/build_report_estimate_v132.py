@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -98,20 +99,24 @@ def _stringify_target(v: object) -> str:
 
 
 def _is_numeric(v: object) -> bool:
-    """True if v is a number or a string that parses as a finite number."""
-    if v is None:
-        return False
-    if isinstance(v, bool):
+    """True iff v is a finite number or a string that parses to one.
+
+    NaN / +inf / -inf are rejected — silently letting them through would
+    poison downstream direction comparisons (NaN != NaN; inf > finite).
+    """
+    if v is None or isinstance(v, bool):
         return False
     if isinstance(v, (int, float)):
-        return True
+        try:
+            return math.isfinite(float(v))
+        except (TypeError, ValueError):
+            return False
     if isinstance(v, str):
         s = v.strip().replace(",", "")
         if not s:
             return False
         try:
-            float(s)
-            return True
+            return math.isfinite(float(s))
         except ValueError:
             return False
     return False
@@ -135,8 +140,13 @@ def evaluate_strict(m: dict, direction: str) -> list[str]:
     if m.get("complete") is not True:
         reasons.append("complete_not_true")
 
-    mf = m.get("missing_fields")
-    if isinstance(mf, list) and len(mf) > 0:
+    # missing_fields: tolerate the canonical empty/absent shapes (`[]`, `None`,
+    # field absent). Any other truthy shape — non-empty list, non-empty string,
+    # non-empty dict, anything — is treated as "merge_meta flagged something",
+    # so reject. Defensive against producers that emit `"target_parse_failed"`
+    # as a bare string instead of `["target_parse_failed"]`.
+    mf = m.get("missing_fields", None)
+    if mf is not None and mf != []:
         reasons.append("missing_fields_nonempty")
 
     if direction == "unknown":
@@ -193,7 +203,10 @@ def project_rejected(m: dict, direction: str, reasons: list[str]) -> dict:
         "old_target": _stringify_target(m.get("old_target")),
         "new_target": _stringify_target(m.get("new_target")),
         "direction": direction,
-        "missing_fields": m.get("missing_fields") if isinstance(m.get("missing_fields"), list) else [],
+        # Preserve the original missing_fields value (may be list, string,
+        # dict, etc.) so audit logs reflect what merge_meta actually emitted.
+        # Default to [] only when the field is genuinely absent.
+        "missing_fields": m.get("missing_fields", []) if "missing_fields" in m else [],
         "reject_reasons": reasons,
         "source_key": sk,
         "source_pdf_sha256": sha,

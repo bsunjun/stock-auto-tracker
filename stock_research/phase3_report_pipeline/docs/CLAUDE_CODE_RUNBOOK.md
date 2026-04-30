@@ -114,9 +114,9 @@ python3 scripts/build_report_estimate_v132.py \
 
 Reject 게이트 (하나라도 해당하면 reject):
 - `complete` 가 true 가 아님
-- `missing_fields` 가 비어있지 않음
+- `missing_fields` 가 비어있지 않음 — `[]` 또는 absent 만 통과. **non-empty list / string / dict 등 다른 truthy 형태도 reject** (defensive against producers that emit `"target_parse_failed"` as a bare string).
 - `direction == "unknown"`
-- `old_target` / `new_target` 이 null / empty / non-numeric
+- `old_target` / `new_target` 이 null / empty / non-numeric — **NaN / +inf / -inf 도 reject** (`math.isfinite` 통과 필수). 이는 downstream direction 비교를 오염시키지 않기 위함.
 - `ticker` 가 `KRX:` 형식 아님
 - `broker` 가 비어있음
 - `report_date` (또는 `date`) 가 비어있음

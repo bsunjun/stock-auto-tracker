@@ -82,5 +82,33 @@
     "source_pdf_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "extraction_method": "merged",
     "_fixture_expect": "rejected (ticker not in KRX:NNNNNN form)"
+  },
+  {
+    "ticker": "KRX:035420",
+    "broker": "신한투자증권",
+    "report_date": "2026-04-30",
+    "old_target": 220000,
+    "new_target": 250000,
+    "horizon": "12M",
+    "direction": "up",
+    "missing_fields": "target_parse_failed",
+    "complete": false,
+    "source_pdf_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "extraction_method": "merged",
+    "_fixture_expect": "rejected (missing_fields is a non-empty STRING, not a list — must still be flagged)"
+  },
+  {
+    "ticker": "KRX:373220",
+    "broker": "DB금융투자",
+    "report_date": "2026-04-30",
+    "old_target": "NaN",
+    "new_target": "inf",
+    "horizon": "12M",
+    "direction": "up",
+    "missing_fields": [],
+    "complete": true,
+    "source_pdf_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "extraction_method": "merged",
+    "_fixture_expect": "rejected (NaN/inf must be rejected even though float() parses them)"
   }
 ]
