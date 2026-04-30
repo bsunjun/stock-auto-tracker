@@ -87,6 +87,48 @@ python3 scripts/build_report_estimate_v132.py --input parsed_meta.json --date 20
 # → ./output/2026-04-30/estimate_revision_rows.json
 ```
 
+#### 4a) `--strict` 게이트 (PR #7)
+
+PR #6 의 `parsed_meta.merged.json` 산출물 중 history CSV 로 흘려도 안전한
+row 만 남긴다. 제외된 row 는 drop 하지 않고 별도 파일에 reject 사유와 함께 보존한다.
+
+dry-run (파일 쓰지 않음):
+```
+python3 scripts/build_report_estimate_v132.py \
+    --input ./output/2026-04-30/parsed_meta.merged.json \
+    --date 2026-04-30 \
+    --strict
+```
+
+apply:
+```
+python3 scripts/build_report_estimate_v132.py \
+    --input ./output/2026-04-30/parsed_meta.merged.json \
+    --date 2026-04-30 \
+    --strict \
+    --apply
+# → ./output/2026-04-30/estimate_revision_rows.json
+# → ./output/2026-04-30/estimate_revision_rejected_rows.json
+# → ./output/2026-04-30/estimate_revision_summary.json
+```
+
+Reject 게이트 (하나라도 해당하면 reject):
+- `complete` 가 true 가 아님
+- `missing_fields` 가 비어있지 않음 — `[]` 또는 absent 만 통과. **non-empty list / string / dict 등 다른 truthy 형태도 reject** (defensive against producers that emit `"target_parse_failed"` as a bare string).
+- `direction == "unknown"`
+- `old_target` / `new_target` 이 null / empty / non-numeric — **NaN / +inf / -inf 도 reject** (`math.isfinite` 통과 필수). 이는 downstream direction 비교를 오염시키지 않기 위함.
+- `ticker` 가 `KRX:` 형식 아님
+- `broker` 가 비어있음
+- `report_date` (또는 `date`) 가 비어있음
+- `horizon` 이 비어있음
+
+Accepted row 에는 `direct_trade_signal=false` 가 명시된다 — Phase3 산출물은
+추정치/실적 모멘텀 입력일 뿐, 매매 신호가 아니다. Summary 의
+`direct_trade_signal_all_false` 는 항상 true 여야 한다.
+
+`--strict` 미지정 시 기존 동작이 그대로 유지된다 (단일
+`estimate_revision_rows.json` 만 작성, reject 게이트 미적용).
+
 ### 5) CSV 누적 (PR #2 도구로)
 본 패키지는 직접 CSV append하지 않는다. `stock_research/scripts/rolling_append.py` 사용:
 ```
