@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bsunjun/stock-auto-tracker/stock_research/schemas/trade_ticket.schema.json",
+  "title": "PBKR Trade Ticket",
+  "type": "object",
+  "required": ["ticket_id", "as_of_date", "source_key", "decisions"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket_id": { "type": "string" },
+    "as_of_date": { "type": "string", "format": "date" },
+    "source_key": { "type": "string" },
+    "input_pack_ids": {
+      "type": "array",
+      "description": "Upstream pack_ids that informed these decisions",
+      "items": { "type": "string" }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ticker", "action", "rationale", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "ticker": { "type": "string", "pattern": "^[A-Z]+:[0-9A-Z]+$" },
+          "action": { "enum": ["buy", "add", "trim", "sell", "hold"] },
+          "target_weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Target portfolio weight (0..1). Omit for hold."
+          },
+          "rationale": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "guardrails_passed": { "type": "boolean" }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

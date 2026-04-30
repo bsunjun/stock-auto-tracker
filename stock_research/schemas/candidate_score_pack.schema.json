@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bsunjun/stock-auto-tracker/stock_research/schemas/candidate_score_pack.schema.json",
+  "title": "PBKR Candidate Score Pack",
+  "type": "object",
+  "required": ["pack_id", "as_of_date", "source_key", "candidates"],
+  "additionalProperties": false,
+  "properties": {
+    "pack_id": {
+      "type": "string",
+      "description": "Unique pack identifier, e.g. 'csp-2026-04-30-001'"
+    },
+    "as_of_date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date (YYYY-MM-DD) of the underlying data snapshot"
+    },
+    "source_key": {
+      "type": "string",
+      "description": "Origin tag, e.g. 'orchestrator:pbkr:v1'"
+    },
+    "universe": {
+      "type": "string",
+      "description": "Optional label of the candidate universe, e.g. 'KOSPI200'"
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["ticker", "name", "score", "conviction", "factors"],
+        "additionalProperties": false,
+        "properties": {
+          "ticker": { "type": "string", "pattern": "^[A-Z]+:[0-9A-Z]+$" },
+          "name": { "type": "string" },
+          "sector": { "type": "string" },
+          "score": { "type": "number", "minimum": -1, "maximum": 1 },
+          "conviction": { "type": "number", "minimum": 0, "maximum": 1 },
+          "factors": {
+            "type": "object",
+            "description": "Named factor contributions; values in [-1, 1]",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

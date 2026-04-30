@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bsunjun/stock-auto-tracker/stock_research/schemas/report_inventory.schema.json",
+  "title": "PBKR Report Inventory Row",
+  "description": "Per-row schema for REPORT_INVENTORY_*.csv. Each CSV row maps to one object of this shape (CSV cells are strings; numeric/temporal fields are formatted as strings).",
+  "type": "object",
+  "required": [
+    "id",
+    "sha256",
+    "path",
+    "filename",
+    "storage_source",
+    "discovery_source",
+    "source_key"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable row id (e.g. first 16 hex chars of sha256)"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the PDF on the local/Drive filesystem"
+    },
+    "filename": { "type": "string" },
+    "size_bytes": { "type": "string", "pattern": "^[0-9]+$" },
+    "mtime": {
+      "type": "string",
+      "description": "ISO-8601 modification time"
+    },
+    "discovered_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when this scan recorded the file"
+    },
+    "storage_source": {
+      "enum": [
+        "wisereport",
+        "stock_research_06_wise_report",
+        "telegram_attachments",
+        "daily_reports",
+        "manual_upload",
+        "unknown"
+      ]
+    },
+    "discovery_source": {
+      "type": "string",
+      "description": "Finer-grained classification, e.g. 'wisereport/2026-04-30/기업', 'telegram/2026-04-30/<channel>/attachments'"
+    },
+    "date_dir": {
+      "type": "string",
+      "description": "YYYY-MM-DD extracted from path if present, else empty"
+    },
+    "category": {
+      "type": "string",
+      "description": "기업/산업/empty when not applicable"
+    },
+    "channel": {
+      "type": "string",
+      "description": "Telegram channel name when storage_source=telegram_attachments"
+    },
+    "ticker": { "type": "string" },
+    "broker": { "type": "string" },
+    "title": { "type": "string" },
+    "report_date": {
+      "type": "string",
+      "description": "YYYY-MM-DD parsed from filename if available"
+    },
+    "duplicate_of": {
+      "type": "string",
+      "description": "Empty if canonical row; otherwise the id of the canonical duplicate"
+    },
+    "dedupe_method": {
+      "enum": ["", "sha256", "fuzzy"]
+    },
+    "source_key": {
+      "type": "string",
+      "description": "Origin tag, e.g. 'scan:scan_report_sources:v1'"
+    }
+  }
+}
