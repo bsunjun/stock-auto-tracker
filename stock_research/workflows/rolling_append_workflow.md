@@ -19,6 +19,8 @@
 | `audit_history.csv` | `date, ticker, source_key` |
 | `portfolio_risk_history.csv` | `date, source_key` |
 
+`source_key` 는 `phase3:report_estimate:v1.3.2+<sha256[:12]>` 형태로 source PDF 의 sha256 prefix 를 포함하므로 사실상 `source_pdf_sha256` 동등성을 함께 보장한다. 별도로 `source_pdf_sha256` 을 dedupe key 에 추가할 필요는 없다.
+
 ## Standard Invocation
 
 ```
@@ -36,9 +38,48 @@ python stock_research/scripts/rolling_append.py \
   --apply
 ```
 
+## Strict Estimate Mode (PR #8)
+
+`build_report_estimate_v132.py --strict` 가 만든 `estimate_revision_rows.json`
+을 받을 때는 `--strict-estimate` 를 함께 켠다. 이 모드는 다음을 강제한다:
+
+- `direct_trade_signal == false` 인 row 만 통과 — Phase3 산출물은 매매 신호가 아니다.
+- `ticker` 가 `KRX:` 형식
+- `direction ∈ {up, down, flat}` (불확정 `unknown` 은 차단)
+- `old_target` / `new_target` / `source_key` 비어있지 않음
+- `reject_reasons` / `missing_fields` 같은 reject 마커가 들어있는 row 는
+  무조건 거부 — `estimate_revision_rejected_rows.json` 형태가 잘못 흘러들어도
+  rolling history 에는 절대 들어가지 않는다.
+- audit 전용 컬럼 (`source_pdf_sha256`, `direct_trade_signal`) 은 검증에만 쓰이고
+  CSV 에는 기록되지 않는다 (헤더는 기존과 동일).
+
+dry-run 에서는 validated / rejected 카운트와 `reject_reason_counts` 가 출력되며,
+파일 쓰기는 일어나지 않는다.
+
+```
+# 1) Dry-run with strict-estimate
+python stock_research/scripts/rolling_append.py \
+  --csv stock_research/templates/estimate_revision_history.csv \
+  --rows /path/outside/repo/estimate_revision_rows.json \
+  --dedupe-keys date,ticker,broker,source_key \
+  --strict-estimate
+
+# 2) Apply after review
+python stock_research/scripts/rolling_append.py \
+  --csv stock_research/templates/estimate_revision_history.csv \
+  --rows /path/outside/repo/estimate_revision_rows.json \
+  --dedupe-keys date,ticker,broker,source_key \
+  --strict-estimate \
+  --apply
+```
+
+> ⚠️ `estimate_revision_rejected_rows.json` 은 절대 `--rows` 로 넘기지 말 것.
+> 마지막 보안망으로 `--strict-estimate` 가 거부하긴 하지만, 입력 자체가 잘못된 신호다.
+
 ## Output Log
 스크립트는 다음을 stdout에 기록한다:
 - 입력 행 수
+- (--strict-estimate) validated / rejected 카운트와 reject_reason_counts
 - 중복으로 스킵한 행 수
 - 추가될/추가된 행 수
 - 변경 전/후 파일 라인 수
