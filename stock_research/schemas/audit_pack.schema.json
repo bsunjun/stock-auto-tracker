@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bsunjun/stock-auto-tracker/stock_research/schemas/audit_pack.schema.json",
+  "title": "PBKR Audit Pack",
+  "type": "object",
+  "required": ["pack_id", "target_pack_id", "as_of_date", "source_key", "audits"],
+  "additionalProperties": false,
+  "properties": {
+    "pack_id": { "type": "string" },
+    "target_pack_id": {
+      "type": "string",
+      "description": "pack_id of the candidate_score_pack being audited"
+    },
+    "as_of_date": { "type": "string", "format": "date" },
+    "source_key": { "type": "string" },
+    "audits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ticker", "status", "findings"],
+        "additionalProperties": false,
+        "properties": {
+          "ticker": { "type": "string", "pattern": "^[A-Z]+:[0-9A-Z]+$" },
+          "status": { "enum": ["pass", "warn", "reject"] },
+          "adjusted_score": { "type": "number", "minimum": -1, "maximum": 1 },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rule", "severity", "message"],
+              "additionalProperties": false,
+              "properties": {
+                "rule": { "type": "string" },
+                "severity": { "enum": ["info", "warn", "critical"] },
+                "message": { "type": "string" },
+                "evidence_source_key": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bsunjun/stock-auto-tracker/stock_research/schemas/news_pack.schema.json",
+  "title": "PBKR News Pack",
+  "type": "object",
+  "required": ["pack_id", "as_of_date", "source_key", "queries"],
+  "additionalProperties": false,
+  "properties": {
+    "pack_id": { "type": "string" },
+    "as_of_date": { "type": "string", "format": "date" },
+    "source_key": { "type": "string" },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ticker", "articles", "catalysts", "risks"],
+        "additionalProperties": false,
+        "properties": {
+          "ticker": { "type": "string", "pattern": "^[A-Z]+:[0-9A-Z]+$" },
+          "stale": { "type": "boolean", "default": false },
+          "articles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["date", "title", "link", "source"],
+              "additionalProperties": false,
+              "properties": {
+                "date": { "type": "string", "format": "date" },
+                "title": { "type": "string" },
+                "link": { "type": "string", "format": "uri" },
+                "source": { "type": "string" },
+                "snippet": { "type": "string" },
+                "sentiment": { "type": "number", "minimum": -1, "maximum": 1 }
+              }
+            }
+          },
+          "catalysts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["summary", "evidence_indices"],
+              "additionalProperties": false,
+              "properties": {
+                "summary": { "type": "string" },
+                "horizon_days": { "type": "integer", "minimum": 0 },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "evidence_indices": {
+                  "type": "array",
+                  "items": { "type": "integer", "minimum": 0 },
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["summary", "severity", "evidence_indices"],
+              "additionalProperties": false,
+              "properties": {
+                "summary": { "type": "string" },
+                "severity": { "enum": ["info", "warn", "critical"] },
+                "evidence_indices": {
+                  "type": "array",
+                  "items": { "type": "integer", "minimum": 0 },
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
