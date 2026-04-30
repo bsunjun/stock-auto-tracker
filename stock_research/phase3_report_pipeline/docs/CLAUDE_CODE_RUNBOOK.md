@@ -59,8 +59,11 @@ python3 scripts/vision_ocr_pdf.py --pdf <path-to-pdf> --extract-mode estimate
 python3 scripts/vision_ocr_pdf.py --pdf <path> --extract-mode estimate \
     --apply --output ./output/2026-04-30/structured_extraction.json
 ```
-- estimate 모드는 PDF 첫 페이지 1회 호출로 broker / old_target / new_target / horizon을 구조화 JSON으로 추출.
+- estimate 모드는 임시 1-page PDF를 만들어 **ONLY page-1만 API에 전송**한다. 전체 PDF는 전송되지 않으며, 임시 파일은 finally 블록에서 자동 cleanup된다.
+- 결과 record에는 `payload_bytes_sent` (page-1 사이즈) 와 `original_pdf_bytes` (원본 사이즈) 가 함께 기록되어 사후 감사 가능.
 - 결과 형식은 `examples/structured_extraction.example.json` 와 동일.
+- **추가 의존성**: `pip install pypdf` 필요 (estimate `--apply` 사용 시). 미설치 환경에서도 `--help` / `--dry-run` 은 정상 동작.
+- LLM이 ```` ```json ... ``` ```` markdown fence로 응답해도 자동 제거 후 파싱.
 
 ### 3c) merge_meta로 parsed_meta.json 보강 (PR #5, OCR/Vision 미호출)
 ```
@@ -72,7 +75,10 @@ python3 scripts/merge_meta.py \
 ```
 - sha256 기준 left-join. 우선순위: **manual > structured_extraction > filename_only**.
 - 충돌 시 manual 보존, 다른 후보는 `merge_conflicts` 에 기록.
-- 합병 후 missing_fields가 비어있어야 `complete=true`. **`complete=false` 레코드는 history CSV append 대상에서 제외**한다 (수동 검토 또는 `--strict` 게이트는 별도 PR).
+- target 정규화: `"80,000"` / `"95000"` / `80000` 모두 numeric으로. `null` / `""` / `"N/A"` / `"-"` 는 absent로 처리. 인식 불가 문자열은 `parse_failures` 에 기록되고 `missing_fields` 에 `target_parse_failed` 추가.
+- `complete=true` 는 **이중 가드**: missing_fields가 비어있고 AND direction ∈ {up, down, flat} 일 때만. 즉 old/new target이 실제 numeric일 때만.
+- 동일 `source_pdf_sha256` 가 `--structured` 입력에서 두 번 등장하면 merge_meta는 **fail-fast (exit 2)**, 조용한 덮어쓰기 없음.
+- **`complete=false` 레코드는 history CSV append 대상에서 제외**한다 (수동 검토 또는 `--strict` 게이트는 별도 PR).
 
 ### 4) Estimate revision row 생성
 ```

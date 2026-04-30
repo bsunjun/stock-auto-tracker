@@ -145,6 +145,12 @@ bridge parsed_meta 와 동일 필드 + 다음 추가:
 repo 외부의 실제 데이터 위치는 본 PR 범위가 아니다.
 관련 정책은 `stock_research/docs/data_locations.md` (PR #2)를 참조하라.
 
+## TODO (deferred normalization)
+
+- **`horizon` 표기 통일**: `"12M"` / `"12개월"` / `"1Y"` / `"1년"` 등이 섞일 수 있다. 현재는 입력 문자열을 그대로 보존하며, 향후 PR에서 ISO 8601 duration 또는 `<n>M` / `<n>Y` 표준으로 정규화한다. `merge_meta.py`의 `complete` 가드는 horizon 비-empty만 검사하므로, 표기 차이로 인한 downstream dedupe 오작동 가능성을 별도 PR에서 해소해야 한다.
+- `build_report_estimate_v132.py --strict` 모드: `complete=false` 레코드를 명시적으로 reject. PR #5 범위 밖.
+- `ticker_map.csv` 자동 갱신 (DART/KRX master).
+
 ## Repo / 외부 경계
 
 | 항목 | repo | 외부 (Drive 등) |
