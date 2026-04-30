@@ -235,8 +235,11 @@ The four blocked fields are precisely the ones counted in
   PR #14's cost gate).
   **PR #12 design constraints already enforced**:
     - primary metric priority: `operating_profit > net_income > sales > eps`;
-    - target-price-only reports go to `target_price_secondary.json`
-      (audit) and are NEVER emitted as a primary estimate row;
+    - every PDF with a parseable 목표주가 numeric pair is recorded to
+      `target_price_secondary.json` (audit) regardless of primary
+      emission; target price NEVER becomes a primary estimate row.
+      `merge_meta.py` / `build_report_estimate_v132.py` /
+      `rolling_append.py` do NOT consume this file;
     - `direct_trade_signal=false` on every emitted row, in every output
       file, in every mode.
 - **PR #13 (ticker_map expansion)**: Replace

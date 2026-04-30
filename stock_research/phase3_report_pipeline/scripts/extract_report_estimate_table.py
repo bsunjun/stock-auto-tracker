@@ -455,11 +455,25 @@ def _build_breakdown(parsed: dict) -> dict:
 
 
 def _build_target_price_secondary(parsed: dict) -> dict | None:
-    """Produce a target-price-only audit record, or None if no target-price
-    information is present. This file is NEVER consumed by merge_meta.
+    """Produce a target-price audit record, or None if the PDF has no
+    parseable 목표주가 numeric pair.
+
+    Recorded for EVERY PDF whose target-price line yielded two finite
+    numbers, regardless of whether a primary metric row was emitted.
+    The role is always `secondary_reference`; this file is NEVER consumed
+    by merge_meta / build_report_estimate / rolling_append.
+
+    Returns None if:
+      * `parsed["target_price"]` is missing, or
+      * either `old` or `new` fails to parse as a finite number
+        (defense-in-depth — the parser already filters non-numeric pairs
+         at extraction time, but we re-check here so audit data is always
+         numerically valid).
     """
     tp = parsed.get("target_price")
     if not tp:
+        return None
+    if parse_numeric(tp.get("old")) is None or parse_numeric(tp.get("new")) is None:
         return None
     return {
         "source_pdf_sha256": parsed.get("source_pdf_sha256", ""),
@@ -592,6 +606,7 @@ def main(argv: List[str] | None = None) -> int:
         parsed = parse_text_to_rows(text, source_pdf_sha256=sha,
                                     filename=fn, date=args.date)
         breakdown.append(_build_breakdown(parsed))
+
         row = project_structured_row(parsed, date=args.date)
         if row is not None:
             # Hard invariant: never emit direct_trade_signal=True.
@@ -600,21 +615,36 @@ def main(argv: List[str] | None = None) -> int:
                       f"on emitted row for {fn}", file=sys.stderr)
                 return 3
             structured.append(row)
-        else:
-            tp = _build_target_price_secondary(parsed)
-            if tp is not None:
-                secondary.append(tp)
+
+        # Target-price audit is INDEPENDENT of primary emission. Every PDF
+        # with a parseable 목표주가 numeric pair is recorded; PDFs whose
+        # target-price line is absent or malformed are not. The primary
+        # contract is unaffected — target price never becomes a primary
+        # estimate row.
+        tp = _build_target_price_secondary(parsed)
+        if tp is not None:
+            # Defensive: secondary records must also carry direct_trade_signal=False.
+            if tp.get("direct_trade_signal") is not False:
+                print(f"error: invariant violated — direct_trade_signal != False "
+                      f"on secondary record for {fn}", file=sys.stderr)
+                return 3
+            secondary.append(tp)
+            if row is None:
                 target_price_only_count += 1
-            else:
-                malformed_count += 1
+        elif row is None:
+            # No primary AND no parseable target price → fully malformed input.
+            malformed_count += 1
 
     mode = "DRY-RUN" if args.dry_run else "APPLY"
     print(f"[{mode}] inputs parsed                  = {parsed_count} (cap {args.max_pdfs})")
     print(f"[{mode}] structured (primary emitted)   = {len(structured)}")
     print(f"[{mode}] breakdown (audit, all metrics) = {len(breakdown)}")
-    print(f"[{mode}] target_price_secondary (audit) = {len(secondary)}")
-    print(f"[{mode}] target-price-only count        = {target_price_only_count}")
-    print(f"[{mode}] no-metric / malformed count    = {malformed_count}")
+    print(f"[{mode}] target_price_secondary (audit) = {len(secondary)}  "
+          f"(every PDF with parseable 목표주가 pair, primary or not)")
+    print(f"[{mode}] target-price-only count        = {target_price_only_count}  "
+          f"(no primary, secondary present)")
+    print(f"[{mode}] no-metric / malformed count    = {malformed_count}  "
+          f"(no primary AND no parseable target price)")
     print(f"[{mode}] direct_trade_signal=true count = "
           f"{sum(1 for r in structured if r.get('direct_trade_signal') is not False)}")
     if structured:
