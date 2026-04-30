@@ -99,9 +99,15 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
                         "step input for negative testing (hostile rows that the "
                         "rolling validator must reject). Default: none.")
     p.add_argument("--strict", dest="strict", action="store_true", default=True,
-                   help="(default) Pass --strict to build_report_estimate.")
+                   help="(default; operational) Pass --strict to build_report_estimate. "
+                        "Strict is the operational default.")
     p.add_argument("--no-strict", dest="strict", action="store_false",
-                   help="Disable strict gate (NOT recommended; defeats the runner's purpose).")
+                   help="Run build_report_estimate in legacy (non-strict) mode for "
+                        "BACKWARD-COMPAT VERIFICATION ONLY. In this mode "
+                        "estimate_revision_summary.json is not produced; the runner "
+                        "derives counts from estimate_revision_rows.json and "
+                        "still enforces the direct_trade_signal_all_false invariant. "
+                        "Not for daily operation.")
     p.add_argument("--dry-run", dest="dry_run", action="store_true", default=True,
                    help="(default) The only supported mode in PR #9.")
     p.add_argument("--apply", dest="dry_run", action="store_false",
@@ -228,6 +234,7 @@ def main(argv: List[str] | None = None) -> int:
         "rows_accepted": None,
         "rows_rejected": None,
         "direct_trade_signal_all_false": None,
+        "strict_enabled": bool(args.strict),
         "rolling_validated": None,
         "rolling_rejected": None,
         "rolling_duplicate_skip": None,
@@ -294,28 +301,70 @@ def main(argv: List[str] | None = None) -> int:
         build_summary_path = workdir / args.date / "estimate_revision_summary.json"
         rows_path = workdir / args.date / "estimate_revision_rows.json"
         rejected_path = workdir / args.date / "estimate_revision_rejected_rows.json"
-        if proc.returncode != 0 or not build_summary_path.is_file():
+
+        # estimate_revision_rows.json is the only artifact build_report_estimate
+        # produces unconditionally (both strict and legacy modes). The summary
+        # JSON is strict-only (PR #7), so we MUST NOT require it on a non-strict
+        # run — that was the PR #9 review bug (Codex P2).
+        if proc.returncode != 0 or not rows_path.is_file():
             summary["build_status"] = f"failed (rc={proc.returncode})"
             print("error: build_report_estimate step failed; aborting", file=sys.stderr)
             overall_rc = 3
             return overall_rc
-
-        build_summary = json.loads(build_summary_path.read_text(encoding="utf-8"))
-        summary["build_status"] = "ok"
-        summary["rows_in"] = build_summary.get("rows_in")
-        summary["rows_accepted"] = build_summary.get("rows_accepted")
-        summary["rows_rejected"] = build_summary.get("rows_rejected")
-        summary["direct_trade_signal_all_false"] = build_summary.get("direct_trade_signal_all_false")
-
-        # Hard invariant — runner refuses to proceed if Phase3 invariant slipped.
-        if summary["direct_trade_signal_all_false"] is not True:
-            print("error: build summary direct_trade_signal_all_false is not true; aborting",
-                  file=sys.stderr)
-            summary["build_status"] = "invariant_violated"
-            overall_rc = 4
+        if args.strict and not build_summary_path.is_file():
+            summary["build_status"] = (
+                f"failed (rc={proc.returncode}; strict mode requires summary)"
+            )
+            print(
+                "error: build_report_estimate --strict ran but did not emit "
+                "estimate_revision_summary.json; aborting",
+                file=sys.stderr,
+            )
+            overall_rc = 3
             return overall_rc
 
         accepted_rows = json.loads(rows_path.read_text(encoding="utf-8"))
+        summary["build_status"] = "ok"
+
+        if args.strict:
+            # Authoritative source: build_report_estimate's own summary file.
+            build_summary = json.loads(build_summary_path.read_text(encoding="utf-8"))
+            summary["rows_in"] = build_summary.get("rows_in")
+            summary["rows_accepted"] = build_summary.get("rows_accepted")
+            summary["rows_rejected"] = build_summary.get("rows_rejected")
+            summary["direct_trade_signal_all_false"] = build_summary.get(
+                "direct_trade_signal_all_false"
+            )
+        else:
+            # Legacy non-strict path: no rejection bucket, no summary file.
+            # Derive what we can from the merged input and the rows file.
+            try:
+                merged_rows = json.loads(merged_path.read_text(encoding="utf-8"))
+                rows_in_count = (
+                    len(merged_rows) if isinstance(merged_rows, list) else len(accepted_rows)
+                )
+            except (OSError, json.JSONDecodeError):
+                rows_in_count = len(accepted_rows)
+            summary["rows_in"] = rows_in_count
+            summary["rows_accepted"] = len(accepted_rows)
+            summary["rows_rejected"] = 0
+            # Compute the invariant directly. `all([]) is True`, which matches
+            # what build_report_estimate would record (an empty acceptance set
+            # cannot violate the invariant).
+            summary["direct_trade_signal_all_false"] = all(
+                r.get("direct_trade_signal") is False for r in accepted_rows
+            )
+
+        # Hard invariant — runner refuses to proceed if Phase3 invariant slipped.
+        # Holds in BOTH strict and non-strict modes.
+        if summary["direct_trade_signal_all_false"] is not True:
+            print(
+                "error: direct_trade_signal_all_false is not true after build step; aborting",
+                file=sys.stderr,
+            )
+            summary["build_status"] = "invariant_violated"
+            overall_rc = 4
+            return overall_rc
 
         # ---- step 3: rolling_append --strict-estimate (dry-run) ---------
         # Seed CSV: copy templates header into workdir and prepend one
@@ -378,6 +427,7 @@ def main(argv: List[str] | None = None) -> int:
         print()
         print("=" * 60)
         print(f"[runner] date                          = {summary['date']}")
+        print(f"[runner] strict_enabled                = {summary['strict_enabled']}")
         print(f"[runner] merge_meta_status             = {summary['merge_meta_status']}")
         print(f"[runner] build_status                  = {summary['build_status']}")
         print(f"[runner] rolling_append_status         = {summary['rolling_append_status']}")

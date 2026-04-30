@@ -151,6 +151,12 @@ python3 stock_research/phase3_report_pipeline/scripts/run_estimate_revision_dryr
   `--keep-workdir` 로 보존 가능.
 - repo 의 `templates/*.csv` 는 절대 수정되지 않는다 (헤더만 읽고 workdir 에 시드 복사).
 - `direct_trade_signal_all_false=true` 가 false 면 runner 가 즉시 abort (exit 4).
+- **`--strict` 가 운영 기본값**. `--no-strict` 는 legacy compatibility 검증
+  전용이며 일상 운영에서는 사용하지 말 것. non-strict 경로에서는
+  `estimate_revision_summary.json` 이 생성되지 않으므로 runner 가
+  `estimate_revision_rows.json` 만으로 카운트를 도출하고
+  `direct_trade_signal_all_false` 도 row 들에서 직접 계산한다.
+  `pipeline_summary.json` 의 `strict_enabled` 필드로 어떤 경로로 돌렸는지 식별 가능.
 
 #### "금지되는 apply" vs "허용되는 내부 apply"
 
