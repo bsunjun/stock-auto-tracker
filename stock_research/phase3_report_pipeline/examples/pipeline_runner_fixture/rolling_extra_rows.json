@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:005930",
+    "broker": "삼성증권",
+    "old_target": "70000",
+    "new_target": "80000",
+    "direction": "up",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+1111111111aa",
+    "source_pdf_sha256": "1111111111aa1111111111aa1111111111aa1111111111aa1111111111aa1111",
+    "direct_trade_signal": true
+  },
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:000660",
+    "broker": "메리츠증권",
+    "old_target": "120000",
+    "new_target": "120000",
+    "direction": "unknown",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+33333333cccc",
+    "source_pdf_sha256": "33333333cccc33333333cccc33333333cccc33333333cccc33333333cccc3333",
+    "direct_trade_signal": false
+  }
+]

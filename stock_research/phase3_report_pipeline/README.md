@@ -13,11 +13,15 @@ phase3_report_pipeline/
 │   ├── scan_wisereport_company.py        # <root>/<date>/기업/*.pdf 인덱싱 (read-only)
 │   ├── bridge_scan_to_parsed_meta.py     # scan + manual + ticker_map → parsed_meta.json (PR #4)
 │   ├── merge_meta.py                     # bridge + structured_extraction → merged parsed_meta (PR #5)
-│   ├── build_report_estimate_v132.py     # parsed_meta.json → estimate_revision_rows.json (v1.3.2)
+│   ├── build_report_estimate_v132.py     # parsed_meta.json → estimate_revision_rows.json (v1.3.2; PR #7 --strict)
+│   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
 │   ├── parsed_meta.example.json          # manual partial meta 입력 형식 예시
+│   ├── parsed_meta.strict_fixture.json   # PR #7 strict gate fixture (8 records)
+│   ├── estimate_revision_rows.rolling_fixture.json # PR #8 strict-estimate fixture
+│   ├── pipeline_runner_fixture/          # PR #9 dry-run runner fixture (bridge/structured/extra/expected/README)
 │   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── docs/
@@ -47,8 +51,9 @@ phase3_report_pipeline/
 3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4, OCR/Vision 미호출)
 3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
 3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
-4. `build_report_estimate_v132.py` → `output/<date>/estimate_revision_rows.json`
-5. `stock_research/scripts/rolling_append.py`(PR #2) 로 CSV 누적 (dedupe-keys: `date,ticker,broker,source_key`)
+4. `build_report_estimate_v132.py --strict` → `output/<date>/estimate_revision_rows{,_rejected_rows,_summary}.json` (PR #7)
+4b. (선택, dry-run 전용) `run_estimate_revision_dryrun.py` 로 3a/3c/4 + rolling 검증을 한 번에 (PR #9). `--apply` 거부.
+5. `stock_research/scripts/rolling_append.py --strict-estimate`(PR #8) 로 CSV 누적 (dedupe-keys: `date,ticker,broker,source_key`). `templates/*.csv` 는 dry-run 전용; `--apply` 가 templates 경로를 가리키면 거부됨.
 6. `promote_report_outputs.py --apply --confirm-promote` (이중 gate, 사용자 직접만)
 
 ## Safety Gates

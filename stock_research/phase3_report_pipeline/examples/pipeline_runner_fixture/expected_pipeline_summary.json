@@ -1,0 +1,30 @@
+{
+  "_comment": "Reference shape only. The runner emits pipeline_summary.json with these fields filled. Numeric expectations for this fixture: rows_in=3, rows_accepted=2, rows_rejected=1, direct_trade_signal_all_false=true, rolling_validated=2 (the two build-accepted rows), rolling_rejected=2 (KRX:005930 direct_trade_signal_not_false + KRX:000660 direction_invalid from rolling_extra_rows.json), rolling_duplicate_skip=1 (KRX:402340 NH 매칭 시드), rolling_to_add=1 (KRX:058470 한국투자증권).",
+  "date": "2026-04-30",
+  "generated_at": "<UTC ISO8601 string>",
+  "merge_meta_status": "ok",
+  "build_status": "ok",
+  "rolling_append_status": "ok",
+  "rows_in": 3,
+  "rows_accepted": 2,
+  "rows_rejected": 1,
+  "direct_trade_signal_all_false": true,
+  "rolling_validated": 2,
+  "rolling_rejected": 2,
+  "rolling_duplicate_skip": 1,
+  "rolling_to_add": 1,
+  "commands_run": [
+    "merge_meta.py --bridge-meta ... --structured ... --out <workdir>/parsed_meta.merged.json --apply",
+    "build_report_estimate_v132.py --input <workdir>/parsed_meta.merged.json --output-root <workdir> --date 2026-04-30 --strict --apply",
+    "rolling_append.py --csv <workdir>/seeded_estimate_history.csv --rows <workdir>/rolling_input.json --dedupe-keys date,ticker,broker,source_key --strict-estimate"
+  ],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "latest_updates": 0,
+    "promote_runs": 0,
+    "super_pack_rebuilds": 0,
+    "rolling_apply_runs": 0,
+    "templates_csv_writes": 0
+  }
+}

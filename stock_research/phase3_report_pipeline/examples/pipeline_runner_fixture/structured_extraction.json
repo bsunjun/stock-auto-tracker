@@ -1,0 +1,16 @@
+[
+  {
+    "source_pdf_sha256": "e6d8596c4a88df3a0588ebf335aa05201349166eb30894dab44aa3accff18379",
+    "filename": "20260430_[삼성물산] 양호한 출발.pdf",
+    "page": 1,
+    "broker": "KB증권",
+    "old_target": null,
+    "new_target": 180000,
+    "horizon": "6M",
+    "extraction_method": "vision_ocr_estimate",
+    "model": "claude-sonnet-4-6",
+    "confidence": 0.55,
+    "extracted_at": "2026-04-30T09:00:01+09:00",
+    "notes": "Partial extraction — old_target still absent, so merged record stays incomplete; build --strict will reject."
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "ticker": "KRX:402340",
+    "broker": "NH투자증권",
+    "report_date": "2026-04-30",
+    "old_target": 80000,
+    "new_target": 95000,
+    "horizon": "12M",
+    "filename": "20260430_[SK스퀘어] 참 좋은 주식.pdf",
+    "source_pdf_sha256": "29220cc93c766b039314e8df5e8e14408a1ba31e8882a51d418c1d6f8eb9b288",
+    "extraction_method": "manual",
+    "confidence": 0.85,
+    "notes": "Fully complete record. After merge → build --strict accepts. After rolling --strict-estimate it becomes the duplicate-vs-seed test row."
+  },
+  {
+    "ticker": "KRX:028260",
+    "broker": "",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "20260430_[삼성물산] 양호한 출발.pdf",
+    "source_pdf_sha256": "e6d8596c4a88df3a0588ebf335aa05201349166eb30894dab44aa3accff18379",
+    "extraction_method": "filename_only",
+    "confidence": 0.0,
+    "notes": "Bridge has only the filename. Structured extraction also only fills new_target. After merge missing_fields will be non-empty → build --strict rejects."
+  },
+  {
+    "ticker": "KRX:058470",
+    "broker": "한국투자증권",
+    "report_date": "2026-04-30",
+    "old_target": 240000,
+    "new_target": 260000,
+    "horizon": "12M",
+    "filename": "20260430_[리노공업] 더 갈 수 있다.pdf",
+    "source_pdf_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "extraction_method": "manual",
+    "confidence": 0.9,
+    "notes": "Second fully-complete record. Becomes the to_add=1 candidate at the rolling step."
+  }
+]
