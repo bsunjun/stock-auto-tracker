@@ -1,0 +1,74 @@
+[
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:402340",
+    "broker": "NH투자증권",
+    "old_target": "80000",
+    "new_target": "95000",
+    "direction": "up",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+29220cc93c76",
+    "source_pdf_sha256": "29220cc93c766b039314e8df5e8e14408a1ba31e8882a51d418c1d6f8eb9b288",
+    "direct_trade_signal": false
+  },
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:402340",
+    "broker": "NH투자증권",
+    "old_target": "80000",
+    "new_target": "95000",
+    "direction": "up",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+29220cc93c76",
+    "source_pdf_sha256": "29220cc93c766b039314e8df5e8e14408a1ba31e8882a51d418c1d6f8eb9b288",
+    "direct_trade_signal": false
+  },
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:005930",
+    "broker": "삼성증권",
+    "old_target": "70000",
+    "new_target": "80000",
+    "direction": "up",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+1111111111aa",
+    "source_pdf_sha256": "1111111111aa1111111111aa1111111111aa1111111111aa1111111111aa1111",
+    "direct_trade_signal": true
+  },
+  {
+    "date": "2026-04-30",
+    "ticker": "삼성전자",
+    "broker": "키움증권",
+    "old_target": "80000",
+    "new_target": "90000",
+    "direction": "up",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+22222222bbbb",
+    "source_pdf_sha256": "22222222bbbb22222222bbbb22222222bbbb22222222bbbb22222222bbbb2222",
+    "direct_trade_signal": false
+  },
+  {
+    "date": "2026-04-30",
+    "ticker": "KRX:000660",
+    "broker": "메리츠증권",
+    "old_target": "120000",
+    "new_target": "120000",
+    "direction": "unknown",
+    "horizon": "12M",
+    "source_key": "phase3:report_estimate:v1.3.2+33333333cccc",
+    "source_pdf_sha256": "33333333cccc33333333cccc33333333cccc33333333cccc33333333cccc3333",
+    "direct_trade_signal": false
+  },
+  {
+    "ticker": "KRX:028260",
+    "broker": "KB증권",
+    "date": "2026-04-30",
+    "old_target": "",
+    "new_target": "180000",
+    "direction": "unknown",
+    "missing_fields": ["old_target"],
+    "reject_reasons": ["complete_not_true", "missing_fields_nonempty", "direction_unknown", "old_target_invalid"],
+    "source_key": "phase3:report_estimate:v1.3.2+e6d8596c4a88",
+    "source_pdf_sha256": "e6d8596c4a88df3a0588ebf335aa05201349166eb30894dab44aa3accff18379"
+  }
+]
