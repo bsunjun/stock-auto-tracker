@@ -11,23 +11,51 @@ SAFETY DEFAULTS:
 - The anthropic SDK is imported lazily so --help and --dry-run work even
   when the package isn't installed.
 
-Output (JSON list, one entry per page):
-    [{pdf, page, text, model, usage_tokens}, ...]
+Modes (--extract-mode):
+- raw       (default) per-page text dump.
+            Output: [{pdf, page, text, model, usage_tokens}, ...]
+- estimate  page-1 structured extraction of broker / old_target /
+            new_target / horizon for downstream merge_meta.py.
+            Forces page=1 (single API call per PDF).
+            Output: [{source_pdf_sha256, filename, page, broker,
+                      old_target, new_target, horizon, model,
+                      confidence, extraction_method, raw_text_excerpt,
+                      extracted_at}]
+            Shape matches examples/structured_extraction.example.json.
+
 Written to --output if given, else stdout.
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
 DEFAULT_MAX_PAGES = 5
 DEFAULT_API_KEY_ENV = "ANTHROPIC_API_KEY"
+
+ESTIMATE_PROMPT = """You are a financial-report parser. From the FIRST PAGE of the
+attached Korean broker research PDF, extract the investment-opinion box and
+return ONLY a single JSON object with these keys:
+
+- broker     (string, Korean brokerage name; null if not visible)
+- old_target (number, KRW; null if not stated or 'N/A')
+- new_target (number, KRW; null if not stated or 'N/A')
+- horizon    (string, e.g. "12M" / "6M"; null if not stated)
+- confidence (number 0..1 indicating how clearly the four fields were stated)
+
+Rules:
+* Use Korean stock-market conventions; KRW values are integers.
+* Do NOT guess. If a field is not on page 1, return null and lower confidence.
+* Output ONLY the JSON object. No prose. No markdown fences.
+"""
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
@@ -45,11 +73,87 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
                         "API key is never accepted as a CLI arg.")
     p.add_argument("--output", default=None,
                    help="Write JSON list to this path; default = stdout")
+    p.add_argument("--extract-mode", choices=["raw", "estimate"], default="raw",
+                   help="raw (default): per-page text dump. estimate: page-1 "
+                        "structured extraction of broker/old_target/new_target/horizon.")
     p.add_argument("--dry-run", dest="dry_run", action="store_true", default=True,
                    help="(default) plan only; NO API calls")
     p.add_argument("--apply", dest="dry_run", action="store_false",
                    help="actually call the Vision API (requires API key in env)")
     return p.parse_args(argv)
+
+
+def sha256_of(path: Path, buf_size: int = 1 << 20) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(buf_size):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def call_vision_estimate(pdf_path: Path, model: str, api_key: str) -> dict:
+    """Single page-1 structured-extraction call. Imported lazily."""
+    try:
+        from anthropic import Anthropic  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError(
+            "anthropic SDK is not installed. Install with: pip install anthropic"
+        ) from exc
+
+    client = Anthropic(api_key=api_key)
+    pdf_b64 = base64.standard_b64encode(pdf_path.read_bytes()).decode("ascii")
+
+    msg = client.messages.create(
+        model=model,
+        max_tokens=512,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf_b64,
+                    },
+                    "context": "Extract investment-opinion box from page 1 only.",
+                },
+                {"type": "text", "text": ESTIMATE_PROMPT},
+            ],
+        }],
+    )
+    raw = "".join(getattr(b, "text", "") for b in (msg.content or []))
+    raw = raw.strip()
+    parsed: dict = {"broker": None, "old_target": None, "new_target": None,
+                    "horizon": None, "confidence": 0.0}
+    parse_error: str | None = None
+    try:
+        loaded = json.loads(raw)
+        if isinstance(loaded, dict):
+            parsed.update({k: loaded.get(k) for k in parsed.keys()})
+    except json.JSONDecodeError as exc:
+        parse_error = str(exc)
+        parsed["confidence"] = 0.0
+
+    usage = getattr(msg, "usage", None)
+    return {
+        "source_pdf_sha256": sha256_of(pdf_path),
+        "filename": pdf_path.name,
+        "page": 1,
+        "broker": parsed.get("broker"),
+        "old_target": parsed.get("old_target"),
+        "new_target": parsed.get("new_target"),
+        "horizon": parsed.get("horizon"),
+        "confidence": float(parsed.get("confidence") or 0.0),
+        "extraction_method": "vision_ocr_estimate",
+        "model": model,
+        "extracted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "raw_text_excerpt": raw[:200] if not parse_error else f"[parse_error:{parse_error[:60]}]",
+        "usage_tokens": {
+            "input": getattr(usage, "input_tokens", None),
+            "output": getattr(usage, "output_tokens", None),
+        },
+    }
 
 
 def parse_pages_spec(spec: str | None, max_pages: int) -> list[int]:
@@ -131,19 +235,30 @@ def main(argv: List[str] | None = None) -> int:
         print(f"error: --pdf not found: {pdf_path}", file=sys.stderr)
         return 2
 
-    pages = parse_pages_spec(args.pages, args.max_pages)
-    if not pages:
-        print("error: no pages selected", file=sys.stderr)
-        return 2
+    if args.extract_mode == "estimate":
+        pages = [1]
+        if args.pages:
+            print("[NOTE] --pages is ignored under --extract-mode estimate (forced page=1).",
+                  file=sys.stderr)
+    else:
+        pages = parse_pages_spec(args.pages, args.max_pages)
+        if not pages:
+            print("error: no pages selected", file=sys.stderr)
+            return 2
 
     mode = "DRY-RUN" if args.dry_run else "APPLY"
-    print(f"[{mode}] pdf       = {pdf_path}")
-    print(f"[{mode}] pages     = {pages}")
-    print(f"[{mode}] model     = {args.model}")
-    print(f"[{mode}] api_key_env = {args.api_key_env}  (value NOT printed)")
+    print(f"[{mode}] pdf          = {pdf_path}")
+    print(f"[{mode}] extract_mode = {args.extract_mode}")
+    print(f"[{mode}] pages        = {pages}")
+    print(f"[{mode}] model        = {args.model}")
+    print(f"[{mode}] api_key_env  = {args.api_key_env}  (value NOT printed)")
     print(f"[{mode}] expected api calls = {len(pages)}")
 
     if args.dry_run:
+        if args.extract_mode == "estimate":
+            print("[DRY-RUN] estimate mode: would issue 1 structured-extraction call on page 1.")
+            print("[DRY-RUN] expected output schema matches "
+                  "examples/structured_extraction.example.json.")
         print("[DRY-RUN] no API call performed. Re-run with --apply to invoke Vision.")
         return 0
 
@@ -153,7 +268,10 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     try:
-        results = call_vision(pdf_path, pages, args.model, api_key)
+        if args.extract_mode == "estimate":
+            results = [call_vision_estimate(pdf_path, args.model, api_key)]
+        else:
+            results = call_vision(pdf_path, pages, args.model, api_key)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
