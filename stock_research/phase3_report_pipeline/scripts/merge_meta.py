@@ -143,8 +143,9 @@ def merge_record(bridge_rec: dict, ext_rec: dict | None) -> dict:
                 out[field] = norm_val
                 provenance[field] = kept_src
             elif status == "absent":
-                # treat as if the candidate had no value; missing_fields will flag below
-                pass
+                # Sentinel-like input ('' / 'N/A' / '-' / 'null' / ...) — overwrite with
+                # None so is_blank() catches it and missing_fields stays accurate.
+                out[field] = None
             else:  # parse_failed
                 out[field] = None
                 provenance[field] = kept_src
