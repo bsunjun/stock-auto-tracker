@@ -176,6 +176,23 @@ def resolve_csv(args: argparse.Namespace) -> Path:
     return (Path(args.stock_research_root).expanduser() / p).resolve()
 
 
+def _is_repo_templates_path(p: Path) -> bool:
+    """True iff `p` resolves to a location under any `stock_research/templates/`.
+
+    The repo's `stock_research/templates/*.csv` files hold only headers — real
+    rolling history lives outside the repo (Drive). Apply into templates would
+    pollute the source tree, so we hard-refuse it (dry-run is still allowed).
+    """
+    try:
+        parts = p.resolve(strict=False).parts
+    except (OSError, RuntimeError):
+        parts = p.parts
+    for i in range(len(parts) - 1):
+        if parts[i] == "stock_research" and parts[i + 1] == "templates":
+            return True
+    return False
+
+
 def read_existing(csv_path: Path) -> tuple[list[str], list[dict]]:
     if not csv_path.exists():
         raise FileNotFoundError(f"target csv not found: {csv_path}")
@@ -214,6 +231,17 @@ def main(argv: List[str] | None = None) -> int:
     keys = [k.strip() for k in args.dedupe_keys.split(",") if k.strip()]
     if not keys:
         print("error: --dedupe-keys must list at least one column", file=sys.stderr)
+        return 2
+
+    # Safety guard (PR #8 hardening): repo templates are header-only and meant
+    # for dry-run / schema validation. Refuse --apply against any path under
+    # stock_research/templates/.
+    if not args.dry_run and _is_repo_templates_path(csv_path):
+        print(
+            "error: refusing to --apply into stock_research/templates; "
+            "use a real rolling csv path outside templates",
+            file=sys.stderr,
+        )
         return 2
 
     header, existing = read_existing(csv_path)
