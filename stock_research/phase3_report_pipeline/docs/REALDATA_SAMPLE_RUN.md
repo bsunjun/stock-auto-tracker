@@ -7,6 +7,26 @@ is intentionally **executed by the operator on a Drive-mounted host**
 present), NOT inside the Claude sandbox. None of the steps below write
 to Drive, modify originals, or trigger any cost.
 
+## Where each part runs
+
+| Environment | What runs there | Real PDFs processed |
+| --- | --- | --- |
+| **Claude sandbox** (the environment that opened this PR) | mock-tree verification only — proves the selector and the chain handle realistic Korean filenames; uses synthetic fake PDFs in `/tmp/mock_drive_*`. | **0** |
+| **Operator host / Mac with Google Drive mounted** | The real 10-PDF sample execution: steps 1–6 below against `$GOOGLE_DRIVE_ROOT/01_data_inbox/wisereport_company/<date>/기업/`. | **up to 10** |
+
+The sandbox cannot reach Drive, so the operator must run the substantive
+pass on the Drive-mounted host. **Real-data results are never committed
+to the repo.** The `.gitignore` patterns added in PR #11 are a
+defense-in-depth backstop; the primary discipline is:
+
+> Paste `pipeline_summary.json` and `reject_reason_counts` as a **PR
+> comment or ChatGPT message summary only** — never in a tracked file.
+
+> **PR #11 is not a PDF body parser.** It is the safe sampling step plus
+> the operator-run procedure for the later real-data test. The blocking
+> fields (`broker / old_target / new_target / horizon`) require a future
+> parser PR.
+
 ## Boundary conditions (read first)
 
 | Forbidden in this PR | Allowed in this PR |

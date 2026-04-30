@@ -2,6 +2,21 @@
 """
 Phase 3 — WiseReport sample selector for PR #11 real-data sample dry-run.
 
+Behavioral contract (read first):
+  * **metadata-only by default** — sha256 + size + mtime + filename + inferred
+    ticker hint. No PDF body content is opened beyond the bytes needed for
+    sha256 hashing.
+  * **`--copy-pdfs` is optional and still limited to out-of-repo workdir** —
+    even with the flag set, the destination must live outside the repo. The
+    repo guard is enforced on `--out` and inherited by `<out>/pdfs/`.
+  * **`selected_count` must be ≤ 10** — `--max` is hard-clamped to 10 (the
+    PR #11 scope), and a final invariant check refuses to write the inventory
+    if anything exceeds the cap.
+  * **This script does not parse PDF body or extract `broker` / `old_target` /
+    `new_target` / `horizon`.** Those fields require a deterministic table
+    parser or Vision OCR (separate PR with its own cost gate); they are
+    intentionally out of scope here.
+
 Picks up to 10 PDFs from a single date folder under a Drive-mounted
 WiseReport root and writes a metadata-only inventory (sha256, size, mtime,
 filename, inferred ticker hint, dup-suspect flag). It does NOT call OCR,
