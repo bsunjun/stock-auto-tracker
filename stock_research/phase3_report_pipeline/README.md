@@ -52,7 +52,7 @@ phase3_report_pipeline/
 3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
 3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
 4. `build_report_estimate_v132.py --strict` → `output/<date>/estimate_revision_rows{,_rejected_rows,_summary}.json` (PR #7)
-4b. (선택, dry-run 전용) `run_estimate_revision_dryrun.py` 로 3a/3c/4 + rolling 검증을 한 번에 (PR #9). `--apply` 거부.
+4b. (선택, rolling/promotion 측면에서 dry-run 전용) `run_estimate_revision_dryrun.py` 로 3c/4 + rolling 검증을 한 번에 (PR #9). runner 의 `--apply` 는 거부된다. 단, `merge_meta`/`build_report_estimate` 는 다음 단계 입력 JSON 생성을 위해 `/tmp` workdir 안에서만 내부적으로 `--apply` 로 호출된다 — repo/Drive/templates/latest/promote/Super Pack/실제 rolling CSV 어디에도 쓰지 않는다.
 5. `stock_research/scripts/rolling_append.py --strict-estimate`(PR #8) 로 CSV 누적 (dedupe-keys: `date,ticker,broker,source_key`). `templates/*.csv` 는 dry-run 전용; `--apply` 가 templates 경로를 가리키면 거부됨.
 6. `promote_report_outputs.py --apply --confirm-promote` (이중 gate, 사용자 직접만)
 

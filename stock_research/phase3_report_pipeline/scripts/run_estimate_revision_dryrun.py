@@ -8,18 +8,25 @@ Wires three already-existing scripts into a single dry-run-friendly command:
       └─> build_report_estimate_v132.py --strict
             └─> rolling_append.py --strict-estimate  (dry-run only)
 
-This runner is for **daily dry-run wiring verification**. It is NOT a promote
-tool. It does not call OCR/Vision/API. It does not touch Drive. It does not
-update `latest`, run `promote`, rebuild Super Pack, or apply anything to a
-real rolling history CSV.
+This runner is dry-run for rolling/promotion. It may create intermediate
+JSON files only under --workdir.
 
-Mechanics
----------
-The runner shells out to each downstream script using subprocess and reads
-their materialized JSON outputs from a temporary workdir (default `/tmp/...`).
-That means merge_meta and build_report_estimate are invoked with `--apply`
-internally — but only into the workdir, NEVER into the repo or Drive.
-Rolling append is always invoked with `--dry-run`.
+What this runner explicitly DOES NOT do (forbidden apply):
+  * rolling_append.py --apply  (the rolling step is always --dry-run)
+  * promote_report_outputs.py --apply
+  * `latest` updates
+  * Super Pack rebuilds
+  * Drive / repo / templates writes
+  * OCR / Vision / API calls
+
+What this runner DOES do internally (allowed internal apply, scoped to
+--workdir only — never the repo, never Drive, never the real rolling CSV):
+  * merge_meta.py --apply --out <workdir>/parsed_meta.merged.json
+  * build_report_estimate_v132.py --strict --apply --output-root <workdir>
+
+These internal `--apply` invocations exist solely to materialize the
+intermediate JSON inputs the next stage needs to read. They never touch
+anything outside <workdir>.
 
 The runner's own `--apply` flag is accepted on the command line for clarity
 of intent, but it is hard-refused with exit 2: PR #9 is a dry-run connector,

@@ -144,14 +144,30 @@ python3 stock_research/phase3_report_pipeline/scripts/run_estimate_revision_dryr
 ```
 
 원칙 (PR #9):
-- **항상 dry-run**. `--apply` 는 의도적으로 거부된다 (exit 2). 실제 누적은
-  PR #8 의 `rolling_append.py --strict-estimate --apply` 를 사용자가 별도로 승인 후 실행.
+- **runner 자체는 rolling/promotion 측면에서 항상 dry-run**. `--apply` 플래그는
+  의도적으로 거부된다 (exit 2). 실제 누적은 PR #8 의
+  `rolling_append.py --strict-estimate --apply` 를 사용자가 별도로 승인 후 실행.
 - 모든 임시 산출물은 `--workdir` 아래 (저장소 바깥) 에서만 만들어지고 종료 시 삭제된다.
   `--keep-workdir` 로 보존 가능.
 - repo 의 `templates/*.csv` 는 절대 수정되지 않는다 (헤더만 읽고 workdir 에 시드 복사).
 - `direct_trade_signal_all_false=true` 가 false 면 runner 가 즉시 abort (exit 4).
-- OCR/Vision/API 호출, Drive 원본 변경, latest/promote/Super Pack 갱신은
-  본 runner 에서 **절대 수행되지 않는다**.
+
+#### "금지되는 apply" vs "허용되는 내부 apply"
+
+| 분류 | 항목 | runner 동작 |
+| --- | --- | --- |
+| 🚫 금지 | `rolling_append.py --apply` | 호출하지 않음 (rolling step 은 항상 `--dry-run`) |
+| 🚫 금지 | `promote_report_outputs.py --apply` | 호출하지 않음 |
+| 🚫 금지 | `latest` 갱신 | 수행하지 않음 |
+| 🚫 금지 | Super Pack 재생성 | 수행하지 않음 |
+| 🚫 금지 | Drive / repo / templates 수정 | 수행하지 않음 |
+| 🚫 금지 | OCR / Vision / API 호출 | 수행하지 않음 |
+| ✅ 허용 (내부) | `merge_meta.py --apply --out <workdir>/parsed_meta.merged.json` | 다음 단계 입력 JSON 생성 목적의 임시 산출물; **`/tmp` workdir 만**. |
+| ✅ 허용 (내부) | `build_report_estimate_v132.py --strict --apply --output-root <workdir>` | 다음 단계 입력 JSON 생성 목적의 임시 산출물; **`/tmp` workdir 만**. |
+
+이 두 내부 `--apply` 는 repo / Drive / latest / promote / Super Pack / 실제
+rolling CSV 어디에도 영향을 주지 않으며, `--keep-workdir` 미지정 시 종료와 함께
+삭제된다.
 
 산출 (workdir 안):
 ```
