@@ -11,9 +11,17 @@
         v
 <PHASE3_OUTPUT_ROOT>/<date>/scan_company.json  (read-only 인덱스)
         |
-        |  (외부 단계) parsed_meta.json 생성  ← Vision OCR 또는 외부 파서
+        |  사람/외부 파서가 manual partial meta JSON 작성
+        |  (형식: examples/parsed_meta.example.json)
         v
-parsed_meta.json
+manual_meta.json (broker/old/new/horizon 일부 또는 전부 포함)
+        |
+        |  scripts/bridge_scan_to_parsed_meta.py
+        |    --scan-json <scan_company.json>
+        |    --manual-meta <manual_meta.json>
+        |    --ticker-map examples/ticker_map.example.csv
+        v
+parsed_meta.json (sha256/source_key/direction/missing_fields 자동 채움)
         |
         |  scripts/build_report_estimate_v132.py  --input parsed_meta.json --apply
         v
@@ -83,6 +91,7 @@ parsed_meta.json
 | 단계 | source_key |
 | --- | --- |
 | 스캔 | `phase3:scan_wisereport_company:v1` |
+| Bridge | `phase3:bridge_scan_to_parsed_meta:v1` (parsed_meta record는 estimate builder의 source_key를 사용; 이는 bridge 모듈 식별용) |
 | Estimate row 빌더 | `phase3:report_estimate:v1.3.2` (+`+<sha_short>` 부착 시 추적성 강화) |
 | Vision OCR | (별도 키 없음 — 본문은 row 가 아닌 보조 산출) |
 | Promote | `phase3:promote_report_outputs:v1` (감사 로그용; row 산출 없음) |

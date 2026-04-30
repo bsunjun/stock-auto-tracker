@@ -34,10 +34,22 @@ python3 scripts/vision_ocr_pdf.py --pdf <path> --pages "1-3" --max-pages 5
 - API key는 `ANTHROPIC_API_KEY` env에서만 읽음. CLI 인자로 전달 금지.
 - 본 도구는 비용을 발생시키므로 사용자 명시 승인 후에만 실행.
 
-### 3) parsed_meta.json 준비 (외부 단계)
-- 외부 파서/사람이 PDF 메타를 추출해 `parsed_meta.json` 생성
-- 형식: `[{ticker, broker, report_date, old_target, new_target, horizon, source_pdf_sha256}, ...]`
-- 본 패키지 범위 밖. 별도 도구/사람의 산출물.
+### 3) manual partial meta JSON 준비 (사람/외부 파서)
+- `examples/parsed_meta.example.json` 형식을 따른다.
+- broker / old_target / new_target / horizon은 **PDF 본문 정보가 필요**하므로 사람 또는 별도 파서가 채운다 (현재 PR #4 범위에서는 OCR/Vision 미수행).
+- ticker는 한글명("SK스퀘어") 또는 KRX 코드("KRX:402340") 둘 다 허용 — bridge가 정규화한다.
+
+### 3a) bridge로 parsed_meta.json 생성 (PR #4, OCR/Vision 미사용)
+```
+python3 scripts/bridge_scan_to_parsed_meta.py \
+    --scan-json ./output/2026-04-30/scan_company.json \
+    --manual-meta ./manual_meta.json \
+    --ticker-map examples/ticker_map.example.csv \
+    --out ./output/2026-04-30/parsed_meta.json
+# dry-run에서 매칭/missing_fields 분포 확인 → --apply
+```
+- bridge는 sha256/filename을 채우고 한글 종목명을 KRX 코드로 매핑하며 direction을 자동 계산한다.
+- **누락된 필드는 추정하지 않고 `missing_fields`에 기록**한다.
 
 ### 4) Estimate revision row 생성
 ```
