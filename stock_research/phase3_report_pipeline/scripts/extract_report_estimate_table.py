@@ -204,6 +204,61 @@ def select_primary_metric(metrics: dict) -> str | None:
         if isinstance(v, dict) and "old" in v and "new" in v:
             return m
     return None
+
+
+# Longest first so '매출액' beats '매출', '지배순이익' beats '순이익'.
+_METRIC_LABEL_PREFIXES: tuple[str, ...] = tuple(
+    sorted(METRIC_ALIASES.keys(), key=len, reverse=True)
+)
+
+_ARROW_RE = re.compile(r"→|->")
+_NUMBER_TOKEN_RE = re.compile(r"[+-]?[\d,]+(?:\.\d+)?")
+_BROKER_SUFFIXES: tuple[str, ...] = ("증권", "금융투자", "자산운용")
+
+
+def _extract_old_new_pair(line: str) -> tuple[str | None, str | None]:
+    """Find an 'old → new' (or 'old -> new') numeric pair in a single line.
+
+    Returns the raw token strings (still attached to any inline units);
+    the caller passes each through parse_numeric to get a finite float.
+    """
+    if not isinstance(line, str):
+        return None, None
+    parts = _ARROW_RE.split(line, maxsplit=1)
+    if len(parts) != 2:
+        return None, None
+    left, right = parts
+    left_nums = _NUMBER_TOKEN_RE.findall(left)
+    right_nums = _NUMBER_TOKEN_RE.findall(right)
+    if not left_nums or not right_nums:
+        return None, None
+    return left_nums[-1], right_nums[0]
+
+
+def _try_extract_metric_line(line: str) -> tuple[str, str, str] | None:
+    """If `line` looks like a metric estimate change row of the form
+    '<label>(...)?  <old> → <new>', return (canonical_metric, old_str,
+    new_str). Else None.
+
+    Recognized labels are anchored at the start of the line (after
+    whitespace); the longest matching alias wins.
+    """
+    if not isinstance(line, str):
+        return None
+    s = line.lstrip()
+    if not s:
+        return None
+    for label in _METRIC_LABEL_PREFIXES:
+        if s.startswith(label):
+            rest = s[len(label):]
+            # Strip an immediately-following parenthesized clarifier like
+            # 'EPS(원)' → ' ...'.
+            rest = re.sub(r"^\s*\([^)]*\)", "", rest)
+            old, new = _extract_old_new_pair(rest)
+            if old is None or new is None:
+                return None
+            return METRIC_ALIASES[label], old, new
+    return None
 # --- end helpers ----------------------------------------------------------
 
 
@@ -257,37 +312,234 @@ def _is_inside_repo(p: Path) -> bool:
         return False
 
 
-# --- TODO (next commits in PR #12) ----------------------------------------
-# These are intentional stubs. Each will be filled in by a subsequent
-# small commit on this branch so each step is independently reviewable.
+EXTRACTION_METHOD = "deterministic_pdf_table_v1"
+
 
 def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
                        date: str) -> dict:
-    """Parse a single PDF's text into a structured record.
+    """Parse a single PDF's pre-extracted text into a structured record.
 
-    Returned dict shape (planned):
-        {
-          "source_pdf_sha256": ...,
-          "filename": ...,
-          "broker": ...,
-          "ticker_hint": ...,
-          "horizon": ...,
-          "metrics": {"sales": {old, new}, "operating_profit": {...}, ...},
-          "target_price": {"old": ..., "new": ...} | None,
-          "extraction_method": "deterministic_pdf_table_v1",
-        }
+    Returned dict:
+        source_pdf_sha256, filename, broker, ticker_hint, horizon,
+        metrics: {<metric>: {old: <raw>, new: <raw>}, ...},
+        target_price: {old, new} | None,
+        date, extraction_method
     """
-    raise NotImplementedError("parse_text_to_rows: filled in by next commit")
+    if not isinstance(text, str):
+        text = ""
+
+    # Broker: first non-empty line ending with a recognized suffix.
+    broker = ""
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if any(s.endswith(suf) for suf in _BROKER_SUFFIXES):
+            broker = s
+            break
+
+    # Ticker hint: from filename's first '[...]' block if present.
+    ticker_hint = ""
+    fm = re.search(r"\[([^\]]+)\]", filename or "")
+    if fm:
+        ticker_hint = fm.group(1).strip()
+
+    # Horizon: first horizon-like token anywhere in the text.
+    horizon = parse_horizon(text)
+
+    # Target price: a line containing '목표주가' with a numeric pair.
+    target_price = None
+    for line in text.splitlines():
+        if "목표주가" not in line:
+            continue
+        old, new = _extract_old_new_pair(line)
+        if old is not None and new is not None:
+            target_price = {"old": old, "new": new}
+            break
+
+    # Metrics: scan every line; first occurrence per metric wins.
+    metrics: dict[str, dict] = {}
+    for line in text.splitlines():
+        result = _try_extract_metric_line(line)
+        if result is None:
+            continue
+        metric_name, old, new = result
+        if metric_name not in metrics:
+            metrics[metric_name] = {"old": old, "new": new}
+
+    return {
+        "source_pdf_sha256": source_pdf_sha256,
+        "filename": filename,
+        "broker": broker,
+        "ticker_hint": ticker_hint,
+        "horizon": horizon,
+        "metrics": metrics,
+        "target_price": target_price,
+        "date": date,
+        "extraction_method": EXTRACTION_METHOD,
+    }
 
 
 def project_structured_row(parsed: dict, *, date: str) -> dict | None:
-    """Convert a parsed record into a single merge_meta-compatible row.
+    """Project a parsed record into a single merge_meta-compatible row.
 
-    Returns None if no primary metric is present (target-price-only or empty).
-    Always sets `direct_trade_signal=False`.
+    Returns None when no primary metric is selectable (target-price-only,
+    empty, or all metric numbers malformed). The returned row always has
+    direct_trade_signal=False.
     """
-    raise NotImplementedError("project_structured_row: filled in by next commit")
-# --------------------------------------------------------------------------
+    metrics = parsed.get("metrics") or {}
+    primary = select_primary_metric(metrics)
+    if primary is None:
+        return None
+
+    metric_data = metrics[primary]
+    old_raw = metric_data.get("old")
+    new_raw = metric_data.get("new")
+    if parse_numeric(old_raw) is None or parse_numeric(new_raw) is None:
+        return None
+
+    sha = parsed.get("source_pdf_sha256") or ""
+    sha_short = sha[:12]
+    sk = SOURCE_KEY_BASE + (f"+{sha_short}" if sha_short else "")
+    direction = derive_direction(old_raw, new_raw)
+
+    ticker = parsed.get("ticker_hint", "") or ""
+    broker = parsed.get("broker", "") or ""
+    horizon = parsed.get("horizon", "") or ""
+
+    missing: list[str] = []
+    if not ticker:
+        missing.append("ticker")
+    if not broker:
+        missing.append("broker")
+    if not date:
+        missing.append("report_date")
+    if not horizon:
+        missing.append("horizon")
+    complete = (not missing) and direction in {"up", "down", "flat"}
+
+    return {
+        "source_pdf_sha256": sha,
+        "filename": parsed.get("filename", ""),
+        "ticker": ticker,
+        "broker": broker,
+        "report_date": date,
+        "horizon": horizon,
+        "metric": primary,
+        "old_target": old_raw,
+        "new_target": new_raw,
+        "direction": direction,
+        "complete": complete,
+        "missing_fields": missing,
+        "extraction_method": EXTRACTION_METHOD,
+        "source_key": sk,
+        "direct_trade_signal": DIRECT_TRADE_SIGNAL,
+    }
+
+
+def _build_breakdown(parsed: dict) -> dict:
+    """Produce an audit-only per-PDF breakdown record covering EVERY metric
+    found (not just the primary). Goes to estimate_table_breakdown.json."""
+    return {
+        "source_pdf_sha256": parsed.get("source_pdf_sha256", ""),
+        "filename": parsed.get("filename", ""),
+        "broker": parsed.get("broker", ""),
+        "ticker_hint": parsed.get("ticker_hint", ""),
+        "horizon": parsed.get("horizon", ""),
+        "metrics": parsed.get("metrics") or {},
+        "target_price": parsed.get("target_price"),
+        "primary_metric": select_primary_metric(parsed.get("metrics") or {}),
+        "extraction_method": EXTRACTION_METHOD,
+        "direct_trade_signal": DIRECT_TRADE_SIGNAL,
+    }
+
+
+def _build_target_price_secondary(parsed: dict) -> dict | None:
+    """Produce a target-price-only audit record, or None if no target-price
+    information is present. This file is NEVER consumed by merge_meta.
+    """
+    tp = parsed.get("target_price")
+    if not tp:
+        return None
+    return {
+        "source_pdf_sha256": parsed.get("source_pdf_sha256", ""),
+        "filename": parsed.get("filename", ""),
+        "broker": parsed.get("broker", ""),
+        "ticker_hint": parsed.get("ticker_hint", ""),
+        "target_price_old": tp.get("old"),
+        "target_price_new": tp.get("new"),
+        "target_price_role": "secondary_reference",
+        "primary_metric_present": select_primary_metric(parsed.get("metrics") or {}) is not None,
+        "direct_trade_signal": DIRECT_TRADE_SIGNAL,
+    }
+
+
+def _read_text_for_input(args: argparse.Namespace, *, filename_hint: str = "",
+                         text_path: Path | None = None) -> str:
+    if text_path is not None and text_path.is_file():
+        return text_path.read_text(encoding="utf-8", errors="replace")
+    return ""
+
+
+def _iter_inputs(args: argparse.Namespace):
+    """Yield (text, source_pdf_sha256, filename) tuples from the chosen
+    input mode. Honors --max-pdfs."""
+    import hashlib
+    import json as _json
+
+    count = 0
+    if args.inventory:
+        inv_path = Path(args.inventory).expanduser().resolve()
+        if not inv_path.is_file():
+            print(f"error: --inventory not found: {inv_path}", file=sys.stderr)
+            return
+        try:
+            inv = _json.loads(inv_path.read_text(encoding="utf-8"))
+        except _json.JSONDecodeError as exc:
+            print(f"error: --inventory not valid JSON: {exc}", file=sys.stderr)
+            return
+        selected = inv.get("selected") if isinstance(inv, dict) else None
+        if not isinstance(selected, list):
+            print("error: inventory has no `selected[]` list", file=sys.stderr)
+            return
+        text_dir = Path(args.text_dir).expanduser().resolve() if args.text_dir else None
+        for entry in selected:
+            if count >= args.max_pdfs:
+                break
+            sha = entry.get("source_pdf_sha256", "")
+            fn = entry.get("filename", "")
+            text = ""
+            if text_dir:
+                # try <stem>.txt
+                stem = Path(fn).stem
+                tp = text_dir / f"{stem}.txt"
+                if tp.is_file():
+                    text = tp.read_text(encoding="utf-8", errors="replace")
+            yield text, sha, fn
+            count += 1
+        return
+
+    if args.text:
+        if count >= args.max_pdfs:
+            return
+        tp = Path(args.text).expanduser().resolve()
+        if not tp.is_file():
+            print(f"error: --text not found: {tp}", file=sys.stderr)
+            return
+        text = tp.read_text(encoding="utf-8", errors="replace")
+        sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        fn = tp.name
+        yield text, sha, fn
+        return
+
+    if args.pdf:
+        # PR #12 deliberately defers PDF body parsing through pdfplumber to a
+        # later commit. For PR #12C the supported input modes are --text and
+        # --inventory; --pdf raises a clear error.
+        print("error: --pdf is not yet wired up. Use --text or --inventory "
+              "with pre-extracted text. (pdfplumber path will land in a "
+              "later commit on this branch.)", file=sys.stderr)
+        return
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -322,25 +574,73 @@ def main(argv: List[str] | None = None) -> int:
                   file=sys.stderr)
             return 2
 
-    # Skeleton: declare intent and exit. The actual parsing pipeline
-    # is implemented in subsequent commits on this branch.
     inputs_provided = sum(bool(x) for x in (args.pdf, args.text, args.inventory))
     if inputs_provided == 0:
         print("error: provide one of --pdf / --text / --inventory.", file=sys.stderr)
         return 2
 
+    import json as _json
+    structured: list[dict] = []
+    breakdown: list[dict] = []
+    secondary: list[dict] = []
+    parsed_count = 0
+    target_price_only_count = 0
+    malformed_count = 0
+
+    for text, sha, fn in _iter_inputs(args):
+        parsed_count += 1
+        parsed = parse_text_to_rows(text, source_pdf_sha256=sha,
+                                    filename=fn, date=args.date)
+        breakdown.append(_build_breakdown(parsed))
+        row = project_structured_row(parsed, date=args.date)
+        if row is not None:
+            # Hard invariant: never emit direct_trade_signal=True.
+            if row.get("direct_trade_signal") is not False:
+                print(f"error: invariant violated — direct_trade_signal != False "
+                      f"on emitted row for {fn}", file=sys.stderr)
+                return 3
+            structured.append(row)
+        else:
+            tp = _build_target_price_secondary(parsed)
+            if tp is not None:
+                secondary.append(tp)
+                target_price_only_count += 1
+            else:
+                malformed_count += 1
+
     mode = "DRY-RUN" if args.dry_run else "APPLY"
-    print(f"[{mode}] extractor: skeleton only (PR #12A); parsing logic is TODO.")
-    print(f"[{mode}] workdir = {workdir}")
-    print(f"[{mode}] out     = {out_path}")
-    print(f"[{mode}] max-pdfs = {args.max_pdfs} (hard cap {HARD_MAX_PDFS})")
-    print(f"[{mode}] ocr     = {args.ocr} (deterministic-only mode)")
-    print(f"[{mode}] primary-metric priority = {PRIMARY_METRIC_PRIORITY}")
-    print(f"[{mode}] direct_trade_signal     = {DIRECT_TRADE_SIGNAL}  (every emitted row)")
-    print(f"[{mode}] inputs provided         = "
-          f"pdf={bool(args.pdf)} text={bool(args.text)} inventory={bool(args.inventory)}")
-    print("[NOTE] PR #12A is a scaffold. Re-run after PR #12B+ commits add "
-          "parse_text_to_rows / select_primary_metric / project_structured_row.")
+    print(f"[{mode}] inputs parsed                  = {parsed_count} (cap {args.max_pdfs})")
+    print(f"[{mode}] structured (primary emitted)   = {len(structured)}")
+    print(f"[{mode}] breakdown (audit, all metrics) = {len(breakdown)}")
+    print(f"[{mode}] target_price_secondary (audit) = {len(secondary)}")
+    print(f"[{mode}] target-price-only count        = {target_price_only_count}")
+    print(f"[{mode}] no-metric / malformed count    = {malformed_count}")
+    print(f"[{mode}] direct_trade_signal=true count = "
+          f"{sum(1 for r in structured if r.get('direct_trade_signal') is not False)}")
+    if structured:
+        sample = structured[0]
+        print(f"[{mode}] sample primary row             = "
+              f"ticker={sample.get('ticker')!r} broker={sample.get('broker')!r} "
+              f"metric={sample.get('metric')!r} {sample.get('old_target')!r}"
+              f"→{sample.get('new_target')!r} ({sample.get('direction')!r})")
+
+    if args.dry_run:
+        print("[DRY-RUN] no files written. Re-run with --apply to materialize.")
+        return 0
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(_json.dumps(structured, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+    print(f"[APPLY] wrote {out_path}")
+    bd_path = workdir / "estimate_table_breakdown.json"
+    bd_path.write_text(_json.dumps(breakdown, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+    print(f"[APPLY] wrote {bd_path}")
+    sec_path = workdir / "target_price_secondary.json"
+    sec_path.write_text(_json.dumps(secondary, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+    print(f"[APPLY] wrote {sec_path}")
     return 0
 
 
