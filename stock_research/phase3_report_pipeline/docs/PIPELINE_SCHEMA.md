@@ -23,7 +23,16 @@ manual_meta.json (broker/old/new/horizon 일부 또는 전부 포함)
         v
 parsed_meta.json (sha256/source_key/direction/missing_fields 자동 채움)
         |
-        |  scripts/build_report_estimate_v132.py  --input parsed_meta.json --apply
+        |  (선택) scripts/vision_ocr_pdf.py --extract-mode estimate --apply
+        |    → structured_extraction.json (broker/old/new/horizon)
+        |  scripts/merge_meta.py
+        |    --bridge-meta parsed_meta.json
+        |    --structured  structured_extraction.json
+        |    --out         parsed_meta.merged.json   (manual > structured > filename_only)
+        v
+parsed_meta.merged.json (complete=true 인 record만 downstream 후보)
+        |
+        |  scripts/build_report_estimate_v132.py  --input parsed_meta.merged.json --apply
         v
 <PHASE3_OUTPUT_ROOT>/<date>/estimate_revision_rows.json
         |
@@ -84,6 +93,40 @@ parsed_meta.json (sha256/source_key/direction/missing_fields 자동 채움)
 | `horizon` | 투자 horizon (e.g., 12M) |
 | `source_key` | `phase3:report_estimate:v1.3.2[+<sha256[:12]>]` |
 
+## structured_extraction.json (vision_ocr `--extract-mode estimate` 산출)
+
+```json
+[
+  {
+    "source_pdf_sha256": "<64 hex>",
+    "filename": "20260430_[...].pdf",
+    "page": 1,
+    "broker": "NH투자증권",
+    "old_target": 80000,
+    "new_target": 95000,
+    "horizon": "12M",
+    "extraction_method": "vision_ocr_estimate",
+    "model": "claude-sonnet-4-6",
+    "confidence": 0.78,
+    "extracted_at": "<ISO 8601>",
+    "raw_text_excerpt": "(<= 200 chars; debug only)"
+  }
+]
+```
+
+## parsed_meta.merged.json (merge_meta 산출)
+
+bridge parsed_meta 와 동일 필드 + 다음 추가:
+
+| 필드 | 의미 |
+| --- | --- |
+| `merge_provenance` | `{<field>: <"manual"|"structured_extraction"|"filename_only">}` 매핑 |
+| `merge_conflicts` | (선택) 두 소스가 비-빈 값으로 충돌한 필드 기록 |
+| `complete` | `missing_fields == []` 일 때만 `true` |
+| `extraction_method` | `merged` (structured_extraction이 어떤 필드라도 채웠을 때) 또는 원래 bridge method |
+
+다운스트림 (`build_report_estimate` → `rolling_append`) 은 향후 `--strict` 게이트에서 `complete=true` 만 허용해야 한다 (별도 PR).
+
 ## Source Key Convention
 
 각 단계에서 누가 만들었는지를 추적하는 태그:
@@ -91,15 +134,22 @@ parsed_meta.json (sha256/source_key/direction/missing_fields 자동 채움)
 | 단계 | source_key |
 | --- | --- |
 | 스캔 | `phase3:scan_wisereport_company:v1` |
-| Bridge | `phase3:bridge_scan_to_parsed_meta:v1` (parsed_meta record는 estimate builder의 source_key를 사용; 이는 bridge 모듈 식별용) |
+| Bridge | `phase3:bridge_scan_to_parsed_meta:v1` (모듈 식별용; row 자체의 source_key는 estimate builder의 키 사용) |
+| Vision OCR (estimate) | record의 `extraction_method = vision_ocr_estimate` (별도 source_key 부착 안 함) |
+| Merge | `phase3:merge_meta:v1` (모듈 식별용; row 자체는 estimate builder의 키 사용) |
 | Estimate row 빌더 | `phase3:report_estimate:v1.3.2` (+`+<sha_short>` 부착 시 추적성 강화) |
-| Vision OCR | (별도 키 없음 — 본문은 row 가 아닌 보조 산출) |
 | Promote | `phase3:promote_report_outputs:v1` (감사 로그용; row 산출 없음) |
 
 ## 외부 데이터 위치
 
 repo 외부의 실제 데이터 위치는 본 PR 범위가 아니다.
 관련 정책은 `stock_research/docs/data_locations.md` (PR #2)를 참조하라.
+
+## TODO (deferred normalization)
+
+- **`horizon` 표기 통일**: `"12M"` / `"12개월"` / `"1Y"` / `"1년"` 등이 섞일 수 있다. 현재는 입력 문자열을 그대로 보존하며, 향후 PR에서 ISO 8601 duration 또는 `<n>M` / `<n>Y` 표준으로 정규화한다. `merge_meta.py`의 `complete` 가드는 horizon 비-empty만 검사하므로, 표기 차이로 인한 downstream dedupe 오작동 가능성을 별도 PR에서 해소해야 한다.
+- `build_report_estimate_v132.py --strict` 모드: `complete=false` 레코드를 명시적으로 reject. PR #5 범위 밖.
+- `ticker_map.csv` 자동 갱신 (DART/KRX master).
 
 ## Repo / 외부 경계
 

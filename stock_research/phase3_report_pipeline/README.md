@@ -12,12 +12,14 @@ phase3_report_pipeline/
 ├── scripts/
 │   ├── scan_wisereport_company.py        # <root>/<date>/기업/*.pdf 인덱싱 (read-only)
 │   ├── bridge_scan_to_parsed_meta.py     # scan + manual + ticker_map → parsed_meta.json (PR #4)
+│   ├── merge_meta.py                     # bridge + structured_extraction → merged parsed_meta (PR #5)
 │   ├── build_report_estimate_v132.py     # parsed_meta.json → estimate_revision_rows.json (v1.3.2)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
-│   └── vision_ocr_pdf.py                 # Vision OCR 스텁 (default 호출 안 함)
+│   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
 │   ├── parsed_meta.example.json          # manual partial meta 입력 형식 예시
-│   └── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
+│   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
+│   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── docs/
 │   ├── CLAUDE_CODE_RUNBOOK.md            # 단계별 실행 가이드
 │   ├── PIPELINE_SCHEMA.md                # 데이터 흐름·스키마 매핑
@@ -43,6 +45,8 @@ phase3_report_pipeline/
 2. (선택) `vision_ocr_pdf.py` → 페이지별 본문 텍스트 (사용자 명시 승인 후)
 3. 사람/외부 파서가 `manual_meta.json` 생성 (형식: `examples/parsed_meta.example.json` 참고)
 3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4, OCR/Vision 미호출)
+3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
+3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
 4. `build_report_estimate_v132.py` → `output/<date>/estimate_revision_rows.json`
 5. `stock_research/scripts/rolling_append.py`(PR #2) 로 CSV 누적 (dedupe-keys: `date,ticker,broker,source_key`)
 6. `promote_report_outputs.py --apply --confirm-promote` (이중 gate, 사용자 직접만)

@@ -51,6 +51,35 @@ python3 scripts/bridge_scan_to_parsed_meta.py \
 - bridge는 sha256/filename을 채우고 한글 종목명을 KRX 코드로 매핑하며 direction을 자동 계산한다.
 - **누락된 필드는 추정하지 않고 `missing_fields`에 기록**한다.
 
+### 3b) (선택) Vision 구조화 추출 (PR #5, 비용 게이트 별도)
+```
+# 항상 dry-run 먼저 — 호출 횟수와 모델 확인
+python3 scripts/vision_ocr_pdf.py --pdf <path-to-pdf> --extract-mode estimate
+# 명시 승인 후 --apply (env ANTHROPIC_API_KEY 필요)
+python3 scripts/vision_ocr_pdf.py --pdf <path> --extract-mode estimate \
+    --apply --output ./output/2026-04-30/structured_extraction.json
+```
+- estimate 모드는 임시 1-page PDF를 만들어 **ONLY page-1만 API에 전송**한다. 전체 PDF는 전송되지 않으며, 임시 파일은 finally 블록에서 자동 cleanup된다.
+- 결과 record에는 `payload_bytes_sent` (page-1 사이즈) 와 `original_pdf_bytes` (원본 사이즈) 가 함께 기록되어 사후 감사 가능.
+- 결과 형식은 `examples/structured_extraction.example.json` 와 동일.
+- **추가 의존성**: `pip install pypdf` 필요 (estimate `--apply` 사용 시). 미설치 환경에서도 `--help` / `--dry-run` 은 정상 동작.
+- LLM이 ```` ```json ... ``` ```` markdown fence로 응답해도 자동 제거 후 파싱.
+
+### 3c) merge_meta로 parsed_meta.json 보강 (PR #5, OCR/Vision 미호출)
+```
+python3 scripts/merge_meta.py \
+    --bridge-meta ./output/2026-04-30/parsed_meta.json \
+    --structured ./output/2026-04-30/structured_extraction.json \
+    --out ./output/2026-04-30/parsed_meta.merged.json
+# dry-run에서 priority/conflict 검토 → --apply
+```
+- sha256 기준 left-join. 우선순위: **manual > structured_extraction > filename_only**.
+- 충돌 시 manual 보존, 다른 후보는 `merge_conflicts` 에 기록.
+- target 정규화: `"80,000"` / `"95000"` / `80000` 모두 numeric으로. `null` / `""` / `"N/A"` / `"-"` 는 absent로 처리. 인식 불가 문자열은 `parse_failures` 에 기록되고 `missing_fields` 에 `target_parse_failed` 추가.
+- `complete=true` 는 **이중 가드**: missing_fields가 비어있고 AND direction ∈ {up, down, flat} 일 때만. 즉 old/new target이 실제 numeric일 때만.
+- 동일 `source_pdf_sha256` 가 `--structured` 입력에서 두 번 등장하면 merge_meta는 **fail-fast (exit 2)**, 조용한 덮어쓰기 없음.
+- **`complete=false` 레코드는 history CSV append 대상에서 제외**한다 (수동 검토 또는 `--strict` 게이트는 별도 PR).
+
 ### 4) Estimate revision row 생성
 ```
 python3 scripts/build_report_estimate_v132.py --input parsed_meta.json --date 2026-04-30

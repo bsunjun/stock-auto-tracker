@@ -1,0 +1,44 @@
+[
+  {
+    "source_pdf_sha256": "29220cc93c766b039314e8df5e8e14408a1ba31e8882a51d418c1d6f8eb9b288",
+    "filename": "20260430_[SK스퀘어] 참 좋은 주식.pdf",
+    "page": 1,
+    "broker": "NH투자증권",
+    "old_target": 80000,
+    "new_target": 95000,
+    "horizon": "12M",
+    "extraction_method": "vision_ocr_estimate",
+    "model": "claude-sonnet-4-6",
+    "confidence": 0.78,
+    "extracted_at": "2026-04-30T09:00:00+09:00",
+    "notes": "Fully extracted example. All four target fields parsed from page 1 box."
+  },
+  {
+    "source_pdf_sha256": "e6d8596c4a88df3a0588ebf335aa05201349166eb30894dab44aa3accff18379",
+    "filename": "20260430_[삼성물산] 양호한 출발.pdf",
+    "page": 1,
+    "broker": "KB증권",
+    "old_target": null,
+    "new_target": 180000,
+    "horizon": "6M",
+    "extraction_method": "vision_ocr_estimate",
+    "model": "claude-sonnet-4-6",
+    "confidence": 0.55,
+    "extracted_at": "2026-04-30T09:00:01+09:00",
+    "notes": "Partial extraction example. old_target absent in PDF (initial coverage)."
+  },
+  {
+    "source_pdf_sha256": "0263829989b6ee0b6a7da95e3e8a48e84cda6f0b8c9d83de83d6c3d2b6fa2c0d",
+    "filename": "20260430_[대한조선] 대한조선-실적, 수주, 주주환원 모두 완벽.pdf",
+    "page": 1,
+    "broker": null,
+    "old_target": null,
+    "new_target": null,
+    "horizon": null,
+    "extraction_method": "vision_ocr_estimate",
+    "model": "claude-sonnet-4-6",
+    "confidence": 0.05,
+    "extracted_at": "2026-04-30T09:00:02+09:00",
+    "notes": "Failed extraction example. Page 1 had no investment-opinion box; all fields null. Low confidence."
+  }
+]
