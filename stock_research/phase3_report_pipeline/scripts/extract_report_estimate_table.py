@@ -266,9 +266,12 @@ def _try_extract_metric_line(line: str) -> tuple[str, str, str] | None:
 # while extending coverage to '표3. 실적 전망' / '수정 후 / 수정 전 / 변동률'
 # layouts that pdfplumber emits from real WiseReport company reports.
 
-# Year tokens like 2025, 2026E, 2027F, 2028F. Standalone match — used both
-# to detect a horizon header line and to choose the preferred column.
-_YEAR_HEADER_TOKEN_RE = re.compile(r"\b(20\d{2}[EF]?)\b")
+# Year tokens like 2025, 2026E, 2027F, 2028F, 2024A. Standalone match — used
+# both to detect a horizon header line and to choose the preferred column.
+# `A` (actual) added in PR #18 so headers like '2024A 2025A 2026E 2027F'
+# (typical real-WiseReport forecast tables) are correctly recognized as
+# year-pivot tables for gap_reason='ambiguous_year_pivot' classification.
+_YEAR_HEADER_TOKEN_RE = re.compile(r"\b(20\d{2}[AEF]?)\b")
 
 # Markers used inside the revision table.
 _AFTER_LABELS = ("수정 후", "수정후")        # 'after' = new_target
@@ -459,6 +462,252 @@ def parse_revision_table_layout(text: str) -> tuple[dict[str, dict], str]:
     return parse_metric_revision_rows_from_window(text, start=win[0], end=win[1])
 
 
+# --- PR #18: additional broker-template variants --------------------------
+# Three label conventions different brokers use for "old / new" columns,
+# plus a side-anchor format observed in real WiseReport PDFs where the
+# revision rows are folded next to body text by pdfplumber.
+#
+# Variant header pairs. Each entry is (old_labels, new_labels, kind).
+# old_labels and new_labels are tuples of strings; the parser commits when
+# it sees BOTH a column whose header contains an old_label and a column
+# whose header contains a new_label.
+_VARIANT_LABEL_PAIRS: tuple[tuple[tuple[str, ...], tuple[str, ...], str], ...] = (
+    # 기존 (existing) / 변경 (changed)
+    (("기존",), ("변경",), "existing_changed"),
+    # 변경 전 / 변경 후
+    (("변경 전", "변경전"), ("변경 후", "변경후"), "change_before_after"),
+    # 직전 / 현재 (real WiseReport convention; e.g. 대덕전자)
+    (("직전",), ("현재",), "previous_current"),
+)
+
+# Side-anchor metric pattern: '<metric>(<year>[E|F]) <a> <b> ▲|▼|-'.
+# The change indicator (▲/▼/-) is REQUIRED. Real WiseReport revision panels
+# always include it; growth-rate / YoY tables do not. Requiring the
+# indicator is the cleanest discriminator between revision rows and other
+# tabular content that incidentally has the same `<metric>(<year>) <num> <num>`
+# shape (e.g. consensus growth percentages).
+_SIDE_ANCHOR_METRIC_RE = re.compile(
+    r"(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
+    r"\s*\(\s*(?P<horizon>\d{2,4}[EF]?)\s*\)\s+"
+    r"(?P<a>[+-]?[\d,]+(?:\.\d+)?)\s+"
+    r"(?P<b>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s+(?P<dir>[▲▼\-—–])"
+)
+
+# Side-anchor target price pattern (audit-only; never primary). Indicator
+# also required for symmetry with the metric pattern.
+_SIDE_ANCHOR_TARGET_PRICE_RE = re.compile(
+    r"목표주가\s+"
+    r"(?P<a>[+-]?[\d,]+(?:\.\d+)?)\s+"
+    r"(?P<b>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s+(?P<dir>[▲▼\-—–])"
+)
+
+
+def _normalize_horizon(token: str) -> str:
+    """Two-digit year tokens like '26E' → '2026E'; pass through 4-digit."""
+    if not token:
+        return token
+    m = re.match(r"^(\d{2,4})([EF]?)$", token)
+    if not m:
+        return token
+    yr, suffix = m.group(1), m.group(2)
+    if len(yr) == 2:
+        yr = "20" + yr
+    return yr + suffix
+
+
+def _resolve_old_new_with_indicator(a: str, b: str, indicator: str | None) -> tuple[str, str] | None:
+    """Given a side-anchor row's two number tokens and an optional ▲/▼
+    indicator, return (old, new). If the indicator contradicts the natural
+    column order (e.g. ▲ but a < b), swap so old/new align with the
+    indicator. Returns None when the indicator is ambiguous AND both
+    numbers fail to parse to finite floats.
+    """
+    a_n = parse_numeric(a)
+    b_n = parse_numeric(b)
+    # Default convention: first=new, second=old.
+    if a_n is None or b_n is None:
+        return None
+    if indicator in ("▲",):
+        return (b, a) if a_n >= b_n else (a, b)  # ensure new > old
+    if indicator in ("▼",):
+        return (b, a) if a_n <= b_n else (a, b)  # ensure new < old
+    # No indicator OR flat marker: trust column order (first=new, second=old).
+    return (b, a)
+
+
+def parse_side_anchor_revision_rows(text: str) -> tuple[dict[str, dict], str]:
+    """Scan every line for the '<metric>(<year>) <a> <b> [▲|▼]' side-anchor
+    pattern that real WiseReport PDFs use when pdfplumber folds the right-hand
+    revision panel into body lines. Returns (metrics, horizon).
+
+    First side-anchor occurrence per metric wins. The horizon returned is the
+    earliest forward-year token attached to the highest-priority metric, after
+    PRIMARY_METRIC_PRIORITY ordering.
+    """
+    if not isinstance(text, str):
+        return {}, ""
+    metrics: dict[str, dict] = {}
+    metric_horizons: dict[str, str] = {}
+    for line in text.splitlines():
+        for m in _SIDE_ANCHOR_METRIC_RE.finditer(line):
+            label = m.group("metric")
+            metric_name = METRIC_ALIASES.get(label) or METRIC_ALIASES.get(label.lower())
+            if metric_name is None or metric_name in metrics:
+                continue
+            old_new = _resolve_old_new_with_indicator(
+                m.group("a"), m.group("b"), m.group("dir")
+            )
+            if old_new is None:
+                continue
+            old, new = old_new
+            metrics[metric_name] = {"old": old, "new": new}
+            metric_horizons[metric_name] = _normalize_horizon(m.group("horizon"))
+
+    # Pick a representative horizon from the highest-priority metric.
+    horizon = ""
+    for m in PRIMARY_METRIC_PRIORITY:
+        if m in metric_horizons:
+            horizon = metric_horizons[m]
+            break
+    return metrics, horizon
+
+
+def parse_target_price_side_anchor(text: str) -> dict | None:
+    """Detect '목표주가 <a> <b> [▲|▼|-]' (no arrow) form and return
+    {'old', 'new'} so the secondary-audit path picks it up. Returns None
+    if not found or numbers don't parse."""
+    if not isinstance(text, str):
+        return None
+    for line in text.splitlines():
+        m = _SIDE_ANCHOR_TARGET_PRICE_RE.search(line)
+        if not m:
+            continue
+        old_new = _resolve_old_new_with_indicator(m.group("a"), m.group("b"), m.group("dir"))
+        if old_new is None:
+            continue
+        old, new = old_new
+        return {"old": old, "new": new}
+    return None
+
+
+def find_variant_estimate_table_window(text: str) -> tuple[int, int, str] | None:
+    """Locate a column-revision window that uses 기존/변경, 변경 전/후, or
+    직전/현재 instead of PR #17's 수정 후/전. Returns (start, end, kind) or
+    None. Used as a fallback to PR #17's locator on broker templates with
+    different label conventions.
+    """
+    if not isinstance(text, str):
+        return None
+    lines = text.splitlines()
+    if not lines:
+        return None
+    # Find a header line containing BOTH an old-label and a new-label.
+    header_idx = None
+    matched_kind = None
+    for i, line in enumerate(lines):
+        for old_labs, new_labs, kind in _VARIANT_LABEL_PAIRS:
+            if any(o in line for o in old_labs) and any(n in line for n in new_labs):
+                header_idx = i
+                matched_kind = kind
+                break
+        if header_idx is not None:
+            break
+    if header_idx is None:
+        return None
+    win_end = min(len(lines) - 1, header_idx + 40)
+    return header_idx, win_end, matched_kind
+
+
+def parse_before_after_variant_rows(
+    text: str, *, start: int, end: int, variant_kind: str
+) -> tuple[dict[str, dict], str]:
+    """Walk a variant column-window (e.g. 기존/변경) and parse metric rows.
+
+    Strategy: for each row that begins with a known metric label, look for
+    two numeric columns adjacent to the header columns. We use the SAME
+    column-index strategy as PR #17 (select_horizon_from_header to pick a
+    forward year) BUT the column-meaning depends on header order, which
+    varies by variant.
+
+    Conservative: when we cannot confidently identify which column is 'old'
+    vs 'new' (e.g. column count mismatch), return ({}, '') so caller falls
+    through to gap_reason logic.
+    """
+    if not isinstance(text, str):
+        return {}, ""
+    lines = text.splitlines()[start:end + 1]
+    if not lines:
+        return {}, ""
+
+    # Determine which side of the header carries 'new' vs 'old' for this variant.
+    # By design _VARIANT_LABEL_PAIRS lists (old_labels, new_labels), so we
+    # compare positions of any old_label vs any new_label within the header.
+    header = lines[0]
+    old_labs, new_labs, _ = next(
+        triple for triple in _VARIANT_LABEL_PAIRS if triple[2] == variant_kind
+    )
+    old_pos = min((header.find(lab) for lab in old_labs if lab in header), default=-1)
+    new_pos = min((header.find(lab) for lab in new_labs if lab in header), default=-1)
+    if old_pos < 0 or new_pos < 0:
+        return {}, ""
+    new_first = new_pos < old_pos  # if 'new' appears before 'old' in header
+
+    # Horizon: prefer YYYYE in header line, else default to "" (caller will
+    # try parse_horizon).
+    sel = select_horizon_from_header(header)
+    horizon = sel[0] if sel else ""
+
+    metrics: dict[str, dict] = {}
+    for line in lines[1:]:
+        s = line.strip()
+        if not s:
+            continue
+        matched_label = None
+        for label in _METRIC_LABEL_PREFIXES:
+            if s.startswith(label):
+                matched_label = label
+                break
+        if matched_label is None:
+            continue
+        rest = s[len(matched_label):]
+        rest = re.sub(r"^\s*\([^)]*\)", "", rest)
+        nums = _NUMBER_TOKEN_RE.findall(rest)
+        if len(nums) < 2:
+            continue
+        # Two-column variant rows: take the first two numbers.
+        a, b = nums[0], nums[1]
+        if new_first:
+            new_val, old_val = a, b
+        else:
+            old_val, new_val = a, b
+        # Validate finite numerics; skip otherwise.
+        if parse_numeric(old_val) is None or parse_numeric(new_val) is None:
+            continue
+        metric_name = METRIC_ALIASES[matched_label]
+        if metric_name not in metrics:
+            metrics[metric_name] = {"old": old_val, "new": new_val}
+    return metrics, horizon
+
+
+def parse_year_pivot_revision_rows(text: str) -> bool:
+    """Detect a year-pivot forecast table that lists multiple year columns
+    (e.g. 2024A 2025A 2026E) for metric rows but DOES NOT supply paired
+    before/after data. Returns True when such a table is detected.
+
+    The caller treats True as 'ambiguous_year_pivot' for gap_reason; we do
+    NOT emit metrics from this table because old/new is undeterminable.
+    """
+    if not isinstance(text, str):
+        return False
+    for line in text.splitlines():
+        # A line containing 3+ year-shaped tokens (e.g. '2024A 2025A 2026E')
+        # is the typical forecast-table header.
+        toks = _YEAR_HEADER_TOKEN_RE.findall(line)
+        if len(toks) >= 3:
+            return True
+    return False
 # --- end helpers ----------------------------------------------------------
 
 
@@ -591,11 +840,70 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
     for m, vals in layout_metrics.items():
         if m not in metrics:
             metrics[m] = vals
-    # Prefer the layout-chosen horizon (e.g. '2026E') over parse_horizon's
-    # bare-text first match (which can pick '2025' from a header row when
-    # that's not the intended estimate column).
+
+    # PR #18: variant column-window labels (기존/변경, 변경 전/후, 직전/현재).
+    # Additive — only fills missing metrics. Tracks whether any variant
+    # window was found, for gap_reason classification.
+    variant_kind_seen: str | None = None
+    variant_window = find_variant_estimate_table_window(text)
+    variant_horizon = ""
+    if variant_window is not None:
+        v_start, v_end, v_kind = variant_window
+        variant_kind_seen = v_kind
+        v_metrics, v_horizon = parse_before_after_variant_rows(
+            text, start=v_start, end=v_end, variant_kind=v_kind
+        )
+        for m, vals in v_metrics.items():
+            if m not in metrics:
+                metrics[m] = vals
+        variant_horizon = v_horizon
+
+    # PR #18: side-anchor row form (e.g. real WiseReport: '영업이익(26E) 251 201 ▲').
+    side_metrics, side_horizon = parse_side_anchor_revision_rows(text)
+    for m, vals in side_metrics.items():
+        if m not in metrics:
+            metrics[m] = vals
+
+    # PR #18: side-anchor target price (e.g. '목표주가 190,000 120,000 ▲'); only
+    # fills target_price if the existing arrow-form scan didn't.
+    if target_price is None:
+        tp_side = parse_target_price_side_anchor(text)
+        if tp_side is not None:
+            target_price = tp_side
+
+    # Horizon precedence:
+    # 1. PR #17 column-window horizon
+    # 2. PR #18 variant-window horizon
+    # 3. PR #18 side-anchor horizon (most-priority metric)
+    # 4. existing parse_horizon (first bare/E/F token in raw text)
     if layout_horizon:
         horizon = layout_horizon
+    elif variant_horizon:
+        horizon = variant_horizon
+    elif side_horizon:
+        horizon = side_horizon
+    # else: keep parse_horizon-derived horizon
+
+    # PR #18: gap_reason classification — additive audit field on breakdown.
+    gap_reason: str
+    if not text or not text.strip():
+        gap_reason = "empty_text"
+    elif metrics:
+        gap_reason = "parsed_metric_pair"
+    else:
+        # No metrics. Decide why.
+        if target_price is not None:
+            # Target-price-only is a meaningful state (PR #12 contract).
+            gap_reason = "target_price_only"
+        elif (find_estimate_revision_table_window(text) is not None
+              or variant_kind_seen is not None):
+            # We saw a revision-shaped window but couldn't pair old/new.
+            gap_reason = "no_metric_pair"
+        elif parse_year_pivot_revision_rows(text):
+            # Forecast-only table without paired before/after data.
+            gap_reason = "ambiguous_year_pivot"
+        else:
+            gap_reason = "no_revision_anchor"
 
     return {
         "source_pdf_sha256": source_pdf_sha256,
@@ -608,6 +916,8 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         "date": date,
         "extraction_method": EXTRACTION_METHOD,
         "pdf_engine": pdf_engine,
+        "gap_reason": gap_reason,
+        "variant_kind": variant_kind_seen,  # one of None / 'existing_changed' / etc.
     }
 
 
@@ -672,7 +982,14 @@ def project_structured_row(parsed: dict, *, date: str) -> dict | None:
 
 def _build_breakdown(parsed: dict) -> dict:
     """Produce an audit-only per-PDF breakdown record covering EVERY metric
-    found (not just the primary). Goes to estimate_table_breakdown.json."""
+    found (not just the primary). Goes to estimate_table_breakdown.json.
+
+    PR #18 adds two additive audit fields:
+      * gap_reason — one of {parsed_metric_pair, no_revision_anchor,
+        no_metric_pair, ambiguous_year_pivot, target_price_only,
+        empty_text}. Used for next-PR scoping; never consumed downstream.
+      * variant_kind — which variant column-window matched (if any).
+    """
     pdf_engine = parsed.get("pdf_engine")
     em = EXTRACTION_METHOD if not pdf_engine else f"{EXTRACTION_METHOD}+{pdf_engine}"
     return {
@@ -686,6 +1003,8 @@ def _build_breakdown(parsed: dict) -> dict:
         "primary_metric": select_primary_metric(parsed.get("metrics") or {}),
         "extraction_method": em,
         "pdf_engine": pdf_engine,
+        "gap_reason": parsed.get("gap_reason"),
+        "variant_kind": parsed.get("variant_kind"),
         "direct_trade_signal": DIRECT_TRADE_SIGNAL,
     }
 
