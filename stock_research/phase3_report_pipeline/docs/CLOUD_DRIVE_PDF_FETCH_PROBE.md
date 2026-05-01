@@ -135,15 +135,27 @@ elevated permissions, or fall back to OCR/Vision.
 
 ## Phase 3 — Run the deterministic parser (still cloud-side, no API)
 
-Only when Phase 2 produced a local PDF. Install pdfplumber if missing
-(deterministic-only, no API cost), then:
+Only when Phase 2 produced a local PDF. Try installing **either**
+pdfplumber **or** pypdf (deterministic-only, no API cost). Both are
+acceptable — PR #16 added pypdf as a lighter fallback for cloud
+sandboxes where pdfplumber's native dep stack is broken (cffi /
+cryptography panics under pyo3).
 
 ```
+# Option A — preferred: pdfplumber (better table fidelity)
 python3 -m pip install --user pdfplumber 2>&1 | tail -1
 python3 -c "import pdfplumber; print(pdfplumber.__version__)"
 
+# Option B — fallback: pypdf (lighter; PR #16). Use this if Option A
+# crashes on import.
+python3 -m pip install --user pypdf 2>&1 | tail -1
+python3 -c "import pypdf; print(pypdf.__version__)"
+
+# Run the parser with --pdf-engine auto (PR #16). It tries pdfplumber
+# first then falls back to pypdf; either is fine. NO OCR / Vision / API.
 python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
   --pdf /tmp/pr15_probe/<basename>.pdf \
+  --pdf-engine auto \
   --date <YYYY-MM-DD> \
   --workdir /tmp/pr15_probe/_extract \
   --apply
@@ -153,12 +165,13 @@ Capture from the parser stdout / from
 `/tmp/pr15_probe/_extract/structured_extraction.json` etc.:
 
 - `pdfplumber_available` — true/false (record version too)
+- `pypdf_available` — true/false (PR #16 fallback)
 - `parser_exit_code`
 - `structured_rows`, `breakdown_rows`, `target_price_secondary_rows`
 - `direct_trade_signal_true_count` — **MUST be 0**; otherwise STOP and
   escalate
 
-If parser_exit_code is 2 because pdfplumber is genuinely unavailable
+If parser_exit_code is 2 because BOTH pdfplumber AND pypdf are unavailable
 in the cloud session and `pip install` cannot succeed there, that is a
 valid Phase 3 outcome — record it and stop.
 

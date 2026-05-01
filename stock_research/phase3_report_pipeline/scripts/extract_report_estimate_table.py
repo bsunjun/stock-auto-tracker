@@ -293,6 +293,13 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
                    help="(PR #13) Optional path to write the raw extracted text "
                         "from --pdf for inspection. MUST live outside the repo "
                         "(refused with exit 2 otherwise). Default: not written.")
+    p.add_argument("--pdf-engine", dest="pdf_engine", default="auto",
+                   choices=("auto", "pdfplumber", "pypdf"),
+                   help="(PR #16) Deterministic PDF text extraction engine. "
+                        "'auto' (default) tries pdfplumber first then falls back "
+                        "to pypdf. Both are local-only — no OCR/Vision/API. If "
+                        "neither is installed the parser exits 2 with install "
+                        "guidance.")
 
     p.add_argument("--no-ocr", dest="ocr", action="store_false", default=False,
                    help="(default) Disable any OCR fallback. PR #12/#13 are "
@@ -320,14 +327,19 @@ EXTRACTION_METHOD = "deterministic_pdf_table_v1"
 
 
 def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
-                       date: str) -> dict:
+                       date: str, pdf_engine: str | None = None) -> dict:
     """Parse a single PDF's pre-extracted text into a structured record.
 
     Returned dict:
         source_pdf_sha256, filename, broker, ticker_hint, horizon,
         metrics: {<metric>: {old: <raw>, new: <raw>}, ...},
         target_price: {old, new} | None,
-        date, extraction_method
+        date, extraction_method, pdf_engine
+
+    `pdf_engine` (PR #16) is one of None / "pdfplumber" / "pypdf" and
+    indicates which deterministic extractor produced the input text. None
+    means the text came from --text or --inventory + --text-dir (no PDF
+    bytes touched by the parser).
     """
     if not isinstance(text, str):
         text = ""
@@ -381,6 +393,7 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         "target_price": target_price,
         "date": date,
         "extraction_method": EXTRACTION_METHOD,
+        "pdf_engine": pdf_engine,
     }
 
 
@@ -422,6 +435,8 @@ def project_structured_row(parsed: dict, *, date: str) -> dict | None:
         missing.append("horizon")
     complete = (not missing) and direction in {"up", "down", "flat"}
 
+    pdf_engine = parsed.get("pdf_engine")
+    em = EXTRACTION_METHOD if not pdf_engine else f"{EXTRACTION_METHOD}+{pdf_engine}"
     return {
         "source_pdf_sha256": sha,
         "filename": parsed.get("filename", ""),
@@ -435,7 +450,7 @@ def project_structured_row(parsed: dict, *, date: str) -> dict | None:
         "direction": direction,
         "complete": complete,
         "missing_fields": missing,
-        "extraction_method": EXTRACTION_METHOD,
+        "extraction_method": em,
         "source_key": sk,
         "direct_trade_signal": DIRECT_TRADE_SIGNAL,
     }
@@ -444,6 +459,8 @@ def project_structured_row(parsed: dict, *, date: str) -> dict | None:
 def _build_breakdown(parsed: dict) -> dict:
     """Produce an audit-only per-PDF breakdown record covering EVERY metric
     found (not just the primary). Goes to estimate_table_breakdown.json."""
+    pdf_engine = parsed.get("pdf_engine")
+    em = EXTRACTION_METHOD if not pdf_engine else f"{EXTRACTION_METHOD}+{pdf_engine}"
     return {
         "source_pdf_sha256": parsed.get("source_pdf_sha256", ""),
         "filename": parsed.get("filename", ""),
@@ -453,7 +470,8 @@ def _build_breakdown(parsed: dict) -> dict:
         "metrics": parsed.get("metrics") or {},
         "target_price": parsed.get("target_price"),
         "primary_metric": select_primary_metric(parsed.get("metrics") or {}),
-        "extraction_method": EXTRACTION_METHOD,
+        "extraction_method": em,
+        "pdf_engine": pdf_engine,
         "direct_trade_signal": DIRECT_TRADE_SIGNAL,
     }
 
@@ -488,6 +506,7 @@ def _build_target_price_secondary(parsed: dict) -> dict | None:
         "target_price_new": tp.get("new"),
         "target_price_role": "secondary_reference",
         "primary_metric_present": select_primary_metric(parsed.get("metrics") or {}) is not None,
+        "pdf_engine": parsed.get("pdf_engine"),
         "direct_trade_signal": DIRECT_TRADE_SIGNAL,
     }
 
@@ -499,36 +518,82 @@ def _read_text_for_input(args: argparse.Namespace, *, filename_hint: str = "",
     return ""
 
 
-def _read_pdf_text(path: Path) -> tuple[str, str | None]:
-    """Extract text from a PDF using pdfplumber (PR #13).
+def _engines_to_try(requested: str) -> list[str]:
+    """Return the ordered list of engines `_read_pdf_text` will attempt.
 
-    Returns (text, error_message). On any failure, text is "" and the error
-    message describes the cause; the caller is responsible for surfacing it.
-    NEVER calls OCR / Vision / network. pdfplumber is local-only and
-    deterministic.
-
-    Empty extract_text() output is preserved (joined as ""), which downstream
-    parse_text_to_rows handles naturally — the resulting record has no
-    metrics, so it is not emitted as a primary row, audited as no-primary
-    in estimate_table_breakdown.json, and counted as no-metric.
+    'pdfplumber' / 'pypdf' → just that one engine.
+    'auto' → ['pdfplumber', 'pypdf'] — pdfplumber preferred for table
+    fidelity; pypdf used as a lighter fallback when pdfplumber is missing
+    or its native dep stack is broken (e.g. cffi/cryptography panic on
+    cloud sandboxes).
     """
+    if requested == "auto":
+        return ["pdfplumber", "pypdf"]
+    if requested in ("pdfplumber", "pypdf"):
+        return [requested]
+    raise ValueError(f"unknown --pdf-engine value: {requested!r}")
+
+
+def _extract_with_pdfplumber(path: Path) -> tuple[str, str | None]:
     try:
         import pdfplumber  # type: ignore
     except ImportError:
-        return "", (
-            "pdfplumber is not installed. PR #13's --pdf path requires "
-            "`pip install pdfplumber`. PR #12's --text and --inventory "
-            "paths remain available without pdfplumber."
-        )
+        return "", "pdfplumber not installed (`pip install pdfplumber`)"
+    except Exception as exc:  # pyo3 panic, broken native deps, etc.
+        return "", f"pdfplumber import failed: {exc!r}"
     try:
         parts: list[str] = []
         with pdfplumber.open(str(path)) as pdf:
             for page in pdf.pages:
-                t = page.extract_text() or ""
-                parts.append(t)
+                parts.append(page.extract_text() or "")
         return "\n".join(parts), None
-    except Exception as exc:  # pdfplumber raises a variety of exceptions
+    except Exception as exc:
         return "", f"pdfplumber failed to read {path}: {exc!r}"
+
+
+def _extract_with_pypdf(path: Path) -> tuple[str, str | None]:
+    try:
+        import pypdf  # type: ignore
+    except ImportError:
+        return "", "pypdf not installed (`pip install pypdf`)"
+    except Exception as exc:  # cryptography native panic, etc.
+        return "", f"pypdf import failed: {exc!r}"
+    try:
+        parts: list[str] = []
+        reader = pypdf.PdfReader(str(path))
+        for page in reader.pages:
+            parts.append(page.extract_text() or "")
+        return "\n".join(parts), None
+    except Exception as exc:
+        return "", f"pypdf failed to read {path}: {exc!r}"
+
+
+def _read_pdf_text(path: Path, engines: list[str]) -> tuple[str, str | None, list[str]]:
+    """Extract text using the first engine in `engines` that succeeds.
+
+    Returns (text, used_engine_or_None, attempt_log). Each engine is tried
+    in order; if it fails (import error or parse error), the next is tried.
+    `attempt_log` is a list of strings like 'pdfplumber: <reason>' for
+    every engine attempted; useful for stderr diagnostics in the iterator.
+
+    NEVER calls OCR / Vision / network. Both pdfplumber and pypdf are
+    local-only deterministic libraries. Empty extract_text() output is
+    preserved verbatim — downstream parse_text_to_rows treats it as
+    no-metric and the row is correctly audited as primary=None.
+    """
+    log: list[str] = []
+    for eng in engines:
+        if eng == "pdfplumber":
+            text, err = _extract_with_pdfplumber(path)
+        elif eng == "pypdf":
+            text, err = _extract_with_pypdf(path)
+        else:
+            log.append(f"{eng}: unknown engine")
+            continue
+        if err is None:
+            return text, eng, log
+        log.append(f"{eng}: {err}")
+    return "", None, log
 
 
 def _iter_inputs(args: argparse.Namespace):
@@ -583,20 +648,35 @@ def _iter_inputs(args: argparse.Namespace):
         return
 
     if args.pdf:
-        # PR #13: deterministic-first, no-cost --pdf path via pdfplumber.
-        # No OCR / Vision / API. The pdfplumber import is lazy: missing
-        # dependency is reported by main()'s pre-flight guard with exit 2,
-        # so by the time we reach here the import is known to succeed.
+        # PR #13/#16: deterministic-first, no-cost --pdf path via pdfplumber
+        # and/or pypdf. No OCR / Vision / API. main()'s pre-flight has
+        # confirmed at least one engine in --pdf-engine's request list is
+        # importable; here we run them in order and fall through on failure.
         if count >= args.max_pdfs:
             return
         pp = Path(args.pdf).expanduser().resolve()
         if not pp.is_file():
             print(f"error: --pdf not found: {pp}", file=sys.stderr)
             return
-        text, err = _read_pdf_text(pp)
-        if err is not None:
-            print(f"error: {err}", file=sys.stderr)
+        engines = _engines_to_try(args.pdf_engine)
+        text, used, log = _read_pdf_text(pp, engines)
+        for line in log:
+            # Surface every engine attempt so operators can see why a
+            # primary engine failed and the fallback ran. These lines
+            # never include PDF body content.
+            print(f"[pdf engine] {line}", file=sys.stderr)
+        if used is None:
+            print(
+                f"error: --pdf engines exhausted ({', '.join(engines)}); "
+                f"install at least one (`pip install pdfplumber` preferred, "
+                f"`pip install pypdf` lighter). PR #16 does not call "
+                f"OCR/Vision/API.",
+                file=sys.stderr,
+            )
             return
+        if used != engines[0]:
+            print(f"[pdf engine] fell back to {used} after primary failed",
+                  file=sys.stderr)
         if args.debug_text_out:
             dbg = Path(args.debug_text_out).expanduser().resolve()
             if _is_inside_repo(dbg):
@@ -609,6 +689,9 @@ def _iter_inputs(args: argparse.Namespace):
         # source_pdf_sha256 is the sha256 of the actual PDF bytes (not the
         # extracted text), so it joins with merge_meta keys cleanly.
         sha = hashlib.sha256(pp.read_bytes()).hexdigest()
+        # Stash the engine on a per-call attribute so the main consumer
+        # can thread it into parse_text_to_rows.
+        args._chosen_engine = used
         yield text, sha, pp.name
         return
 
@@ -663,20 +746,40 @@ def main(argv: List[str] | None = None) -> int:
                   f"(got {dbg})", file=sys.stderr)
             return 2
 
-    # PR #13 pre-flight for the --pdf path: hard-fail (exit 2) on missing file
-    # or missing pdfplumber, instead of silently running with zero inputs.
+    # PR #13/#16 pre-flight for the --pdf path: hard-fail (exit 2) on missing
+    # file, unknown engine choice, or no usable engine on the system.
     if args.pdf:
         pp = Path(args.pdf).expanduser().resolve()
         if not pp.is_file():
             print(f"error: --pdf not found: {pp}", file=sys.stderr)
             return 2
         try:
-            import pdfplumber  # noqa: F401  (availability check only)
-        except ImportError:
+            engines = _engines_to_try(args.pdf_engine)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        # Probe each requested engine for importability. A pyo3/cffi panic
+        # during import (cloud sandbox class of failures) is treated the
+        # same as ImportError — the engine is unavailable for this run.
+        usable: list[str] = []
+        attempt_log: list[str] = []
+        for eng in engines:
+            try:
+                __import__(eng)
+                usable.append(eng)
+            except ImportError as exc:
+                attempt_log.append(f"{eng}: not installed ({exc})")
+            except Exception as exc:
+                attempt_log.append(f"{eng}: import failed ({type(exc).__name__})")
+        if not usable:
+            for line in attempt_log:
+                print(f"[pdf engine] {line}", file=sys.stderr)
             print(
-                "error: --pdf requires pdfplumber. Install via "
-                "`pip install pdfplumber` first, or use --text / --inventory "
-                "with pre-extracted text. PR #13 does not call OCR/Vision/API.",
+                "error: --pdf requires at least one of: "
+                f"{', '.join(engines)}. Install via `pip install pdfplumber` "
+                "(preferred) or `pip install pypdf` (lighter, PR #16 fallback). "
+                "PR #16 does not call OCR/Vision/API; --text and --inventory "
+                "paths remain available without any PDF library.",
                 file=sys.stderr,
             )
             return 2
@@ -691,8 +794,13 @@ def main(argv: List[str] | None = None) -> int:
 
     for text, sha, fn in _iter_inputs(args):
         parsed_count += 1
+        # When --pdf was used, _iter_inputs stashed the chosen engine on
+        # args._chosen_engine; for --text and --inventory paths it stays
+        # unset and pdf_engine remains None.
+        engine = getattr(args, "_chosen_engine", None) if args.pdf else None
         parsed = parse_text_to_rows(text, source_pdf_sha256=sha,
-                                    filename=fn, date=args.date)
+                                    filename=fn, date=args.date,
+                                    pdf_engine=engine)
         breakdown.append(_build_breakdown(parsed))
 
         row = project_structured_row(parsed, date=args.date)
