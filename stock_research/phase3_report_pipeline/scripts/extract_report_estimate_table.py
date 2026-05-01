@@ -806,6 +806,7 @@ def parse_before_after_variant_rows(
 
     metrics: dict[str, dict] = {}
     rejected_growth = False
+    rejected_dup_flat = False
     for line in lines[1:]:
         s = line.strip()
         if not s:
@@ -841,23 +842,102 @@ def parse_before_after_variant_rows(
         if _is_likely_growth_rate(metric_name, old_val, new_val):
             rejected_growth = True
             continue
+        # PR #27: duplicate-column flat disambiguation. The variant column-
+        # window scanner reads two adjacent numeric tokens off a single line.
+        # If both raw token strings are byte-identical AND the line itself
+        # has fewer than 2 distinct numeric tokens, we cannot tell whether
+        # this was 'intentional flat' or 'scanner read the same column
+        # twice'. We require an explicit flat-context marker (유지 / 동일 /
+        # unchanged / flat / 변동 없음 / no change) on the same line to
+        # admit the row. Without that marker the row is dropped from
+        # `metrics` and surfaces via gap_hint='duplicate_column_flat_rejected'
+        # (only when no other metric committed). Replaces the PR #26 audit
+        # flag — rejected metrics now never enter the breakdown's metrics
+        # dict. PR #12 arrow-pair flat (`<metric> 30,000 → 30,000`) is
+        # unaffected: arrow-pair scanner emits BEFORE this point and never
+        # reaches `validate_flat_revision_pair`.
+        if is_duplicate_column_flat_candidate(s, old_val, new_val):
+            if not has_explicit_flat_context(s):
+                rejected_dup_flat = True
+                continue
         if metric_name not in metrics:
-            entry = {"old": old_val, "new": new_val}
-            # PR #26: defensive audit. The variant column-window scanner reads
-            # two adjacent numeric tokens off a single line; if both raw token
-            # strings are byte-identical we cannot distinguish "intentional
-            # flat (no estimate change)" from "scanner read the same column
-            # twice". Surface the latter possibility for operator review. This
-            # is additive — primary-row emission and direction='flat' are
-            # unaffected; the flag lives only on the breakdown audit record.
-            if str(old_val) == str(new_val):
-                entry["audit_flags"] = ["flat_possible_duplicate_column"]
-            metrics[metric_name] = entry
+            metrics[metric_name] = {"old": old_val, "new": new_val}
 
     gap_hint = ""
-    if not metrics and rejected_growth:
-        gap_hint = "variant_rejected_growth_rate"
+    if not metrics:
+        if rejected_growth:
+            gap_hint = "variant_rejected_growth_rate"
+        elif rejected_dup_flat:
+            gap_hint = "duplicate_column_flat_rejected"
     return metrics, horizon, gap_hint
+
+
+# --- PR #27: duplicate-column flat disambiguation --------------------------
+#
+# The PR #26 5-PDF cloud smoke flagged LG전자 with byte-identical numeric
+# tokens on TWO metric rows (sales 23,733/23,733 and op 1,673.6/1,673.6) of
+# a `change_before_after` variant column-window — the strongest possible
+# signal that the scanner read a single column twice. PR #26 surfaced this
+# only as an audit flag on the breakdown; PR #27 promotes it to a hard
+# rejection of the candidate row UNLESS an explicit 'flat' / 'unchanged'
+# marker is present on the same line.
+#
+# Rule summary (per user spec):
+#   A. metric row's old/new tokens byte-identical AND line has <2 distinct
+#      numeric tokens → dup-column candidate.
+#   B. dup-column candidate WITH explicit flat-context marker on the same
+#      line → admit (legitimate 'flat / 변동 없음' revision).
+#   C. dup-column candidate WITHOUT marker → reject; surface as
+#      gap_hint='duplicate_column_flat_rejected' if no other metric
+#      survived the variant scan.
+#   D. PR #12 arrow-pair flat (`<metric> 30,000 → 30,000`) goes through a
+#      DIFFERENT scanner (`_try_extract_metric_line`) that never invokes
+#      these helpers, so the legacy fixture stays byte-identical.
+
+_FLAT_CONTEXT_KEYWORDS: tuple[str, ...] = (
+    "유지", "동일", "변동 없음", "변동없음",
+    "unchanged", "flat", "no change", "no-change",
+)
+
+
+def has_explicit_flat_context(line: str) -> bool:
+    """Return True iff `line` carries one of the
+    `_FLAT_CONTEXT_KEYWORDS` markers that legitimize an old==new revision
+    pair. Strictly line-scoped (not file-scoped) so a stray '변동 없음'
+    elsewhere in the comment cannot whitewash an unrelated table row.
+    """
+    if not isinstance(line, str):
+        return False
+    return any(k in line for k in _FLAT_CONTEXT_KEYWORDS)
+
+
+def is_duplicate_column_flat_candidate(line: str, old_val: object, new_val: object) -> bool:
+    """Return True iff `old_val` and `new_val` are byte-identical strings.
+
+    A strict gate per user spec rule B: the variant column-window scanner
+    cannot tell whether a flat (old==new) row is an intentional 'no-change'
+    revision or a column-duplication scanner artifact. Even when the line
+    has 5+ distinct numeric tokens, the FIRST TWO (which the scanner picks
+    as old/new) being identical is enough signal — the legitimate-flat
+    case is admitted via `has_explicit_flat_context` rather than by line-
+    token-count heuristics. The `line` argument is kept on the signature
+    for symmetry with `validate_flat_revision_pair` and possible future
+    line-aware tightening."""
+    return str(old_val) == str(new_val)
+
+
+def validate_flat_revision_pair(line: str, old_val: object, new_val: object) -> bool:
+    """Return True iff the (old, new) pair on `line` is OK to commit as a
+    structured-row-eligible metric:
+      * non-flat pairs (old != new as strings) → True
+      * flat pairs WITH explicit flat context on the line → True
+      * flat pairs WITHOUT explicit flat context → False
+    Used by the variant column-window scanner; arrow-pair / KV / NL / side-
+    anchor scanners do not invoke this gate.
+    """
+    if str(old_val) != str(new_val):
+        return True
+    return has_explicit_flat_context(line)
 
 
 def parse_year_pivot_revision_rows(text: str) -> bool:

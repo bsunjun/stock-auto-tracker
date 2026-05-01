@@ -1,0 +1,42 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #27 duplicate-column flat disambiguation. Four anonymized synthetic fixtures: (a) variant column-window with byte-identical numeric tokens AND no flat context → all rejected (gap_reason='duplicate_column_flat_rejected'); (b) variant column-window with byte-identical numeric tokens AND explicit '(유지)' / '(변동 없음)' context → admitted (legitimate flat revision); (c) PR #12 arrow-pair flat (`<metric> X → X`) — different code path, byte-identical to PR #12 broker_b_op_only_up_sales_flat behavior; (d) mixed: sales rejected as dup-column, op/eps survive, primary=op. Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 4,
+  "selected_count": 4,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_duplicate_column_flat_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "4040404040404040404040404040404040404040404040404040404040404040"
+    },
+    {
+      "filename": "real_layout_explicit_flat_allowed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "5050505050505050505050505050505050505050505050505050505050505050"
+    },
+    {
+      "filename": "real_layout_arrow_pair_flat_legacy_allowed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "6060606060606060606060606060606060606060606060606060606060606060"
+    },
+    {
+      "filename": "real_layout_mixed_duplicate_sales_valid_op.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "7070707070707070707070707070707070707070707070707070707070707070"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

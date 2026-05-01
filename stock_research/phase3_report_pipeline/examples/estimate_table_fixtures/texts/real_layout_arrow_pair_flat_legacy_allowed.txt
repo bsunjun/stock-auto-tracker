@@ -1,0 +1,16 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[브로커 코멘트]
+PR #12 arrow-pair scanner 가 잡는 legacy flat 케이스. 화살표 (→) 양옆에
+동일 numeric token 이 있어도 PR #27 의 dup-column 게이트는 우회한다
+(arrow-pair 는 별도 코드 경로이며 validate_flat_revision_pair 를
+호출하지 않는다).
+
+매출액 30,000 → 30,000
+영업이익 100 → 110
+
+위 두 줄로 sales (flat) 와 op (up) 가 모두 정상 추출되어야 한다.
+PR #12 broker_b_op_only_up_sales_flat fixture 와 동일한 layout 이며
+PR #27 도 byte-identical 동작 (sales=flat, op=up) 을 유지한다.
