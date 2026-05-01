@@ -1,0 +1,37 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #17 — anonymized real-WiseReport-shaped layout fixtures. Each text file under texts/ mimics the 표3. 실적 전망 / 수정 후 / 수정 전 / 변동률 layout that pdfplumber emits from real WiseReport PDFs. shas are deterministic placeholders, never real PDF hashes. Filenames do NOT include a [...] ticker block — the new layout parser does not depend on it for metric extraction; bridge_meta.real_layout.synthetic.json supplies KRX tickers for the chain test.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 3,
+  "selected_count": 3,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_revision_table_a.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "filename": "real_layout_revision_table_split_lines.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "filename": "real_layout_no_revision_table.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

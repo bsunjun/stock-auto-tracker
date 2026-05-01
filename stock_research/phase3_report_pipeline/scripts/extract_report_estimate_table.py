@@ -259,6 +259,206 @@ def _try_extract_metric_line(line: str) -> tuple[str, str, str] | None:
                 return None
             return METRIC_ALIASES[label], old, new
     return None
+# --- PR #17: real-WiseReport revision-table layout parser ----------------
+# These helpers are additive: parse_text_to_rows runs them AFTER the PR #12
+# arrow-pair scanner, and only fills metrics the arrow scanner missed. This
+# keeps the existing synthetic regression (PR #12 fixtures) byte-identical
+# while extending coverage to '표3. 실적 전망' / '수정 후 / 수정 전 / 변동률'
+# layouts that pdfplumber emits from real WiseReport company reports.
+
+# Year tokens like 2025, 2026E, 2027F, 2028F. Standalone match — used both
+# to detect a horizon header line and to choose the preferred column.
+_YEAR_HEADER_TOKEN_RE = re.compile(r"\b(20\d{2}[EF]?)\b")
+
+# Markers used inside the revision table.
+_AFTER_LABELS = ("수정 후", "수정후")        # 'after' = new_target
+_BEFORE_LABELS = ("수정 전", "수정전")        # 'before' = old_target
+_PCT_LABELS = ("변동률", "변동 률", "변동율")
+
+
+def select_horizon_from_header(header_line: str) -> tuple[str, int] | None:
+    """Pick a horizon token + its 0-based column index from a header line.
+
+    Preference, in order:
+        1. first 'YYYYE' (estimate year)
+        2. first 'YYYYF' (forecast year)
+        3. first bare 'YYYY'
+    Returns (horizon_token, column_index) or None when the line has no
+    year-shaped tokens. Forward-year preference is intentional so the
+    parser keeps choosing the most-recent E column as time rolls.
+    """
+    if not isinstance(header_line, str):
+        return None
+    tokens = _YEAR_HEADER_TOKEN_RE.findall(header_line)
+    if not tokens:
+        return None
+    for i, t in enumerate(tokens):
+        if t.endswith("E"):
+            return t, i
+    for i, t in enumerate(tokens):
+        if t.endswith("F"):
+            return t, i
+    return tokens[0], 0
+
+
+def find_estimate_revision_table_window(text: str) -> tuple[int, int] | None:
+    """Locate the [start, end] line range of the revision table.
+
+    Anchors:
+      * a line containing '수정 후' (or '수정후') OR '수정 전' (or '수정전')
+        (definitive marker for revision rows in this layout family);
+      * a 'YYYYE'-bearing header line within ~15 lines above the anchor.
+    If no after/before marker exists, return None — the new parser sees
+    no revision table and stays out of the way.
+    """
+    if not isinstance(text, str):
+        return None
+    lines = text.splitlines()
+    if not lines:
+        return None
+    anchor = None
+    for i, line in enumerate(lines):
+        if any(lab in line for lab in _AFTER_LABELS + _BEFORE_LABELS):
+            anchor = i
+            break
+    if anchor is None:
+        return None
+    look_back = max(0, anchor - 15)
+    header_idx = None
+    for i in range(anchor, look_back - 1, -1):
+        if select_horizon_from_header(lines[i]) is not None:
+            header_idx = i
+            break
+    win_start = header_idx if header_idx is not None else max(0, anchor - 5)
+    # End the window at the first non-table marker we recognize, or after
+    # 40 lines (whichever is sooner). We look for known stop markers:
+    #   - blank line followed by another blank
+    #   - line starting with '목표주가' (target price block)
+    win_end = min(len(lines) - 1, anchor + 40)
+    return win_start, win_end
+
+
+def parse_metric_revision_rows_from_window(
+    text: str, *, start: int, end: int
+) -> tuple[dict[str, dict], str]:
+    """Walk the table window line by line; return (metrics, horizon_token).
+
+    metrics: {<canonical-metric>: {old: <raw>, new: <raw>}}
+    horizon_token: chosen header token; "" if none.
+
+    Handles BOTH compact form (numbers on the same line as '수정 후/전') and
+    split-line form (label and numbers on separate lines). 변동률 lines are
+    informational and skipped.
+    """
+    if not isinstance(text, str):
+        return {}, ""
+    lines = text.splitlines()[start:end + 1]
+    if not lines:
+        return {}, ""
+
+    horizon_token = ""
+    horizon_col = None
+    for line in lines:
+        sel = select_horizon_from_header(line)
+        if sel is not None:
+            horizon_token, horizon_col = sel
+            break
+    if horizon_col is None:
+        return {}, ""
+
+    metrics: dict[str, dict] = {}
+    current_metric: str | None = None
+    pending_after: list[str] | None = None
+    pending_before: list[str] | None = None
+
+    def _commit():
+        nonlocal pending_after, pending_before
+        if (current_metric and current_metric not in metrics
+                and pending_after is not None and pending_before is not None
+                and len(pending_after) > horizon_col
+                and len(pending_before) > horizon_col):
+            metrics[current_metric] = {
+                "old": pending_before[horizon_col],
+                "new": pending_after[horizon_col],
+            }
+        # Reset pendings whether or not we committed; the next metric starts fresh.
+        pending_after = None
+        pending_before = None
+
+    for raw_line in lines:
+        s = raw_line.strip()
+        if not s:
+            continue
+
+        # 1) Skip target-price line: never primary in PR #12/#17 contract.
+        if "목표주가" in s:
+            continue
+
+        # 2) Metric label line. The longest match wins (e.g. '지배순이익' beats
+        #    '순이익'). Only treat as a label if the line begins with the alias
+        #    OR has the alias preceded by punctuation only.
+        matched_label = None
+        for label in _METRIC_LABEL_PREFIXES:
+            if s.startswith(label):
+                matched_label = label
+                break
+        if matched_label is not None:
+            # Commit any pending data for the previous metric before switching.
+            _commit()
+            current_metric = METRIC_ALIASES[matched_label]
+            # If the same line already carries 'old → new' (PR #12 arrow form),
+            # let _try_extract_metric_line handle it via parse_text_to_rows;
+            # the new layout parser's _commit fires only when 수정 후/전 are
+            # populated, so a same-line arrow row does NOT incorrectly commit
+            # here. Continue to the next line.
+            continue
+
+        # 3) 수정 후 / 수정 전 / 변동률 markers.
+        if any(lab in s for lab in _AFTER_LABELS):
+            nums = _NUMBER_TOKEN_RE.findall(s)
+            # Strip prefix '- 수정 후' tokens; numbers come AFTER the marker.
+            pending_after = nums  # may be [] if numbers wrap to next line
+            # If we now have both sides, commit immediately.
+            if pending_after and pending_before is not None and pending_before:
+                _commit()
+            continue
+        if any(lab in s for lab in _BEFORE_LABELS):
+            nums = _NUMBER_TOKEN_RE.findall(s)
+            pending_before = nums
+            if pending_after is not None and pending_after and pending_before:
+                _commit()
+            continue
+        if any(lab in s for lab in _PCT_LABELS):
+            # 변동률 line — informational only; never commit numbers from it.
+            continue
+
+        # 4) Numeric-only continuation line: fill the most-recently-opened
+        #    pending bucket that is still empty. This handles the split-line
+        #    form where '- 수정 후' is on one line and the numbers come on
+        #    the next non-marker line.
+        nums = _NUMBER_TOKEN_RE.findall(s)
+        if not nums:
+            continue
+        if pending_after is not None and not pending_after:
+            pending_after = nums
+        elif pending_before is not None and not pending_before:
+            pending_before = nums
+        if pending_after and pending_before:
+            _commit()
+
+    # Commit any trailing pending metric at end of window.
+    _commit()
+    return metrics, horizon_token
+
+
+def parse_revision_table_layout(text: str) -> tuple[dict[str, dict], str]:
+    """Top-level entry: locate window + parse metrics. ({}, "") on miss."""
+    win = find_estimate_revision_table_window(text)
+    if win is None:
+        return {}, ""
+    return parse_metric_revision_rows_from_window(text, start=win[0], end=win[1])
+
+
 # --- end helpers ----------------------------------------------------------
 
 
@@ -373,7 +573,8 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
             target_price = {"old": old, "new": new}
             break
 
-    # Metrics: scan every line; first occurrence per metric wins.
+    # Metrics: scan every line; first occurrence per metric wins (PR #12
+    # 'old → new' arrow-pair form).
     metrics: dict[str, dict] = {}
     for line in text.splitlines():
         result = _try_extract_metric_line(line)
@@ -382,6 +583,19 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         metric_name, old, new = result
         if metric_name not in metrics:
             metrics[metric_name] = {"old": old, "new": new}
+
+    # PR #17: real-WiseReport revision-table layout. Runs ONLY on metrics
+    # the PR #12 arrow scanner missed — so synthetic regression fixtures
+    # (which match arrow-pair) keep their identical metrics dict.
+    layout_metrics, layout_horizon = parse_revision_table_layout(text)
+    for m, vals in layout_metrics.items():
+        if m not in metrics:
+            metrics[m] = vals
+    # Prefer the layout-chosen horizon (e.g. '2026E') over parse_horizon's
+    # bare-text first match (which can pick '2025' from a header row when
+    # that's not the intended estimate column).
+    if layout_horizon:
+        horizon = layout_horizon
 
     return {
         "source_pdf_sha256": source_pdf_sha256,

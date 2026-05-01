@@ -219,6 +219,18 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
+## Compatibility with PR #17 layout parser
+
+PR #17 extended `extract_report_estimate_table.py` with a real-WiseReport
+"표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader. The probe
+runbook is unchanged — `--pdf-engine auto` (PR #16) still selects the
+extraction engine, and the layout parser is wholly internal: when the
+text contains `수정 후` / `수정 전` markers near a `YYYYE` header, the
+new parser fills the metrics dict; when it doesn't (e.g., the cloud
+real-PDF smoke from PR #15/#16 on `대덕전자`), the layout parser
+correctly stays out of the way and `metrics={}` is reported as the
+honest result. No OCR/Vision/API fallback was added.
+
 ## What this PR does NOT do
 
 - **Does not execute** any Drive search, metadata read, or PDF
