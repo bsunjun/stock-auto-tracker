@@ -1,0 +1,47 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #31 year-pivot gap taxonomy refinement. Five anonymized synthetic fixtures exercise (a) renamed PR #26 path → year_pivot_forecast_only_no_revision, (b) explicit 기존(26E)/변경(26E) revision panel embedded under a year-pivot table → parsed_metric_pair (operating_profit primary, direction=up), (c) year-pivot + 영업이익률(%)/순이익률(%)/EPS 성장률(YoY) rows + 목표주가 keyword → year_pivot_has_metric_headers_no_old_new, (d) year-pivot + 수정/변경 prose phrases near the pivot table → year_pivot_positional_revision_candidate, (e) year-pivot consisting entirely of margin/YoY rows → year_pivot_has_metric_headers_no_old_new (no primary metric extractable). Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 5,
+  "selected_count": 5,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_year_pivot_forecast_only_no_revision.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    },
+    {
+      "filename": "real_layout_year_pivot_labeled_existing_changed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    },
+    {
+      "filename": "real_layout_year_pivot_metric_headers_no_old_new.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+    },
+    {
+      "filename": "real_layout_year_pivot_positional_candidate_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+    },
+    {
+      "filename": "real_layout_year_pivot_margin_yoy_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}
