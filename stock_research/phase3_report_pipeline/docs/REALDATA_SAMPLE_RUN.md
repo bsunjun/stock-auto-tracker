@@ -486,6 +486,44 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #29 (inventory batch path for estimate parser smoke, MERGED)** —
+  raises the parser's `HARD_MAX_PDFS` from 10 to 50 and adds a
+  fourth `--apply` output `parser_batch_summary.json`
+  (counter/file-name only — no PDF body / extracted text leaks).
+  Schema = `phase3:parser_batch_summary:v1`. Includes a
+  `forbidden_actions_confirmed` block that materializes the parser's
+  runtime invariants (OCR/Vision/API, direct_trade_signal=true,
+  target_price-as-primary, repo writes, drive writes, rolling
+  --apply, promote/Super Pack — all 0). `--max-pdfs` default stays
+  at 10 so single-PDF smokes are byte-identical to PR #12+ baselines;
+  values above 50 exit 2. PR #12-#28 inventories produce 0 diffs on
+  structured / breakdown / target_price_secondary (the new summary
+  is additive). New chain runner
+  `examples/run_inventory_batch_smoke.py` orchestrates parser →
+  bridge → merge → build_report_estimate_v132 --strict (dry-run
+  friendly; outputs land in `/tmp/<workdir>` only). The runner's
+  `--chain-build` checks build summary's
+  `direct_trade_signal_all_false=True` and aborts with exit 3
+  otherwise. rolling --apply is **never** invoked; workdir-in-repo
+  is refused with exit 2. Recommended operator-host smoke:
+  `--max-pdfs 20-50` against a real-PDF inventory; cloud smoke caps
+  effectively at ≤ 10 due to response-token budget on
+  `download_file_content`.
+
+  Operator-host batch smoke recipe:
+  ```
+  python3 stock_research/phase3_report_pipeline/examples/run_inventory_batch_smoke.py \\
+      --inventory <inv.json> \\
+      --pdf-engine auto \\
+      --workdir   /tmp/phase3_batch_smoke \\
+      --max-pdfs  20 \\
+      --manual-meta <manual_meta.json> \\
+      --ticker-map  stock_research/phase3_report_pipeline/resources/ticker_map.csv \\
+      --chain-bridge --chain-merge --chain-build
+  ```
+  Paste-back: report ONLY `inventory_batch_smoke_summary.json`
+  counters; never PDF body / extracted text / full sha.
+
 - **PR #28 (additional side-anchor template variant, MERGED)** —
   adds three conservative side-anchor template guards driven by
   the post-PR-#27 5-PDF cloud smoke residuals (삼성물산

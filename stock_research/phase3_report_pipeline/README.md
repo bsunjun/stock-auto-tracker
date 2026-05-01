@@ -28,6 +28,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #26: 자연어 revision 보강 (`<metric> X에서 Y로 상향/하향`; direction word 필수, 방향 일치 강제), inline KV side-anchor (`<metric>(year): 기존 X / 변경 Y`), variant column-window 의 byte-identical 두 column 에 audit_flags=['flat_possible_duplicate_column'] 추가
 │   │                                     #   PR #27: variant column-window 의 byte-identical old/new 를 hard reject — '유지 / 동일 / 변동 없음 / unchanged / flat / no change' 같은 명시적 flat context 가 같은 line 에 있을 때만 admit. PR #26 의 audit_flag 는 제거되고 새 gap_reason 'duplicate_column_flat_rejected' 가 발화. arrow-pair scanner 는 별도 코드 경로이며 영향 없음 (PR #12 fixture byte-identical).
 │   │                                     #   PR #28: side-anchor template 보강 — multi-line KV form (`<metric>(year)\\n기존 X\\n변경 Y`), reversed-inline KV form (`<metric>(year): 변경 Y / 기존 X`), row-level margin/yoy/(%) reject (`영업이익률(%)` / `<metric> ... (margin)` / `<metric> ... (yoy)` 등은 inline KV 매칭에도 절대 commit 안 됨). 새 helper 4개 추가 (`parse_side_anchor_multiline_kv_revision`, `collect_metric_context_window`, `extract_labeled_old_new_pair`, `reject_percentage_or_margin_context`).
+│   │                                     #   PR #29: --inventory batch path 정비 — `parser_batch_summary.json` 신규 4번째 출력 (counter / files-only — PDF 본문 leak 없음), `--max-pdfs` default 10 / hard cap 50 (50 초과 시 exit 2), `forbidden_actions_confirmed` block 으로 OCR/Vision/API/Drive write/repo write/rolling apply/promote 0건 audit. 별도 chain runner (`examples/run_inventory_batch_smoke.py`) 가 parser → bridge → merge → build --strict (모두 dry-run-friendly; rolling --apply 절대 없음).
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
@@ -40,6 +41,7 @@ phase3_report_pipeline/
 │   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시 (PR #4 legacy 2-col schema; PR #21 후에도 backward-compat 유지)
 │   ├── ticker_resolver_fixture.json      # PR #21 — resolver 케이스 (filename → ticker / unresolved) 18건
 │   ├── run_ticker_resolver_fixture.py    # PR #21 — 위 fixture를 ticker_resolver 모듈에 돌려보는 smoke runner
+│   ├── run_inventory_batch_smoke.py      # PR #29 — inventory batch chain runner (parser → bridge → merge → build --strict; rolling --apply 절대 없음)
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── resources/
 │   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)

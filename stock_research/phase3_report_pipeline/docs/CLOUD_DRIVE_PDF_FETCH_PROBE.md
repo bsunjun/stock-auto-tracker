@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -303,6 +303,16 @@ lines above the data row) and a narrative-only revision style
 respectively. Both are deferred to operator-host parsing or a future
 template-aware extraction pass. PR #28 conservatively does NOT fire on
 either.
+
+**PR #29 adds a batch path that surfaces the gap distribution in a
+single JSON.** Recommended cloud-Drive cap: `--max-pdfs 5-10` (response-
+token budget on `download_file_content` makes >10 PDFs impractical from
+the cloud sandbox). Recommended operator-host cap: `--max-pdfs 20-50`.
+Always run with `--workdir /tmp/...` outside the repo — both the parser
+and the chain runner refuse repo-internal workdirs with exit 2.
+`parser_batch_summary.json` is the recommended paste-back artifact for
+cloud smoke reports — it contains counters and filenames only, never
+PDF body or extracted text content.
 
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18

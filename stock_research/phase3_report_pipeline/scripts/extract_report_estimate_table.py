@@ -53,8 +53,14 @@ PRIMARY_METRIC_PRIORITY: tuple[str, ...] = (
     "eps",
 )
 
-HARD_MAX_PDFS = 10
+# PR #29 splits the cap into a default and a hard ceiling. CLI default
+# stays at the PR #12 value (10) so individual smoke runs are unchanged.
+# `--max-pdfs` may now be raised up to HARD_MAX_PDFS = 50 for operator-
+# host batch smoke; anything above is refused with exit 2.
+DEFAULT_MAX_PDFS = 10
+HARD_MAX_PDFS = 50
 SOURCE_KEY_BASE = "phase3:pdf_estimate_table:v1"
+PARSER_BATCH_SUMMARY_SCHEMA = "phase3:parser_batch_summary:v1"
 DATE_FMT_HELP = "YYYY-MM-DD"
 
 
@@ -1381,8 +1387,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--workdir", default="/tmp/phase3_pr12",
                    help="Workdir for audit artifacts (estimate_table_breakdown.json, "
                         "target_price_secondary.json). Must be outside the repo.")
-    p.add_argument("--max-pdfs", dest="max_pdfs", type=int, default=HARD_MAX_PDFS,
-                   help=f"Hard cap on inputs (clamped to {HARD_MAX_PDFS}).")
+    p.add_argument("--max-pdfs", dest="max_pdfs", type=int, default=DEFAULT_MAX_PDFS,
+                   help=f"Per-run cap on inputs (default {DEFAULT_MAX_PDFS}; "
+                        f"hard ceiling {HARD_MAX_PDFS} — operator-host batch "
+                        f"smoke may raise --max-pdfs up to that, but never above. "
+                        f"Refused with exit 2 if exceeded.")
     p.add_argument("--debug-text-out", default=None,
                    help="(PR #13) Optional path to write the raw extracted text "
                         "from --pdf for inspection. MUST live outside the repo "
@@ -1781,6 +1790,101 @@ def _build_target_price_secondary(parsed: dict) -> dict | None:
     }
 
 
+def _build_parser_batch_summary(
+    structured: list[dict],
+    breakdown: list[dict],
+    secondary: list[dict],
+) -> dict:
+    """Aggregate per-input outputs into a single JSON suitable for an
+    operator-host batch smoke report (PR #29).
+
+    The summary covers counts (no per-row content beyond filenames) and
+    a forbidden_actions_confirmed block that materializes the parser's
+    runtime invariants. No PDF body / extracted text / numeric values
+    leak into the summary — fields like `files_with_structured_rows`
+    list filenames only.
+    """
+    pdf_count = len(breakdown)
+    by_fn: dict[str, dict] = {r.get("filename", ""): r for r in breakdown}
+
+    structured_fns: set[str] = {r.get("filename", "") for r in structured}
+    secondary_fns: set[str] = {r.get("filename", "") for r in secondary}
+
+    files_with_structured_rows = sorted(structured_fns - {""})
+    files_without_structured_rows = sorted(
+        fn for fn in by_fn if fn and fn not in structured_fns
+    )
+    files_with_target_price_only = sorted(
+        fn for fn in secondary_fns
+        if fn and fn not in structured_fns
+    )
+    files_with_empty_text = sorted(
+        fn for fn, r in by_fn.items()
+        if fn and r.get("gap_reason") == "empty_text"
+    )
+    files_with_parser_errors = files_with_empty_text  # PR #29 alias for now
+
+    pdf_engine_used_counts: dict[str, int] = {}
+    gap_reason_counts: dict[str, int] = {}
+    parsed_metric_pair_count = 0
+    ticker_hint_counts: dict[str, int] = {}
+    for r in breakdown:
+        eng = r.get("pdf_engine") or "(none)"
+        pdf_engine_used_counts[eng] = pdf_engine_used_counts.get(eng, 0) + 1
+        gap = r.get("gap_reason") or "(none)"
+        gap_reason_counts[gap] = gap_reason_counts.get(gap, 0) + 1
+        if gap == "parsed_metric_pair":
+            parsed_metric_pair_count += 1
+        th = r.get("ticker_hint") or ""
+        if th:
+            ticker_hint_counts[th] = ticker_hint_counts.get(th, 0) + 1
+
+    direct_trade_signal_true_count = sum(
+        1 for r in structured if r.get("direct_trade_signal") is True
+    )
+    target_price_as_primary_count = sum(
+        1 for r in structured if r.get("metric") == "target_price"
+    )
+
+    failed_pdf_count = len(files_with_empty_text)
+    parsed_pdf_count = pdf_count - failed_pdf_count
+
+    return {
+        "schema": PARSER_BATCH_SUMMARY_SCHEMA,
+        "pdf_count": pdf_count,
+        "parsed_pdf_count": parsed_pdf_count,
+        "failed_pdf_count": failed_pdf_count,
+        "structured_rows_total": len(structured),
+        "breakdown_rows_total": len(breakdown),
+        "target_price_secondary_rows_total": len(secondary),
+        "direct_trade_signal_true_count": direct_trade_signal_true_count,
+        "pdf_engine_used_counts": pdf_engine_used_counts,
+        "gap_reason_counts": gap_reason_counts,
+        "parsed_metric_pair_count": parsed_metric_pair_count,
+        "ticker_hint_counts": ticker_hint_counts,
+        "files_with_structured_rows": files_with_structured_rows,
+        "files_without_structured_rows": files_without_structured_rows,
+        "files_with_target_price_only": files_with_target_price_only,
+        "files_with_empty_text": files_with_empty_text,
+        "files_with_parser_errors": files_with_parser_errors,
+        "extraction_method": EXTRACTION_METHOD,
+        "forbidden_actions_confirmed": {
+            # Parser is deterministic-only by design (PR #12 contract);
+            # OCR/Vision/API codepaths exit 2 before any IO. The 0 here
+            # is a counter reaffirmation, not a runtime check.
+            "ocr_or_vision_or_api_calls": 0,
+            "direct_trade_signal_true": direct_trade_signal_true_count,
+            "target_price_as_primary": target_price_as_primary_count,
+            # workdir-inside-repo refused at --apply preflight; if we
+            # reached here the writes are outside the repo by gate.
+            "repo_writes": 0,
+            "drive_writes": 0,
+            "rolling_apply": 0,
+            "promote_or_super_pack": 0,
+        },
+    }
+
+
 def _read_text_for_input(args: argparse.Namespace, *, filename_hint: str = "",
                          text_path: Path | None = None) -> str:
     if text_path is not None and text_path.is_file():
@@ -2137,6 +2241,14 @@ def main(argv: List[str] | None = None) -> int:
     sec_path.write_text(_json.dumps(secondary, ensure_ascii=False, indent=2),
                         encoding="utf-8")
     print(f"[APPLY] wrote {sec_path}")
+    # PR #29: aggregated batch summary. Always written under --apply; the
+    # existing 3 outputs stay byte-identical to PR #12-#28 fixture baselines
+    # (regression suites diff exactly those 3 files).
+    summary = _build_parser_batch_summary(structured, breakdown, secondary)
+    sm_path = workdir / "parser_batch_summary.json"
+    sm_path.write_text(_json.dumps(summary, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+    print(f"[APPLY] wrote {sm_path}")
     return 0
 
 
