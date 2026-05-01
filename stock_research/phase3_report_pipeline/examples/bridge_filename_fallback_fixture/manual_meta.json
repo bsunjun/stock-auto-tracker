@@ -64,5 +64,27 @@
     "horizon": "",
     "filename": "20260430_삼성전자_브래킷없음.pdf",
     "extraction_method": "filename_only"
+  },
+  {
+    "case": "pr25_empty_ticker_bracket_doosan_fuelcell",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 25000,
+    "new_target": 28000,
+    "horizon": "12M",
+    "filename": "20260430_[두산퓨얼셀] 미래 성장에 대한 기대치.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr25_empty_ticker_bracket_seah_besteel_holdings",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 30000,
+    "new_target": 32000,
+    "horizon": "12M",
+    "filename": "20260430_[세아베스틸지주] 본업 실적 개선 기대.pdf",
+    "extraction_method": "manual"
   }
 ]
