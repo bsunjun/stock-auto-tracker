@@ -1,0 +1,62 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_year_pivot_forecast_only.pdf",
+    "source_pdf_sha256": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+    "extraction_method": "manual",
+    "_fixture_note": "Forecast-only year-pivot table (4 year columns, no revision panel, no 목표주가/가이던스/변동률 keywords). PR #26 stricter detector fires → metrics empty → gap_reason='year_pivot_no_revision_pair'. build --strict rejects."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_year_pivot_with_natural_language_revision.pdf",
+    "source_pdf_sha256": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+    "extraction_method": "manual",
+    "_fixture_note": "Same year-pivot table PLUS a natural-language revision sentence ('영업이익 추정치를 201억원에서 251억원으로 상향 조정한다'). PR #26 NL helper extracts op=201/251 (direction word '상향' matches numeric up) → metrics={op}, primary=op, direction=up, gap_reason='parsed_metric_pair' (NL hint preserved on breakdown)."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_natural_language_ambiguous.pdf",
+    "source_pdf_sha256": "1010101010101010101010101010101010101010101010101010101010101010",
+    "extraction_method": "manual",
+    "_fixture_note": "Two NL pair patterns present ('영업이익 ... 201억원에서 251억원으로 변경된다', 'EPS ... 1,200원 → 1,500원으로 조정') but neither has a direction word from the {상향/하향/raised/cut/...} list within the 60-char tail window (one body comment also names both up AND down words → both-classes-match → ambiguous). PR #26 helper rejects both → metrics empty → gap_reason='natural_language_revision_ambiguous'. build --strict rejects."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_colon_existing_changed.pdf",
+    "source_pdf_sha256": "2020202020202020202020202020202020202020202020202020202020202020",
+    "extraction_method": "manual",
+    "_fixture_note": "Inline KV side-anchor form: '영업이익(26E): 기존 201 / 변경 251'. PR #18 variant scanner picks up sales/eps from the lines below the header; PR #26 KV helper picks up operating_profit from the header line itself. metrics={sales,eps,op}, primary=op, direction=up, gap_reason='parsed_metric_pair'. 목표주가 KV has no arrow / indicator → target_price stays None."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_flat_possible_duplicate_column.pdf",
+    "source_pdf_sha256": "3030303030303030303030303030303030303030303030303030303030303030",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant column-window with byte-identical numeric tokens on the 매출액 row ('1,673.6 1,673.6'). PR #26 audit-flag fires on that breakdown metric entry: audit_flags=['flat_possible_duplicate_column']. Other rows (op 130/150, eps 650/700) commit normally. Primary=op (priority), direction=up, gap_reason='parsed_metric_pair'."
+  }
+]

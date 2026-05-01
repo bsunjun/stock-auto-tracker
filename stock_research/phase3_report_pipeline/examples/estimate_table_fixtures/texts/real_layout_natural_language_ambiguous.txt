@@ -1,0 +1,12 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+본 코멘트는 별도 forecast 변경 패널을 동반하지 않는다.
+영업이익 추정치는 201억원에서 251억원으로 변경된다.
+EPS 추정치 1,200원에서 1,500원으로 조정한다.
+
+위 두 문장 모두 명시적 direction word 가 결여되어
+PR 26 보수적 parser 는 structured row 를 emit 하지 않는다.
+gap_reason 은 자연어 revision ambiguous 로 audit 에만 남는다.
+PR 12 arrow scanner 도 동일 라인을 보지 못한다 (화살표 미수록).

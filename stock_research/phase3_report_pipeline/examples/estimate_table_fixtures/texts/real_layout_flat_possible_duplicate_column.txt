@@ -1,0 +1,17 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[표3. 실적 전망 2026E (단위: 십억원)]
+
+                            기존              변경
+매출액                     1,673.6           1,673.6
+영업이익                     130               150
+EPS (원)                     650               700
+
+매출액 column 두 칸이 byte-identical 한 경우 PR #26 parser 는
+breakdown 의 metric entry 에 audit_flags=['flat_possible_duplicate_column']
+를 기록한다. 의도적 flat 인지 column 중복 read 인지는 operator
+review 가 결정한다.
+
+목표주가 80,000원 → 95,000원 (상향)
