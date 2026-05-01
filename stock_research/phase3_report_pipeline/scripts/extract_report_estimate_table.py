@@ -289,12 +289,16 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
                         "target_price_secondary.json). Must be outside the repo.")
     p.add_argument("--max-pdfs", dest="max_pdfs", type=int, default=HARD_MAX_PDFS,
                    help=f"Hard cap on inputs (clamped to {HARD_MAX_PDFS}).")
+    p.add_argument("--debug-text-out", default=None,
+                   help="(PR #13) Optional path to write the raw extracted text "
+                        "from --pdf for inspection. MUST live outside the repo "
+                        "(refused with exit 2 otherwise). Default: not written.")
 
     p.add_argument("--no-ocr", dest="ocr", action="store_false", default=False,
-                   help="(default) Disable any OCR fallback. PR #12 is "
+                   help="(default) Disable any OCR fallback. PR #12/#13 are "
                         "deterministic-only.")
     p.add_argument("--ocr", dest="ocr", action="store_true",
-                   help="Refused in PR #12. Reserved for a future cost-gated PR.")
+                   help="Refused in PR #12/#13. Reserved for a future cost-gated PR.")
 
     p.add_argument("--dry-run", dest="dry_run", action="store_true", default=True,
                    help="(default) Parse and report; do not write outputs.")
@@ -495,6 +499,38 @@ def _read_text_for_input(args: argparse.Namespace, *, filename_hint: str = "",
     return ""
 
 
+def _read_pdf_text(path: Path) -> tuple[str, str | None]:
+    """Extract text from a PDF using pdfplumber (PR #13).
+
+    Returns (text, error_message). On any failure, text is "" and the error
+    message describes the cause; the caller is responsible for surfacing it.
+    NEVER calls OCR / Vision / network. pdfplumber is local-only and
+    deterministic.
+
+    Empty extract_text() output is preserved (joined as ""), which downstream
+    parse_text_to_rows handles naturally — the resulting record has no
+    metrics, so it is not emitted as a primary row, audited as no-primary
+    in estimate_table_breakdown.json, and counted as no-metric.
+    """
+    try:
+        import pdfplumber  # type: ignore
+    except ImportError:
+        return "", (
+            "pdfplumber is not installed. PR #13's --pdf path requires "
+            "`pip install pdfplumber`. PR #12's --text and --inventory "
+            "paths remain available without pdfplumber."
+        )
+    try:
+        parts: list[str] = []
+        with pdfplumber.open(str(path)) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text() or ""
+                parts.append(t)
+        return "\n".join(parts), None
+    except Exception as exc:  # pdfplumber raises a variety of exceptions
+        return "", f"pdfplumber failed to read {path}: {exc!r}"
+
+
 def _iter_inputs(args: argparse.Namespace):
     """Yield (text, source_pdf_sha256, filename) tuples from the chosen
     input mode. Honors --max-pdfs."""
@@ -547,12 +583,33 @@ def _iter_inputs(args: argparse.Namespace):
         return
 
     if args.pdf:
-        # PR #12 deliberately defers PDF body parsing through pdfplumber to a
-        # later commit. For PR #12C the supported input modes are --text and
-        # --inventory; --pdf raises a clear error.
-        print("error: --pdf is not yet wired up. Use --text or --inventory "
-              "with pre-extracted text. (pdfplumber path will land in a "
-              "later commit on this branch.)", file=sys.stderr)
+        # PR #13: deterministic-first, no-cost --pdf path via pdfplumber.
+        # No OCR / Vision / API. The pdfplumber import is lazy: missing
+        # dependency is reported by main()'s pre-flight guard with exit 2,
+        # so by the time we reach here the import is known to succeed.
+        if count >= args.max_pdfs:
+            return
+        pp = Path(args.pdf).expanduser().resolve()
+        if not pp.is_file():
+            print(f"error: --pdf not found: {pp}", file=sys.stderr)
+            return
+        text, err = _read_pdf_text(pp)
+        if err is not None:
+            print(f"error: {err}", file=sys.stderr)
+            return
+        if args.debug_text_out:
+            dbg = Path(args.debug_text_out).expanduser().resolve()
+            if _is_inside_repo(dbg):
+                print(f"error: --debug-text-out must live outside the repo "
+                      f"(got {dbg})", file=sys.stderr)
+                return
+            dbg.parent.mkdir(parents=True, exist_ok=True)
+            dbg.write_text(text, encoding="utf-8")
+            print(f"[pdf] wrote extracted text to {dbg}", file=sys.stderr)
+        # source_pdf_sha256 is the sha256 of the actual PDF bytes (not the
+        # extracted text), so it joins with merge_meta keys cleanly.
+        sha = hashlib.sha256(pp.read_bytes()).hexdigest()
+        yield text, sha, pp.name
         return
 
 
@@ -592,6 +649,37 @@ def main(argv: List[str] | None = None) -> int:
     if inputs_provided == 0:
         print("error: provide one of --pdf / --text / --inventory.", file=sys.stderr)
         return 2
+
+    # PR #13 pre-flight for --debug-text-out (most specific check first so the
+    # operator gets the clearest error if they accidentally aim it at the repo).
+    if args.debug_text_out and not args.pdf:
+        print("error: --debug-text-out is only meaningful with --pdf.",
+              file=sys.stderr)
+        return 2
+    if args.debug_text_out:
+        dbg = Path(args.debug_text_out).expanduser().resolve()
+        if _is_inside_repo(dbg):
+            print(f"error: --debug-text-out must live outside the repo "
+                  f"(got {dbg})", file=sys.stderr)
+            return 2
+
+    # PR #13 pre-flight for the --pdf path: hard-fail (exit 2) on missing file
+    # or missing pdfplumber, instead of silently running with zero inputs.
+    if args.pdf:
+        pp = Path(args.pdf).expanduser().resolve()
+        if not pp.is_file():
+            print(f"error: --pdf not found: {pp}", file=sys.stderr)
+            return 2
+        try:
+            import pdfplumber  # noqa: F401  (availability check only)
+        except ImportError:
+            print(
+                "error: --pdf requires pdfplumber. Install via "
+                "`pip install pdfplumber` first, or use --text / --inventory "
+                "with pre-extracted text. PR #13 does not call OCR/Vision/API.",
+                file=sys.stderr,
+            )
+            return 2
 
     import json as _json
     structured: list[dict] = []

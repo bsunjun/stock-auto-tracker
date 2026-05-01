@@ -306,8 +306,39 @@ synthetic fixture 6 records 기준 기대 결과:
 - `direct_trade_signal_all_false = true`
 - `rolling validated/rejected/dup/to_add = 3 / 0 / 1 / 2`
 
-`--pdf` 입력 경로는 의도적으로 미구현이다. pdfplumber 연동은 별도 PR 에서 cost
-gate 와 함께 다룬다.
+### `--pdf` (PR #13)
+
+PR #13 은 `extract_report_estimate_table.py` 에 단일 PDF 입력 경로를
+추가한다. **deterministic-only — pdfplumber 만 사용하며 OCR/Vision/API
+fallback 은 호출하지 않는다.** 미설치 시 명확한 exit 2 에러로 안내한다.
+
+```
+# pdfplumber 가 설치되어 있어야 한다
+pip install pdfplumber
+
+python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
+    --pdf /path/to/wisereport_company.pdf \
+    --date 2026-04-30 \
+    --workdir /tmp/phase3_pr13 \
+    --apply
+
+# 옵션: 추출 텍스트 검사용 (저장소 외부 경로만 허용; repo 내부면 exit 2)
+#   --debug-text-out /tmp/phase3_pr13/extracted.txt
+```
+
+PR #13 가드:
+- pdfplumber 미설치 → exit 2 + `pip install pdfplumber` 안내. `--text` /
+  `--inventory` 경로는 pdfplumber 없이도 그대로 동작한다.
+- `--pdf` 파일 부재 → exit 2.
+- `--debug-text-out` 가 repo 내부 경로 → exit 2 (실데이터 leak 방지).
+- `--debug-text-out` 가 `--pdf` 없이 사용되면 exit 2.
+- `--ocr` 는 여전히 refused (PR #12/#13 모두 deterministic-only).
+- `--max-pdfs > 10` 거부, `--apply` 시 `--workdir` repo 내부 거부.
+
+`--pdf` 는 단일 파일 처리 전용이다. inventory 의 `selected[]` PDF 들을
+일괄 처리하는 경로는 PR #14+ 의 별도 작업으로 남긴다 — 그 시점에는 PR #11 의
+selector inventory 와 함께 묶일 예정이다. **실제 WiseReport 10-PDF batch 는
+여전히 operator host 에서 제한 실행하며 결과는 repo 에 커밋하지 않는다.**
 
 ## What this pack does NOT do
 
