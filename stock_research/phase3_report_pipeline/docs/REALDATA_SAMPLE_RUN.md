@@ -271,6 +271,14 @@ or as a primary target-price row.
    python3 -m pip install --user pdfplumber
    python3 -c "import pdfplumber; print(pdfplumber.__version__)"
    ```
+   **Or** install the lighter `pypdf` fallback (PR #16) when pdfplumber's
+   native dep stack is broken on the host (cffi / cryptography panics on
+   some cloud sandboxes):
+   ```
+   python3 -m pip install --user pypdf
+   python3 -c "import pypdf; print(pypdf.__version__)"
+   ```
+   Either is sufficient. Both are deterministic-only, no OCR/Vision/API.
 3. `git status` is clean. The repo's `.gitignore` already blocks
    `_realdata/` / `tmp_workdir/` / `pr11_realdata/` / `_pipeline_workdir/`
    patterns; do not add real-data paths to staging.

@@ -348,25 +348,39 @@ synthetic fixture 6 records 기준 기대 결과:
 - `direct_trade_signal_all_false = true`
 - `rolling validated/rejected/dup/to_add = 3 / 0 / 1 / 2`
 
-### `--pdf` (PR #13)
+### `--pdf` (PR #13 + PR #16 fallback)
 
 PR #13 은 `extract_report_estimate_table.py` 에 단일 PDF 입력 경로를
-추가한다. **deterministic-only — pdfplumber 만 사용하며 OCR/Vision/API
-fallback 은 호출하지 않는다.** 미설치 시 명확한 exit 2 에러로 안내한다.
+추가했고, **PR #16** 이 `--pdf-engine {auto,pdfplumber,pypdf}` 옵션을 더해
+deterministic 추출 엔진을 선택할 수 있게 했다. **OCR/Vision/API 호출은
+여전히 없다** — pdfplumber 와 pypdf 모두 local-only deterministic 라이브러리.
 
 ```
-# pdfplumber 가 설치되어 있어야 한다
-pip install pdfplumber
+# 둘 중 하나는 설치되어 있어야 한다 (둘 다 설치도 OK)
+pip install pdfplumber   # 권장 — table 추출 정확도
+pip install pypdf        # 가벼운 fallback (PR #16; pdfplumber native dep 가
+                         # 깨진 환경에서도 import 됨)
 
 python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
     --pdf /path/to/wisereport_company.pdf \
+    --pdf-engine auto \
     --date 2026-04-30 \
-    --workdir /tmp/phase3_pr13 \
+    --workdir /tmp/phase3_pr16 \
     --apply
 
-# 옵션: 추출 텍스트 검사용 (저장소 외부 경로만 허용; repo 내부면 exit 2)
-#   --debug-text-out /tmp/phase3_pr13/extracted.txt
+# 옵션:
+#   --pdf-engine pdfplumber   # 강제로 pdfplumber 만 사용
+#   --pdf-engine pypdf        # 강제로 pypdf 만 사용 (PR #16)
+#   --debug-text-out /tmp/phase3_pr16/extracted.txt   # 저장소 외부 경로만 허용
 ```
+
+`--pdf-engine` 동작 (PR #16):
+- `auto` (기본) — pdfplumber 시도 → 실패하면 pypdf 시도 → 둘 다 안 되면 exit 2.
+  실패 사유는 stderr 의 `[pdf engine] <name>: <reason>` 줄로 모두 노출된다.
+- `pdfplumber` / `pypdf` — 해당 엔진만 시도. import 또는 parse 실패 시 즉시 exit 2.
+- 사용된 엔진은 row 의 `extraction_method` 에 `deterministic_pdf_table_v1+<engine>`
+  형태로 stamp 된다 (audit 용; merge_meta 의 priority gate 에는 영향 없음).
+- 빈 PDF text → structured row 0, breakdown audit 에 primary=None 으로 기록.
 
 PR #13 가드:
 - pdfplumber 미설치 → exit 2 + `pip install pdfplumber` 안내. `--text` /

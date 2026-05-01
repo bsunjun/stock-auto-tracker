@@ -55,6 +55,9 @@ local_sha256_prefix_matches:       null            # true | false  (Phase 2 sani
 # === Phase 3: deterministic parser (skip if Phase 2 stop) ===
 pdfplumber_available:              null            # true | false
 pdfplumber_version:                ""              # e.g. "0.11.0" or ""
+pypdf_available:                   null            # true | false  (PR #16 fallback)
+pypdf_version:                     ""              # e.g. "5.0.0" or ""
+pdf_engine_used:                   ""              # "pdfplumber" | "pypdf" | ""  (which engine actually ran)
 parser_exit_code:                  null            # 0 expected; 2 if pdfplumber missing or guard fired
 structured_rows:                   0
 breakdown_rows:                    0
@@ -127,6 +130,8 @@ next_action: |
 | `pdf_local_workdir_path` | `/tmp/pr15_probe/<basename>.pdf` | path **outside** the repo |
 | `local_sha256_prefix_matches` | local sha256 of downloaded bytes vs. Phase 1 prefix | `true` / `false` |
 | `pdfplumber_available` / `_version` | `python3 -c "import pdfplumber; ..."` | bool / string |
+| `pypdf_available` / `_version` | `python3 -c "import pypdf; ..."` (PR #16 fallback) | bool / string |
+| `pdf_engine_used` | parser's `[pdf engine]` log line / row's `extraction_method` suffix | `"pdfplumber"`, `"pypdf"`, or `""` |
 | `parser_exit_code` | `extract_report_estimate_table.py --pdf` | int (0 = ok) |
 | `structured_rows` / `breakdown_rows` / `target_price_secondary_rows` | parser output | int |
 | `direct_trade_signal_true_count` | sum across all output files | **MUST be 0** |

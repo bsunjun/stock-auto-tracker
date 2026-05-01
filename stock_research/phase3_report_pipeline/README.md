@@ -17,9 +17,10 @@ phase3_report_pipeline/
 │   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9 / #10)
 │   ├── wisereport_sample_select.py       # PR #11 — 실제 Drive 에서 PDF 10개만 read-only 선택 + sha256/size/mtime 인벤토리
 │   │                                     #          (PDF 본문 파싱 아님 — broker/target/horizon 추출은 별도 PR)
-│   ├── extract_report_estimate_table.py  # PR #12/#13 — deterministic-first PDF estimate table parser
+│   ├── extract_report_estimate_table.py  # PR #12/#13/#16 — deterministic-first PDF estimate table parser
 │   │                                     #   PR #12: --text / --inventory + --text-dir
 │   │                                     #   PR #13: --pdf (단일 파일, pdfplumber lazy import, OCR/Vision 없음)
+│   │                                     #   PR #16: --pdf-engine {auto,pdfplumber,pypdf} (auto = pdfplumber→pypdf fallback)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
@@ -60,7 +61,7 @@ phase3_report_pipeline/
 3. 사람/외부 파서가 `manual_meta.json` 생성 (형식: `examples/parsed_meta.example.json` 참고)
 3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4, OCR/Vision 미호출)
 3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
-3b'. (선택, no-cost) `extract_report_estimate_table.py` → deterministic-first parser (PR #12 + PR #13). primary metric 우선순위: `operating_profit > net_income > sales > eps`. 목표주가는 `secondary_reference` 로만 기록되며 primary estimate row 로 emit 되지 않는다. PR #12 는 `--text` / `--inventory` 경로의 synthetic text fixture 검증을 수행했고, **PR #13 가 `--pdf` 단일파일 경로를 pdfplumber 기반으로 추가**했다 (`pip install pdfplumber` 필요; OCR/Vision/API 호출 없음). 실제 WiseReport 10-PDF batch 는 여전히 operator host 에서 제한 실행한다 — 결과는 repo 에 커밋하지 않는다.
+3b'. (선택, no-cost) `extract_report_estimate_table.py` → deterministic-first parser (PR #12 + PR #13 + PR #16). primary metric 우선순위: `operating_profit > net_income > sales > eps`. 목표주가는 `secondary_reference` 로만 기록되며 primary estimate row 로 emit 되지 않는다. PR #12 는 `--text` / `--inventory` 경로의 synthetic text fixture 검증을 수행했고, **PR #13 가 `--pdf` 단일파일 경로를 pdfplumber 기반으로 추가**했으며, **PR #16 이 `--pdf-engine {auto,pdfplumber,pypdf}` 를 추가**해서 pdfplumber 가 설치되지 않거나 native dep 가 깨진 환경에서는 더 가벼운 pypdf 로 자동 fallback 한다 (둘 다 deterministic-only, OCR/Vision/API 없음). 실제 WiseReport 10-PDF batch 는 여전히 operator host 에서 제한 실행한다 — 결과는 repo 에 커밋하지 않는다.
 3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
 4. `build_report_estimate_v132.py --strict` → `output/<date>/estimate_revision_rows{,_rejected_rows,_summary}.json` (PR #7)
 4b. (선택, rolling/promotion 측면에서 dry-run 전용) `run_estimate_revision_dryrun.py` 로 3c/4 + rolling 검증을 한 번에 (PR #9). runner 의 `--apply` 는 거부된다. 단, `merge_meta`/`build_report_estimate` 는 다음 단계 입력 JSON 생성을 위해 `/tmp` workdir 안에서만 내부적으로 `--apply` 로 호출된다 — repo/Drive/templates/latest/promote/Super Pack/실제 rolling CSV 어디에도 쓰지 않는다.
