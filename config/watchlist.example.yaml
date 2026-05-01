@@ -1,0 +1,16 @@
+holdings:
+  - symbol: "005930.KS"
+    name: "삼성전자"
+    quantity: 10
+    avg_price: 72000
+    stop_price: 68000
+    target_price: 80000
+    note: "예시: 코스피 종목은 yfinance에서 .KS 사용"
+
+  - symbol: "000660.KS"
+    name: "SK하이닉스"
+    quantity: 3
+    avg_price: 180000
+    stop_price: 165000
+    target_price: 210000
+    note: "예시 보유종목"
