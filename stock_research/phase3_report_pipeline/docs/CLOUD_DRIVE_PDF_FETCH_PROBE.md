@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 + PR #30 + PR #31 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -265,6 +265,20 @@ PR #26 also adds `gap_reason='year_pivot_no_revision_pair'` for the strict
 forecast-only year-pivot case (no `목표주가/가이던스/추정치 변경/변동률/
 revision` keywords). The legacy PR #18 `ambiguous_year_pivot` path remains
 for texts that DO have those keywords, preserving fixture byte-identity.
+**PR #31 renames the surface label `year_pivot_no_revision_pair` →
+`year_pivot_forecast_only_no_revision`** (function name
+`parse_year_pivot_no_revision_pair` and its truth table unchanged) and
+splits the legacy `ambiguous_year_pivot` bucket into 4 sub-categories
+(`year_pivot_initiation_no_revision` /
+`year_pivot_positional_revision_candidate` /
+`year_pivot_revision_labels_too_far` /
+`year_pivot_has_metric_headers_no_old_new`) via a new classifier
+`classify_year_pivot_gap(text)` that fires only when (a) year-pivot is
+detected AND (b) at least one PR #26 neutral keyword is present.
+Conservative: forecast-only year columns (`2024A 2025A 2026E 2027F`) never
+yield a fabricated old/new pair; only an explicit `기존(YYYY)` /
+`변경(YYYY)` paired column header (already handled by PR #18 variant
+scanner) produces a structured row.
 
 **PR #27 promotes the PR #26 `flat_possible_duplicate_column` audit flag
 into a hard rejection.** The variant column-window scanner now refuses to

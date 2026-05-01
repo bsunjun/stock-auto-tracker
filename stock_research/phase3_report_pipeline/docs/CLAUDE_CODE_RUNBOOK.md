@@ -375,12 +375,35 @@ PR #15 hard caps:
   에 없거나, 두 클래스가 동시에 매칭되거나, direction word 와 numeric
   방향이 일치하지 않아 모두 reject. metric 추출 0 이며 false positive
   방지가 recall 보다 우선 — 임의 추정 금지.
-- **`year_pivot_no_revision_pair`** (PR #26) — strict forecast-only
-  year-pivot 표. `parse_year_pivot_revision_rows` 가 True (3+ year
-  토큰) AND 본문에 `목표주가 / 가이던스 / guidance / 추정치 변경 /
-  변동률 / revision` 키워드가 모두 부재할 때만 발생. 동일 텍스트가
-  키워드 중 하나라도 가지면 legacy `ambiguous_year_pivot` 로 fall
-  through (PR #18 fixture 의 byte-identity 보존을 위한 분기).
+- **`year_pivot_forecast_only_no_revision`** (PR #26 detector, PR #31
+  rename) — strict forecast-only year-pivot 표.
+  `parse_year_pivot_revision_rows` 가 True (3+ year 토큰) AND 본문에
+  `목표주가 / 가이던스 / guidance / 추정치 변경 / 변동률 / revision`
+  키워드가 모두 부재할 때만 발생. 동일 텍스트가 키워드 중 하나라도
+  가지면 PR #31 의 `classify_year_pivot_gap` 분류기로 진입하고, 그것도
+  None 이면 legacy `ambiguous_year_pivot` 로 fall through (PR #18 fixture
+  의 byte-identity 보존을 위한 분기). 함수 이름은 `parse_year_pivot_no_revision_pair`
+  로 유지되며, 표면 gap_reason 라벨만 PR #31 에서 rename 되었다.
+- **`year_pivot_initiation_no_revision`** (PR #31) — year-pivot 검출 +
+  legacy keyword 존재 + 신규 추정 / 신규 커버리지 / 최초 보고서 / 신규
+  분석 / Coverage 시작 / initiation 키워드 중 하나가 본문에 있는 경우.
+  Initiation 보고서는 정의상 old/new pair 가 존재하지 않으므로 metric 0
+  이 정상.
+- **`year_pivot_revision_labels_too_far`** (PR #31) — year-pivot +
+  legacy keyword + strict revision label (`기존(`, `변경(`, `직전(`,
+  `현재(`, `이전(`, `수정 후`, `수정 전`, `변경 후`, `변경 전`, 영문
+  `previous(`, `current(`, `prev(`, `curr(`, `old(`, `new(`) 중 하나가
+  본문에 있으나 year-pivot 헤더 라인과 ≥10 줄 떨어진 위치에 있는 경우.
+- **`year_pivot_positional_revision_candidate`** (PR #31) — year-pivot +
+  legacy keyword + strict revision label 이 year-pivot 헤더 ±10 줄 안에
+  있으나 column-pair 형태로 묶이지 않은 경우 (e.g. 본문 prose 내 단발성
+  언급). 명시적 old/new label-numeric 연결이 없으므로 conservative
+  parser 가 metric 을 emit 하지 않는다.
+- **`year_pivot_has_metric_headers_no_old_new`** (PR #31) — year-pivot +
+  legacy keyword + 행에 `(%)`, `(margin)`, `(YoY)`, `(QoQ)`, `OPM(%)`,
+  `GPM(%)` 등 % / 성장률 marker 가 있고 strict revision label 은 없는
+  경우. 표면적으로는 metric label rows 가 보이지만 column 자체가
+  margin/yoy 비율이라 absolute revision pair 추출 불가.
 - **`duplicate_column_flat_rejected`** (PR #27) — variant column-window
   scanner 가 한 metric row 에서 byte-identical 두 numeric token (old
   == new as strings) 을 보았으나 같은 line 에 명시적 flat context
@@ -396,10 +419,19 @@ precedence (위에서 아래로, 먼저 만족하는 항목이 win):
 (PR #27) → `no_metric_pair` → `side_anchor_no_near_header` /
 `side_anchor_header_found_no_metric_pair` (PR #19) →
 `natural_language_revision_ambiguous` (PR #26) →
-`year_pivot_no_revision_pair` (PR #26) → `ambiguous_year_pivot` →
-`no_revision_anchor`. 단, variant scan 안에서 growth-rate 와 dup-flat
-reject 가 동시에 일어나면 `variant_rejected_growth_rate` 가 우선
-(보다 구체적 시그널).
+`year_pivot_forecast_only_no_revision` (PR #26 detector, PR #31 rename) →
+`classify_year_pivot_gap` (PR #31; `year_pivot_initiation_no_revision` /
+`year_pivot_positional_revision_candidate` /
+`year_pivot_revision_labels_too_far` /
+`year_pivot_has_metric_headers_no_old_new`) →
+`ambiguous_year_pivot` → `no_revision_anchor`. 단, variant scan 안에서
+growth-rate 와 dup-flat reject 가 동시에 일어나면
+`variant_rejected_growth_rate` 가 우선 (보다 구체적 시그널). PR #31
+classifier 는 (a) year-pivot 검출, (b) legacy neutral keyword 존재 두
+조건을 모두 만족할 때만 fire 하며 PR #18 synthetic fixture
+(`real_layout_variant_ambiguous_year_pivot.txt`) 는 어떤 sub-category
+trigger 에도 매칭되지 않아 legacy `ambiguous_year_pivot` 가 그대로
+유지된다.
 
 PR #27: variant column-window scanner 의 byte-identical 두 numeric
 token 처리 contract:
@@ -473,6 +505,52 @@ PR #30: real-PDF batch path first-class:
    - `files_with_missing_pdf` — `--pdf-dir` 또는 `selected[].pdf_path` 에서 찾지 못한 파일
 4. **chain runner `--pdf-dir`** — parser 로 그대로 forward. workdir 외부
    가드, `--max-pdfs` 51+ 거부 동일.
+
+PR #31: year-pivot gap taxonomy refinement:
+1. **`ambiguous_year_pivot` 분해 (10/20 → 더 구체적 분포)** — PR #30 20-PDF
+   smoke 에서 dominant 였던 `ambiguous_year_pivot` 를 4 개 sub-category 로
+   세분화. classifier `classify_year_pivot_gap(text)` 는 (a) year-pivot
+   검출, (b) PR #26 `_YEAR_PIVOT_NEUTRAL_KEYWORDS` 중 하나가 본문에 존재
+   두 조건을 모두 만족할 때만 fire. 어떤 sub-category 도 매칭 안되면
+   None 을 반환하고 legacy `ambiguous_year_pivot` 가 그대로 표면 라벨로
+   유지됨 (PR #18 fixture byte-identity 보존).
+2. **`year_pivot_no_revision_pair` → `year_pivot_forecast_only_no_revision`
+   rename**. 함수 `parse_year_pivot_no_revision_pair` 의 truth table 은
+   byte-identical; 표면 gap_reason 라벨만 PR #31 에서 변경. PR #26 fixture
+   `real_layout_year_pivot_forecast_only.txt` 의 gap_reason 출력은 새
+   라벨로 출력되며, 입력 텍스트는 unchanged.
+3. **신규 helper** (5):
+   - `classify_year_pivot_gap(text) -> str | None` — 메인 분류기
+   - `_year_pivot_has_initiation_keyword(text)` — 신규 추정 / Coverage 시작
+   - `_year_pivot_has_strict_revision_label(text)` — paren-bound 또는
+     spelled-out column heading (e.g. `기존(`, `수정 후`)
+   - `_year_pivot_has_margin_yoy_marker(text)` — `(%)`, `(margin)`,
+     `(YoY)`, `(QoQ)`, `OPM(%)`, `GPM(%)`
+   - `_year_pivot_label_near_pivot(text)` — strict label 이 year-pivot
+     header 라인과 ±10 줄 안에 있는지
+4. **신규 gap_reason 4 개**:
+   - `year_pivot_initiation_no_revision`
+   - `year_pivot_positional_revision_candidate`
+   - `year_pivot_revision_labels_too_far`
+   - `year_pivot_has_metric_headers_no_old_new`
+5. **conservative 보장**: 어떤 신규 helper 도 forecast-only year-pivot
+   table 에서 임의로 old/new pair 를 합성하지 않는다. 명시적 column-
+   pair label (e.g. `기존(26E)` / `변경(26E)` 페어가 같은 헤더 라인에)
+   가 있어야만 기존 PR #18 variant scanner 가 metric 을 추출하며, 그
+   외에는 sub-category gap_reason 만 audit 로 남는다.
+6. **fixture 5 개** (`stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/texts/`):
+   - `real_layout_year_pivot_forecast_only_no_revision.txt`
+     → `year_pivot_forecast_only_no_revision`
+   - `real_layout_year_pivot_labeled_existing_changed.txt`
+     → `parsed_metric_pair` (operating_profit primary, direction=up)
+   - `real_layout_year_pivot_metric_headers_no_old_new.txt`
+     → `year_pivot_has_metric_headers_no_old_new`
+   - `real_layout_year_pivot_positional_candidate_rejected.txt`
+     → `year_pivot_positional_revision_candidate`
+   - `real_layout_year_pivot_margin_yoy_rejected.txt`
+     → `year_pivot_has_metric_headers_no_old_new`
+7. **inventory** `examples/estimate_table_fixtures/inventory.year_pivot_taxonomy.json`
+   (5 entries; SAMPLECO synthetic; 모든 sha 는 deterministic placeholder).
 
 CLI 사용 예시 (operator-host real-PDF batch smoke):
 ```

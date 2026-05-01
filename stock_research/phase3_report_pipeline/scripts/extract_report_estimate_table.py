@@ -1355,10 +1355,182 @@ def parse_year_pivot_no_revision_pair(text: str) -> bool:
     Designed to fire only for PR #26's NEW forecast-only fixtures so the
     older PR #18 ambiguous_year_pivot fixture continues producing its
     legacy gap_reason verbatim.
+
+    PR #31 renames the surface gap_reason emitted from this branch to
+    `year_pivot_forecast_only_no_revision`. The function name and its
+    truth table stay byte-identical so prior call sites and the PR #26
+    fixture's underlying detection logic are unchanged.
     """
     if not parse_year_pivot_revision_rows(text):
         return False
     return not any(k in text for k in _YEAR_PIVOT_NEUTRAL_KEYWORDS)
+
+
+# --- PR #31: year-pivot gap taxonomy refinement ---------------------------
+#
+# The PR #30 20-PDF operator-host smoke surfaced 10/20 PDFs at gap_reason=
+# 'ambiguous_year_pivot'. That single bucket conflates several distinct
+# real-PDF patterns; PR #31 splits it conservatively. The classifier fires
+# ONLY when:
+#   * `parse_year_pivot_revision_rows(text)` is True (3+ year tokens)   AND
+#   * at least one keyword from `_YEAR_PIVOT_NEUTRAL_KEYWORDS` is present
+#     (i.e., the text would have hit legacy 'ambiguous_year_pivot').
+#
+# Rationale for the second gate: the PR #26 path
+# (`parse_year_pivot_no_revision_pair`) already catches year-pivot texts
+# that lack neutral keywords and produces (PR #31-renamed)
+# 'year_pivot_forecast_only_no_revision'. PR #31 leaves that path
+# untouched and only refines the COMPLEMENT — the texts that previously
+# went to 'ambiguous_year_pivot'.
+#
+# False-positive prevention beats recall (PR #31 user spec): each
+# sub-category's trigger is strict enough that the PR #18 synthetic
+# fixture (which is intentionally ambiguous and should stay
+# 'ambiguous_year_pivot') matches NONE of them.
+
+# Initiation / first-coverage report markers. Match anywhere in the text.
+_YEAR_PIVOT_INITIATION_KEYWORDS: tuple[str, ...] = (
+    "신규 추정", "신규추정",
+    "신규 커버리지", "신규커버리지",
+    "최초 보고서", "최초 분석",
+    "신규 분석",
+    "초도 보고서", "초도 분석",
+    "Coverage 시작", "coverage 시작", "coverage 개시",
+    "initiation", "Initiating coverage",
+)
+
+# Strict revision labels: paren-bound (e.g. '기존(26E)') or fully spelled
+# out column-heading forms ('수정 후 / 수정 전 / 변경 전 / 변경 후 / 직전(26E) /
+# 현재(26E)'). Bare '기존' or '변경' as prose words (e.g. '별도 변경 패널') are
+# NOT in this list, so the PR #26 fixture text and any prose mentioning
+# '변경' alone do not match.
+_YEAR_PIVOT_STRICT_REVISION_LABELS: tuple[str, ...] = (
+    "기존(", "변경(",
+    "직전(", "현재(", "이전(",
+    "수정 후", "수정 전", "수정후", "수정전",
+    "변경 후", "변경 전", "변경후", "변경전",
+    "previous(", "current(", "prev(", "curr(", "old(", "new(",
+)
+
+# Margin / YoY / percentage row markers — when the year-pivot table's metric
+# rows are denominated as percentages or growth rates, no absolute
+# revision pair is extractable; those texts get 'has_metric_headers_no_old_new'.
+_YEAR_PIVOT_MARGIN_YOY_MARKERS: tuple[str, ...] = (
+    "(%)", "(margin)", "(Margin)", "(MARGIN)",
+    "(YoY)", "(yoy)", "(YOY)",
+    "(QoQ)", "(qoq)",
+    "(%, YoY)", "(%, yoy)",
+    "OPM(%)", "opm(%)", "GPM(%)",
+)
+
+# How many lines before/after a year-pivot anchor count as 'near' for
+# distinguishing 'positional_revision_candidate' (near) from
+# 'revision_labels_too_far' (far).
+_YEAR_PIVOT_NEAR_LINE_DISTANCE = 10
+
+
+def _year_pivot_has_initiation_keyword(text: str) -> bool:
+    if not isinstance(text, str):
+        return False
+    lo = text.lower()
+    return any(k in text or k.lower() in lo
+               for k in _YEAR_PIVOT_INITIATION_KEYWORDS)
+
+
+def _year_pivot_has_strict_revision_label(text: str) -> bool:
+    if not isinstance(text, str):
+        return False
+    lo = text.lower()
+    return any(lab in text or lab.lower() in lo
+               for lab in _YEAR_PIVOT_STRICT_REVISION_LABELS)
+
+
+def _year_pivot_has_margin_yoy_marker(text: str) -> bool:
+    if not isinstance(text, str):
+        return False
+    return any(mk in text for mk in _YEAR_PIVOT_MARGIN_YOY_MARKERS)
+
+
+def _year_pivot_label_near_pivot(text: str) -> bool:
+    """True iff at least one strict revision label appears within
+    `_YEAR_PIVOT_NEAR_LINE_DISTANCE` lines of a year-pivot header line.
+
+    A year-pivot header line is one with 3+ tokens matching
+    `_YEAR_HEADER_TOKEN_RE`. Used to distinguish `positional_revision_candidate`
+    (label is near the pivot table — likely a prose mention of a revision
+    that isn't structured as a column pair) from `revision_labels_too_far`
+    (label is in a different section altogether, e.g. a leftover header
+    from an unrelated table).
+    """
+    if not isinstance(text, str):
+        return False
+    lines = text.splitlines()
+    pivot_lines: list[int] = []
+    for i, line in enumerate(lines):
+        if len(_YEAR_HEADER_TOKEN_RE.findall(line)) >= 3:
+            pivot_lines.append(i)
+    if not pivot_lines:
+        return False
+    label_lines: list[int] = []
+    lo_lines = [ln.lower() for ln in lines]
+    for i, line in enumerate(lines):
+        for lab in _YEAR_PIVOT_STRICT_REVISION_LABELS:
+            if lab in line or lab.lower() in lo_lines[i]:
+                label_lines.append(i)
+                break
+    if not label_lines:
+        return False
+    near = _YEAR_PIVOT_NEAR_LINE_DISTANCE
+    for li in label_lines:
+        for pi in pivot_lines:
+            if abs(li - pi) <= near:
+                return True
+    return False
+
+
+def classify_year_pivot_gap(text: str) -> str | None:
+    """PR #31 — refine the legacy 'ambiguous_year_pivot' bucket.
+
+    Returns one of (in priority order):
+      * 'year_pivot_initiation_no_revision'
+      * 'year_pivot_positional_revision_candidate'
+      * 'year_pivot_revision_labels_too_far'
+      * 'year_pivot_has_metric_headers_no_old_new'
+      * None — falls through to legacy 'ambiguous_year_pivot' OR (when no
+        neutral keyword present) to PR #26's
+        'year_pivot_forecast_only_no_revision'.
+
+    INVARIANTS preserved by design:
+      * Returns None when no year-pivot table is present.
+      * Returns None when no `_YEAR_PIVOT_NEUTRAL_KEYWORDS` keyword is
+        present (so the PR #26 path fires unchanged for the existing
+        forecast-only fixture).
+      * The PR #18 synthetic fixture
+        (real_layout_variant_ambiguous_year_pivot.txt) matches NONE of
+        the sub-categories — its text has the legacy keywords but no
+        initiation phrase, no strict revision label, and no margin/YoY
+        marker — so the function returns None and the legacy
+        'ambiguous_year_pivot' label is preserved.
+    """
+    if not isinstance(text, str) or not text:
+        return None
+    if not parse_year_pivot_revision_rows(text):
+        return None
+    if not any(k in text for k in _YEAR_PIVOT_NEUTRAL_KEYWORDS):
+        return None  # PR #26 path takes precedence.
+
+    if _year_pivot_has_initiation_keyword(text):
+        return "year_pivot_initiation_no_revision"
+
+    if _year_pivot_has_strict_revision_label(text):
+        if _year_pivot_label_near_pivot(text):
+            return "year_pivot_positional_revision_candidate"
+        return "year_pivot_revision_labels_too_far"
+
+    if _year_pivot_has_margin_yoy_marker(text):
+        return "year_pivot_has_metric_headers_no_old_new"
+
+    return None
 # --- end helpers ----------------------------------------------------------
 
 
@@ -1601,8 +1773,8 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         horizon = multiline_horizon
     # else: keep parse_horizon-derived horizon
 
-    # PR #18 + PR #19 + PR #20 + PR #26: gap_reason classification — additive audit field.
-    # Precedence (top wins):
+    # PR #18 + PR #19 + PR #20 + PR #26 + PR #31: gap_reason classification —
+    # additive audit field. Precedence (top wins):
     #   1. parsed_metric_pair   — at least one metric in `metrics`
     #   2. empty_text           — no input text
     #   3. target_price_only    — only 목표주가 parseable
@@ -1616,13 +1788,25 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
     #   7. natural_language_revision_ambiguous (PR #26)
     #                           — NL pair pattern present but rejected for
     #                             missing/conflicting direction word
-    #   8. year_pivot_no_revision_pair (PR #26)
+    #   8. year_pivot_forecast_only_no_revision (PR #26 path, PR #31 rename)
     #                           — strict forecast-only year-pivot WITHOUT
-    #                             목표주가/가이던스/변동률 keywords
-    #   9. ambiguous_year_pivot — multi-year forecast table without before/after
+    #                             목표주가/가이던스/변동률 keywords. Surfaced
+    #                             before PR #31 as 'year_pivot_no_revision_pair';
+    #                             the underlying detection logic is byte-
+    #                             identical, only the label is renamed.
+    #   9. classify_year_pivot_gap (PR #31)
+    #                           — refine legacy 'ambiguous_year_pivot'. Fires
+    #                             only when (year-pivot detected) AND (one of
+    #                             the legacy neutral keywords is present), and
+    #                             only for texts that match a specific sub-
+    #                             category trigger (initiation keyword / strict
+    #                             revision label / margin-YoY marker). On a
+    #                             miss returns None and the waterfall falls
+    #                             through to (10).
+    #  10. ambiguous_year_pivot — multi-year forecast table without before/after
     #                             (legacy detector; preserves PR #18 fixture
     #                             byte-identity)
-    #  10. no_revision_anchor   — fallthrough
+    #  11. no_revision_anchor   — fallthrough
     gap_reason: str
     if not text or not text.strip():
         gap_reason = "empty_text"
@@ -1652,13 +1836,24 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
             # was committed (missing direction word OR direction conflict).
             gap_reason = "natural_language_revision_ambiguous"
         elif parse_year_pivot_no_revision_pair(text):
-            # PR #26: stricter forecast-only year-pivot — has no
-            # 목표주가/가이던스/변동률 keywords. Distinct from the legacy
-            # ambiguous_year_pivot path so PR #18's fixture stays byte-
-            # identical (its text DOES carry '목표주가 변동 없음').
-            gap_reason = "year_pivot_no_revision_pair"
+            # PR #26 detector, PR #31 rename: strict forecast-only year-pivot
+            # — has no 목표주가/가이던스/변동률 keywords. Distinct from the
+            # legacy ambiguous_year_pivot path so PR #18's fixture stays
+            # byte-identical (its text DOES carry '목표주가 변동 없음'). The
+            # detector function name is unchanged; only the surface
+            # gap_reason label is renamed from 'year_pivot_no_revision_pair'
+            # to 'year_pivot_forecast_only_no_revision' for taxonomy clarity.
+            gap_reason = "year_pivot_forecast_only_no_revision"
+        elif (sub := classify_year_pivot_gap(text)) is not None:
+            # PR #31: refine the legacy ambiguous_year_pivot bucket. The
+            # classifier returns None on PR #18's synthetic fixture (no
+            # initiation phrase, no strict revision label, no margin/YoY
+            # marker) so its expected gap_reason is preserved on the next
+            # branch.
+            gap_reason = sub
         elif parse_year_pivot_revision_rows(text):
-            # Forecast-only table without paired before/after data.
+            # Forecast-only table without paired before/after data and no
+            # PR #31 sub-category match — preserve legacy label.
             gap_reason = "ambiguous_year_pivot"
         else:
             gap_reason = "no_revision_anchor"

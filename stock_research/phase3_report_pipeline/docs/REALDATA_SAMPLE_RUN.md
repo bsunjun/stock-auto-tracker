@@ -414,7 +414,12 @@ rm -rf "$PR14_WORKDIR"
   (the indicator is REQUIRED so growth-rate rows without ▲/▼ don't
   produce false positives). Adds an additive `gap_reason` audit
   field on breakdown records: `parsed_metric_pair` /
-  `no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` /
+  `no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` (PR
+  #31 sub-categories: `year_pivot_forecast_only_no_revision`,
+  `year_pivot_initiation_no_revision`,
+  `year_pivot_positional_revision_candidate`,
+  `year_pivot_revision_labels_too_far`,
+  `year_pivot_has_metric_headers_no_old_new`) /
   `target_price_only` / `empty_text`. Still deterministic — no OCR.
   PR #12 + PR #17 regression byte-identical.
 - **PR #19 (side-anchor precision fix, MERGED)** — restricts the
@@ -454,8 +459,10 @@ rm -rf "$PR14_WORKDIR"
   scanner reads two byte-identical numeric tokens on the same row,
   the breakdown's metric entry carries
   `audit_flags=['flat_possible_duplicate_column']`. PR #26 also
-  introduces `gap_reason='year_pivot_no_revision_pair'` for the
-  strict forecast-only year-pivot case (no
+  introduces `gap_reason='year_pivot_no_revision_pair'` (PR #31
+  renamed the surface label to `year_pivot_forecast_only_no_revision`;
+  the underlying detector function and truth table are unchanged) for
+  the strict forecast-only year-pivot case (no
   목표주가/가이던스/추정치 변경/변동률/revision keywords); the
   legacy PR #18 `ambiguous_year_pivot` path remains for texts with
   those keywords (preserves fixture byte-identity). The 5-PDF
@@ -486,6 +493,41 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #31 (year-pivot gap taxonomy refinement, IN REVIEW)** — refines
+  the legacy `ambiguous_year_pivot` bucket (10/20 PDFs in the PR #30
+  20-PDF smoke) into 4 specific sub-categories via a new classifier
+  `classify_year_pivot_gap(text)`. Adds gap_reasons:
+  `year_pivot_initiation_no_revision`,
+  `year_pivot_positional_revision_candidate`,
+  `year_pivot_revision_labels_too_far`,
+  `year_pivot_has_metric_headers_no_old_new`. Renames PR #26 surface
+  label `year_pivot_no_revision_pair` → `year_pivot_forecast_only_no_revision`
+  (function `parse_year_pivot_no_revision_pair` and its truth table
+  unchanged; only the gap_reason string is renamed). Classifier
+  invariants: (a) returns `None` when no year-pivot table is
+  detected, (b) returns `None` when no
+  `_YEAR_PIVOT_NEUTRAL_KEYWORDS` keyword is present (so PR #26 path
+  fires unchanged for the existing forecast-only fixture), (c) PR
+  #18 synthetic fixture
+  `real_layout_variant_ambiguous_year_pivot.txt` matches no
+  sub-category and stays at `ambiguous_year_pivot`. False-positive
+  prevention beats recall: the conservative parser refuses to fabricate
+  old/new pairs from forecast-only year columns
+  (`2024A 2025A 2026E 2027F`); only an explicit `기존(YYYY)` /
+  `변경(YYYY)` paired column header (which the existing PR #18
+  variant scanner already handles) yields a structured row. Five
+  new fixtures live under
+  `examples/estimate_table_fixtures/texts/real_layout_year_pivot_*`
+  and a new inventory
+  `examples/estimate_table_fixtures/inventory.year_pivot_taxonomy.json`
+  exercises them through the standard parser CLI. PR #12-#30
+  regression: ticker_resolver_fixture 31/31 PASS,
+  bridge_filename_fallback_fixture 8/8 PASS, all earlier inventories
+  produce identical structured / breakdown counts; only the surface
+  gap_reason string changes from `year_pivot_no_revision_pair` →
+  `year_pivot_forecast_only_no_revision` for the PR #26 forecast-only
+  fixture (rename only). Templates md5 unchanged
+  (`6090bfeb9242b17f0fdf653c792d82d7`).
 - **PR #30 (real-PDF inventory batch path, MERGED)** — promotes
   the per-PDF Python loop used in the PR #29 operator-host smoke
   into a first-class parser feature. New CLI: `--pdf-dir <DIR>`.
