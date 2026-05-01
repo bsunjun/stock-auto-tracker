@@ -314,6 +314,22 @@ and the chain runner refuse repo-internal workdirs with exit 2.
 cloud smoke reports — it contains counters and filenames only, never
 PDF body or extracted text content.
 
+**PR #30 promotes the real-PDF batch path to a first-class CLI.** The
+parser's `--inventory` mode now accepts `--pdf-dir <DIR>` (and per-entry
+`local_pdf_path` / `pdf_path` fields) so operator-host can drop the
+per-PDF Python loop from the PR #29 smoke. Per-entry source resolution
+order: `selected[].local_pdf_path / pdf_path → --pdf-dir/<filename> →
+--text-dir/<stem>.txt`. Synthetic-text fixtures stay byte-identical
+(PR #12-#29 regression: 24/24 files diff-clean). Missing files under
+`--pdf-dir` become `source_mode='missing'` in
+`parser_batch_summary.json` (no batch abort). Three new summary fields
+were added additively: `source_mode_counts`, `files_with_pdf_parse_errors`,
+`files_with_missing_pdf`. Chain runner gained `--pdf-dir` passthrough;
+all PR #29 guards intact (workdir-in-repo refused; `--max-pdfs > 50`
+refused; rolling --apply never invoked). `selected[].pdf_path` pointing
+inside the repo is refused at entry level so PDF bytes never enter the
+worktree.
+
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18
 also adds an audit-only `gap_reason` field on each breakdown record so the

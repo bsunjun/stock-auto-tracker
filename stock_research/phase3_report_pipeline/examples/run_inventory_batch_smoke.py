@@ -77,7 +77,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--inventory", required=True,
                    help="Path to a phase3 inventory JSON.")
     p.add_argument("--text-dir", default=None,
-                   help="Optional --text-dir to forward to the parser.")
+                   help="Optional --text-dir to forward to the parser "
+                        "(synthetic-text fixture mode).")
+    p.add_argument("--pdf-dir", default=None,
+                   help="(PR #30) Optional --pdf-dir to forward to the parser. "
+                        "Real-PDF batch path: per-entry filenames are resolved "
+                        "under <pdf-dir>/<filename>. Per parser contract, files "
+                        "missing under --pdf-dir are recorded as missing in the "
+                        "summary (no abort). Either --text-dir or --pdf-dir may "
+                        "be passed; if both are passed parser tries the entry's "
+                        "pdf_path first, then --pdf-dir, then --text-dir.")
     p.add_argument("--pdf-engine", default="auto", choices=("auto", "pdfplumber", "pypdf"))
     p.add_argument("--date", default="2026-04-30")
     p.add_argument("--workdir", required=True,
@@ -125,6 +134,11 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.text_dir:
         parser_cmd += ["--text-dir", str(Path(args.text_dir).expanduser().resolve())]
+    if args.pdf_dir:
+        # PR #30: forward --pdf-dir verbatim. The parser's preflight refuses
+        # repo-internal --workdir (--apply gate), so PDF bytes never reach
+        # the worktree. The runner already gated --workdir up top.
+        parser_cmd += ["--pdf-dir", str(Path(args.pdf_dir).expanduser().resolve())]
     _run(parser_cmd, label="parser")
 
     parser_summary_path = workdir / "parser_batch_summary.json"

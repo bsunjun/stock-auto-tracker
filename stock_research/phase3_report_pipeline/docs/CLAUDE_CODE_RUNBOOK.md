@@ -317,7 +317,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 + PR #30)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -458,6 +458,37 @@ PR #29: --inventory batch path 정비:
    `--chain-merge`, `--chain-build` 플래그로 단계별 활성. rolling
    --apply 는 코드 어디에도 호출하지 않음. workdir 가 repo 안에 있으면
    exit 2; `--max-pdfs` 51+ 도 exit 2.
+
+PR #30: real-PDF batch path first-class:
+1. **parser `--inventory` 모드 확장** — per-entry source resolution 우선순위:
+   `selected[].local_pdf_path / pdf_path` (절대경로; repo 내부 거부) →
+   `--pdf-dir / <filename>` → `--text-dir / <stem>.txt`. PR #12-#29
+   synthetic-text fixture 동작은 byte-identical 보존.
+2. **새 CLI**: `--pdf-dir <DIR>`. PDF 추출은 기존 pdfplumber/pypdf 경로
+   그대로 (OCR/Vision fallback 없음). 누락 파일은 batch abort 없이 entry
+   단위 missing 으로 기록.
+3. **`parser_batch_summary.json` schema 확장** (additive; 기존 필드 보존):
+   - `source_mode_counts` — `{text_fixture, pdf_file, empty, missing, error}` 별 count
+   - `files_with_pdf_parse_errors` — pdfplumber/pypdf 둘 다 실패한 파일 (PDF 자체 문제)
+   - `files_with_missing_pdf` — `--pdf-dir` 또는 `selected[].pdf_path` 에서 찾지 못한 파일
+4. **chain runner `--pdf-dir`** — parser 로 그대로 forward. workdir 외부
+   가드, `--max-pdfs` 51+ 거부 동일.
+
+CLI 사용 예시 (operator-host real-PDF batch smoke):
+```
+python3 stock_research/phase3_report_pipeline/examples/run_inventory_batch_smoke.py \
+    --inventory <real_inventory.json> \
+    --pdf-dir   /tmp/phase3_batch_pdfs \
+    --pdf-engine auto \
+    --workdir   /tmp/phase3_batch_smoke \
+    --max-pdfs  20 \
+    --manual-meta <manual_meta.json> \
+    --ticker-map  stock_research/phase3_report_pipeline/resources/ticker_map.csv \
+    --chain-bridge --chain-merge --chain-build
+```
+Paste-back: report ONLY `parser_batch_summary.json` +
+`inventory_batch_smoke_summary.json` 카운터; PDF 본문 / 추출 텍스트 /
+full sha256 절대 paste 금지.
 
 CLI 사용 예시 (synthetic batch fixture; dry-run 끝까지):
 ```
