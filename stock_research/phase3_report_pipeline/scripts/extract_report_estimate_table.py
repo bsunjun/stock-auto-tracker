@@ -842,7 +842,17 @@ def parse_before_after_variant_rows(
             rejected_growth = True
             continue
         if metric_name not in metrics:
-            metrics[metric_name] = {"old": old_val, "new": new_val}
+            entry = {"old": old_val, "new": new_val}
+            # PR #26: defensive audit. The variant column-window scanner reads
+            # two adjacent numeric tokens off a single line; if both raw token
+            # strings are byte-identical we cannot distinguish "intentional
+            # flat (no estimate change)" from "scanner read the same column
+            # twice". Surface the latter possibility for operator review. This
+            # is additive — primary-row emission and direction='flat' are
+            # unaffected; the flag lives only on the breakdown audit record.
+            if str(old_val) == str(new_val):
+                entry["audit_flags"] = ["flat_possible_duplicate_column"]
+            metrics[metric_name] = entry
 
     gap_hint = ""
     if not metrics and rejected_growth:
@@ -867,6 +877,201 @@ def parse_year_pivot_revision_rows(text: str) -> bool:
         if len(toks) >= 3:
             return True
     return False
+
+
+# --- PR #26: natural-language revision + KV side-anchor + strict YP -------
+#
+# These three helpers add CONSERVATIVE coverage for the gap_reasons surfaced
+# in the post-PR-#22 5-PDF cloud smoke. Each is additive: it only fills a
+# metric the prior helpers missed, and on any ambiguity it returns nothing
+# and lets the gap_reason classifier explain why.
+#
+# Design pillars (mirroring the user spec for PR #26):
+#   * False-positive prevention beats recall. We will refuse a row rather
+#     than guess.
+#   * forecast-only year-pivot tables NEVER produce a structured row.
+#   * A direction word (상향/하향/raise/lowered/...) is REQUIRED for any
+#     natural-language revision to commit a metric. The numeric direction
+#     must agree with the direction word; on conflict we reject.
+#   * The KV side-anchor variant (`<metric>(year): 기존 X / 변경 Y`) requires
+#     BOTH labels inline — table-layout headers from PR #18 do not match.
+
+# Direction-word vocabulary. Must be matched literally (case-insensitive for
+# Latin words). We require ONE class to match; both classes matching, or
+# zero matching, is treated as ambiguous.
+_NL_DIRECTION_UP: tuple[str, ...] = ("상향", "올림", "상승", "올렸",
+                                     "raise", "raised", "upward")
+_NL_DIRECTION_DOWN: tuple[str, ...] = ("하향", "낮춤", "낮췄", "하락",
+                                       "cut", "lowered", "downward")
+
+# Natural-language revision pair. The connector ('에서', '→', '->', 'from',
+# 'to') is REQUIRED — bare 'X Y <direction>' will not match. The metric
+# label is REQUIRED. Currency/unit suffixes are optional.
+_NL_PAIR_RE = re.compile(
+    r"(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
+    r"[\s\S]{0,40}?"
+    r"(?P<old>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s*(?:십억원|백만원|억원|원|won)?"
+    r"\s*(?:에서|→|->|to)\s*"
+    r"(?P<new>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s*(?:십억원|백만원|억원|원|won)?",
+    re.IGNORECASE,
+)
+
+# Window after the matched pair in which we look for a direction word.
+NL_DIRECTION_WINDOW_CHARS = 60
+
+
+def _has_direction_word(window: str) -> tuple[bool, bool]:
+    """Return (is_up, is_down). Either both False (ambiguous) or exactly one
+    True; both True is also treated as ambiguous by the caller."""
+    lo = window.lower()
+    is_up = any(d in window for d in _NL_DIRECTION_UP if not d.isascii()) or \
+            any(d.lower() in lo for d in _NL_DIRECTION_UP if d.isascii())
+    is_down = any(d in window for d in _NL_DIRECTION_DOWN if not d.isascii()) or \
+              any(d.lower() in lo for d in _NL_DIRECTION_DOWN if d.isascii())
+    return is_up, is_down
+
+
+def parse_natural_language_revision(text: str) -> tuple[dict[str, dict], str]:
+    """Conservatively parse natural-language revision sentences such as
+    '영업이익 추정치를 201억원에서 251억원으로 상향'. Returns
+    (metrics, gap_hint).
+
+    gap_hint:
+      * ""                                       — no NL pair pattern present
+      * "natural_language_revision_parsed"       — at least one metric
+        committed; caller will wind up with gap_reason='parsed_metric_pair'
+        (since metrics are non-empty), but the hint is preserved for audit.
+      * "natural_language_revision_ambiguous"    — at least one NL pair
+        pattern matched but was rejected for missing / conflicting direction
+        word, AND no metric committed.
+
+    Refusal rules:
+      * direction word window (60 chars after the pair) must contain exactly
+        one of {up_words, down_words};
+      * the direction word must match the numeric direction (new>old → up,
+        new<old → down). Mismatch → reject.
+      * 'flat' numeric direction (old==new) is rejected — natural-language
+        prose almost never describes 'no change' as a revision.
+    """
+    if not isinstance(text, str) or not text:
+        return {}, ""
+    metrics: dict[str, dict] = {}
+    saw_pattern = False
+    saw_ambiguous = False
+    for m in _NL_PAIR_RE.finditer(text):
+        saw_pattern = True
+        metric_label = m.group("metric")
+        metric = METRIC_ALIASES.get(metric_label) \
+                 or METRIC_ALIASES.get(metric_label.lower())
+        if metric is None:
+            continue
+        old_raw, new_raw = m.group("old"), m.group("new")
+        old_n = parse_numeric(old_raw)
+        new_n = parse_numeric(new_raw)
+        if old_n is None or new_n is None:
+            continue
+        tail = text[m.end(): m.end() + NL_DIRECTION_WINDOW_CHARS]
+        is_up, is_down = _has_direction_word(tail)
+        if (is_up and is_down) or (not is_up and not is_down):
+            saw_ambiguous = True
+            continue
+        # Numeric direction must agree with direction word.
+        numeric_up = new_n > old_n
+        numeric_down = new_n < old_n
+        if (is_up and not numeric_up) or (is_down and not numeric_down):
+            saw_ambiguous = True
+            continue
+        if metric not in metrics:
+            metrics[metric] = {"old": old_raw, "new": new_raw}
+    if metrics:
+        return metrics, "natural_language_revision_parsed"
+    if saw_ambiguous or saw_pattern:
+        return {}, "natural_language_revision_ambiguous"
+    return {}, ""
+
+
+# Side-anchor KV form: `<metric>(year)?[:]? <oldlabel> <num> <newlabel> <num>`
+# The labels are REQUIRED inline; this is what discriminates this form from
+# the PR #18 table-layout (which has labels on the header row above).
+#
+# Labels come in 4 conventions, each with explicit old/new partner:
+#   기존 / 변경    (existing / changed)
+#   이전 / 현재    (previous / current; KR)
+#   prev / curr   (English short form)
+#   변경 전 / 변경 후
+_SIDE_ANCHOR_KV_RE = re.compile(
+    r"(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
+    # horizon is optional; accepts both '(2026E)' and bare '2026E'
+    r"(?:\s*\(?\s*(?P<horizon>\d{2,4}[EF]?)\s*\)?)?"
+    r"\s*[:：]?\s*"
+    r"(?:기존|이전|prev|previous|변경 전|변경전)\s*"
+    r"(?P<old>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s*[/／,]?\s*"
+    r"(?:변경|현재|curr|current|new|변경 후|변경후)\s*"
+    r"(?P<new>[+-]?[\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def parse_side_anchor_kv_revision(text: str) -> tuple[dict[str, dict], str]:
+    """Parse `<metric>(year)?: 기존 X / 변경 Y` style KV side-anchor rows.
+
+    Returns (metrics, horizon). Both labels MUST appear inline; horizon is
+    optional. Caller uses this to fill metrics the PR #18/#19 side-anchor
+    scanner missed (which requires `<metric>(year) <a> <b> ▲|▼|-`).
+    """
+    if not isinstance(text, str) or not text:
+        return {}, ""
+    metrics: dict[str, dict] = {}
+    horizon = ""
+    for m in _SIDE_ANCHOR_KV_RE.finditer(text):
+        metric_label = m.group("metric")
+        metric = METRIC_ALIASES.get(metric_label) \
+                 or METRIC_ALIASES.get(metric_label.lower())
+        if metric is None or metric in metrics:
+            continue
+        old_raw, new_raw = m.group("old"), m.group("new")
+        if parse_numeric(old_raw) is None or parse_numeric(new_raw) is None:
+            continue
+        metrics[metric] = {"old": old_raw, "new": new_raw}
+        h = m.group("horizon")
+        if h and not horizon:
+            horizon = _normalize_horizon(h)
+    return metrics, horizon
+
+
+# Strict 'year_pivot_no_revision_pair' detector. PR #18 already exposes the
+# more permissive `parse_year_pivot_revision_rows` which fires
+# `ambiguous_year_pivot`. We add a stricter overlay so a forecast-only
+# year-pivot WITHOUT any 목표주가 / 가이던스 / 추정치 변경 / 변동률 /
+# revision / guidance keyword surfaces with the more explicit PR #26 label
+# `year_pivot_no_revision_pair`.
+#
+# Behavior on the existing PR #18 fixture
+# (real_layout_variant_ambiguous_year_pivot.txt) — that text contains
+# '목표주가 변동 없음. 가이던스 미변경.' so the new detector is False there
+# and the gap_reason waterfall keeps producing 'ambiguous_year_pivot'
+# (byte-identical regression preserved).
+_YEAR_PIVOT_NEUTRAL_KEYWORDS: tuple[str, ...] = (
+    "목표주가", "가이던스", "guidance",
+    "추정치 변경", "추정 변경", "변동률", "변동 률",
+    "revision", "revised",
+)
+
+
+def parse_year_pivot_no_revision_pair(text: str) -> bool:
+    """True iff the text has a year-pivot forecast table AND lacks ANY of
+    the discriminator keywords listed in `_YEAR_PIVOT_NEUTRAL_KEYWORDS`.
+
+    Designed to fire only for PR #26's NEW forecast-only fixtures so the
+    older PR #18 ambiguous_year_pivot fixture continues producing its
+    legacy gap_reason verbatim.
+    """
+    if not parse_year_pivot_revision_rows(text):
+        return False
+    return not any(k in text for k in _YEAR_PIVOT_NEUTRAL_KEYWORDS)
 # --- end helpers ----------------------------------------------------------
 
 
@@ -1028,6 +1233,27 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         if m not in metrics:
             metrics[m] = vals
 
+    # PR #26: side-anchor KV form (`<metric>(year): 기존 X / 변경 Y`).
+    # Additive — only fills missing metrics. Inline labels REQUIRED so the
+    # table-layout (PR #18) variants don't double-fire here.
+    kv_metrics, kv_horizon = parse_side_anchor_kv_revision(text)
+    for m, vals in kv_metrics.items():
+        if m not in metrics:
+            metrics[m] = vals
+
+    # PR #26: natural-language revision sentences (e.g. '영업이익 추정치를
+    # 201억원에서 251억원으로 상향'). Conservative — REQUIRES a direction word
+    # in a 60-char window after the pair AND requires the direction word to
+    # match numeric direction. Returns "" gap_hint when no NL pair exists,
+    # "natural_language_revision_parsed" when a metric was committed (which
+    # subsumes into parsed_metric_pair via the metrics dict), or
+    # "natural_language_revision_ambiguous" when at least one pair was
+    # rejected and no metric committed.
+    nl_metrics, nl_gap_hint = parse_natural_language_revision(text)
+    for m, vals in nl_metrics.items():
+        if m not in metrics:
+            metrics[m] = vals
+
     # PR #18: side-anchor target price (e.g. '목표주가 190,000 120,000 ▲'); only
     # fills target_price if the existing arrow-form scan didn't. Target-price
     # side-anchor is NOT header-restricted because it never feeds a primary
@@ -1041,16 +1267,19 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
     # 1. PR #17 column-window horizon
     # 2. PR #18 variant-window horizon
     # 3. PR #18 side-anchor horizon (most-priority metric)
-    # 4. existing parse_horizon (first bare/E/F token in raw text)
+    # 4. PR #26 side-anchor KV horizon
+    # 5. existing parse_horizon (first bare/E/F token in raw text)
     if layout_horizon:
         horizon = layout_horizon
     elif variant_horizon:
         horizon = variant_horizon
     elif side_horizon:
         horizon = side_horizon
+    elif kv_horizon:
+        horizon = kv_horizon
     # else: keep parse_horizon-derived horizon
 
-    # PR #18 + PR #19 + PR #20: gap_reason classification — additive audit field.
+    # PR #18 + PR #19 + PR #20 + PR #26: gap_reason classification — additive audit field.
     # Precedence (top wins):
     #   1. parsed_metric_pair   — at least one metric in `metrics`
     #   2. empty_text           — no input text
@@ -1062,8 +1291,16 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
     #                             nothing actually paired
     #   6. side_anchor_no_near_header /
     #      side_anchor_header_found_no_metric_pair (PR #19)
-    #   7. ambiguous_year_pivot — multi-year forecast table without before/after
-    #   8. no_revision_anchor   — fallthrough
+    #   7. natural_language_revision_ambiguous (PR #26)
+    #                           — NL pair pattern present but rejected for
+    #                             missing/conflicting direction word
+    #   8. year_pivot_no_revision_pair (PR #26)
+    #                           — strict forecast-only year-pivot WITHOUT
+    #                             목표주가/가이던스/변동률 keywords
+    #   9. ambiguous_year_pivot — multi-year forecast table without before/after
+    #                             (legacy detector; preserves PR #18 fixture
+    #                             byte-identity)
+    #  10. no_revision_anchor   — fallthrough
     gap_reason: str
     if not text or not text.strip():
         gap_reason = "empty_text"
@@ -1088,6 +1325,16 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
             # from a recognized header, OR header found but no eligible row
             # inside the proximity window.
             gap_reason = side_gap_hint
+        elif nl_gap_hint == "natural_language_revision_ambiguous":
+            # PR #26: NL revision pair pattern matched somewhere but no row
+            # was committed (missing direction word OR direction conflict).
+            gap_reason = "natural_language_revision_ambiguous"
+        elif parse_year_pivot_no_revision_pair(text):
+            # PR #26: stricter forecast-only year-pivot — has no
+            # 목표주가/가이던스/변동률 keywords. Distinct from the legacy
+            # ambiguous_year_pivot path so PR #18's fixture stays byte-
+            # identical (its text DOES carry '목표주가 변동 없음').
+            gap_reason = "year_pivot_no_revision_pair"
         elif parse_year_pivot_revision_rows(text):
             # Forecast-only table without paired before/after data.
             gap_reason = "ambiguous_year_pivot"

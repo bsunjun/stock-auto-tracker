@@ -317,7 +317,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -369,12 +369,32 @@ PR #15 hard caps:
   에서 적어도 1개의 후보 metric row 가 있었으나 모두 value-shape filter
   로 growth-rate / YoY 로 reject 되어 surviving metric 이 없음. 헤더는
   실재하나 그 아래 표는 절대값 revision 이 아니라 % 변동률 표였음을 의미.
+- **`natural_language_revision_ambiguous`** (PR #26) — 본문에 자연어
+  revision pair (`<metric> X에서 Y로`) 가 있었으나 direction word
+  (`상향/하향/raise/raised/lowered/cut/...`) 가 60-char tail window 안
+  에 없거나, 두 클래스가 동시에 매칭되거나, direction word 와 numeric
+  방향이 일치하지 않아 모두 reject. metric 추출 0 이며 false positive
+  방지가 recall 보다 우선 — 임의 추정 금지.
+- **`year_pivot_no_revision_pair`** (PR #26) — strict forecast-only
+  year-pivot 표. `parse_year_pivot_revision_rows` 가 True (3+ year
+  토큰) AND 본문에 `목표주가 / 가이던스 / guidance / 추정치 변경 /
+  변동률 / revision` 키워드가 모두 부재할 때만 발생. 동일 텍스트가
+  키워드 중 하나라도 가지면 legacy `ambiguous_year_pivot` 로 fall
+  through (PR #18 fixture 의 byte-identity 보존을 위한 분기).
 
 precedence (위에서 아래로, 먼저 만족하는 항목이 win):
 `parsed_metric_pair` → `empty_text` → `target_price_only` →
 `variant_rejected_growth_rate` (PR #20) → `no_metric_pair` →
 `side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`
-(PR #19) → `ambiguous_year_pivot` → `no_revision_anchor`.
+(PR #19) → `natural_language_revision_ambiguous` (PR #26) →
+`year_pivot_no_revision_pair` (PR #26) → `ambiguous_year_pivot` →
+`no_revision_anchor`.
+
+audit-only flag (PR #26): variant column-window scanner 가 한 줄에서
+연속된 두 numeric token 을 byte-identical 으로 잡으면 해당 metric
+breakdown entry 에 `audit_flags=['flat_possible_duplicate_column']` 가
+달린다. structured row 는 그대로 (direction='flat', dts=False) 발행되며,
+operator 가 의도적 flat 인지 column 중복 read 인지 판단한다.
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**

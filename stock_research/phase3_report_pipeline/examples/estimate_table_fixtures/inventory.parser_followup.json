@@ -1,0 +1,47 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #26 parser gap follow-up. Five anonymized synthetic fixtures exercise (a) forecast-only year-pivot → year_pivot_no_revision_pair, (b) year-pivot + natural-language revision sentence → natural_language_revision_parsed (parsed_metric_pair via metrics), (c) NL pattern present without direction word → natural_language_revision_ambiguous, (d) inline KV side-anchor (`<metric>(year): 기존 X / 변경 Y`) → parsed_metric_pair, (e) variant column-window with byte-identical numeric tokens → audit_flags=['flat_possible_duplicate_column']. Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 5,
+  "selected_count": 5,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_year_pivot_forecast_only.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0"
+    },
+    {
+      "filename": "real_layout_year_pivot_with_natural_language_revision.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+    },
+    {
+      "filename": "real_layout_natural_language_ambiguous.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "1010101010101010101010101010101010101010101010101010101010101010"
+    },
+    {
+      "filename": "real_layout_side_anchor_colon_existing_changed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "2020202020202020202020202020202020202020202020202020202020202020"
+    },
+    {
+      "filename": "real_layout_flat_possible_duplicate_column.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "3030303030303030303030303030303030303030303030303030303030303030"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

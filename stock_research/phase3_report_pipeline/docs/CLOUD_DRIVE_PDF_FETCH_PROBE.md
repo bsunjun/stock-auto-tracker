@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -245,6 +245,26 @@ as `gap_reason='variant_rejected_growth_rate'`. This eliminates the cloud-
 smoke false positive observed on the 대덕전자 PDF (op `1.9 → -6.2`); the
 parser now correctly returns op `201 → 251` from the actual revision panel
 or `0 structured rows` for short comments without one.
+
+**PR #26 adds three conservative gap-handling helpers** triggered by the
+post-PR-#22 5-PDF cloud smoke:
+1. **Natural-language revision regex** — `<metric> X에서 Y로 상향/하향`
+   form. Direction word is REQUIRED (60-char tail window) and MUST match
+   numeric direction; ambiguity rejects → `gap_reason='natural_language_revision_ambiguous'`.
+2. **Inline KV side-anchor** — `<metric>(year): 기존 X / 변경 Y` form.
+   Both labels REQUIRED inline so PR #18 table-layout (header-row labels)
+   does not double-fire.
+3. **Flat duplicate-column audit** — when the variant column-window
+   scanner reads two byte-identical numeric tokens on a single metric row,
+   the breakdown's metric entry carries `audit_flags=['flat_possible_duplicate_column']`.
+   The structured row is still emitted (`direction='flat'`,
+   `direct_trade_signal=false`); operator decides whether it's intentional
+   flat or a column-duplication read.
+
+PR #26 also adds `gap_reason='year_pivot_no_revision_pair'` for the strict
+forecast-only year-pivot case (no `목표주가/가이던스/추정치 변경/변동률/
+revision` keywords). The legacy PR #18 `ambiguous_year_pivot` path remains
+for texts that DO have those keywords, preserving fixture byte-identity.
 
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18

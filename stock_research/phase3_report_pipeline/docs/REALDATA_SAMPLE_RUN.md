@@ -442,6 +442,27 @@ rm -rf "$PR14_WORKDIR"
   growth-rate row (op `1.9 → -6.2`). Post-fix the same PDF either
   yields the correct revision (op `201 → 251`) or zero structured
   rows. PR #12/#17/#18/#19 regression byte-identical.
+- **PR #26 (parser gap follow-up after real-PDF smoke, MERGED)** —
+  adds three conservative parser gap helpers triggered by the
+  post-PR-#22 5-PDF cloud smoke. (a) Natural-language revision
+  regex (`<metric> X에서 Y로 상향/하향`) requires direction word
+  + numeric direction match; ambiguity rejects with
+  `gap_reason='natural_language_revision_ambiguous'`. (b) Inline
+  KV side-anchor (`<metric>(year): 기존 X / 변경 Y`) requires both
+  labels inline so PR #18 table-layout does not double-fire.
+  (c) Flat duplicate-column audit: when the variant column-window
+  scanner reads two byte-identical numeric tokens on the same row,
+  the breakdown's metric entry carries
+  `audit_flags=['flat_possible_duplicate_column']`. PR #26 also
+  introduces `gap_reason='year_pivot_no_revision_pair'` for the
+  strict forecast-only year-pivot case (no
+  목표주가/가이던스/추정치 변경/변동률/revision keywords); the
+  legacy PR #18 `ambiguous_year_pivot` path remains for texts with
+  those keywords (preserves fixture byte-identity). The 5-PDF
+  cloud smoke surfaced `flat_possible_duplicate_column` on LG전자
+  (sales 23,733/23,733 AND op 1,673.6/1,673.6) — operator review
+  flag without changing primary emission. PR #12/#17/#18/#19/#20/
+  #21/#22/#25 regression byte-identical.
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)
