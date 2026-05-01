@@ -24,7 +24,8 @@ phase3_report_pipeline/
 │   │                                     #   PR #17: 실 WiseReport "표3. 실적 전망 / 수정 후 / 수정 전" 표 파서 (arrow regex 보조)
 │   │                                     #   PR #18: 추가 broker-template 변형 (기존/변경, 변경 전/후, 직전/현재, side-anchor) + gap_reason audit
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
-│   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
+│   ├── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
+│   └── build_monday_seed_pack.py         # PR — 최근 N일 WiseReport+Telegram → 5종 운영팩 (signal_use=0)
 ├── examples/
 │   ├── parsed_meta.example.json          # manual partial meta 입력 형식 예시
 │   ├── parsed_meta.strict_fixture.json   # PR #7 strict gate fixture (8 records)
@@ -32,7 +33,8 @@ phase3_report_pipeline/
 │   ├── pipeline_runner_fixture/          # PR #9 dry-run runner fixture (bridge/structured/extra/expected/README)
 │   ├── estimate_table_fixtures/          # PR #12 + PR #17 + PR #18 — synthetic Korean text fixtures (arrow-pair + real 표 layout + variant)
 │   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
-│   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
+│   ├── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
+│   └── monday_seed_fixture/              # PR — Monday Seed Pack synthetic fixture + expected_outputs (signal_use=0)
 ├── docs/
 │   ├── CLAUDE_CODE_RUNBOOK.md            # 단계별 실행 가이드
 │   ├── PIPELINE_SCHEMA.md                # 데이터 흐름·스키마 매핑
@@ -40,7 +42,8 @@ phase3_report_pipeline/
 │   ├── REALDATA_SAMPLE_RUN.md            # operator-host 절차 (PR #11 sample, PR #14 1–3 PDF smoke)
 │   ├── REAL_PDF_SMOKE_RESULT_TEMPLATE.md # PR #14 — 1–3 PDF smoke 결과 paste-back 스키마 (commit 금지)
 │   ├── CLOUD_DRIVE_PDF_FETCH_PROBE.md    # PR #15 — cloud-session Drive fetch capability probe (≤ 1 PDF)
-│   └── CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md  # PR #15 — probe 결과 paste-back 스키마 (commit 금지)
+│   ├── CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md  # PR #15 — probe 결과 paste-back 스키마 (commit 금지)
+│   └── MONDAY_SEED_PACK_RUNBOOK.md       # PR — Monday Seed Pack runbook (장전 운영팩 5종)
 └── config/
     └── phase3_report_pipeline.example.json
 ```
