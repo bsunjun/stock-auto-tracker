@@ -1,0 +1,42 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #18 — anonymized broker-template variant fixtures. Each text file under texts/ exercises a different label convention: 기존/변경, 변경 전/변경 후, year-pivot (no revision pair), '직전/현재' header with target-price-only data row. shas are deterministic placeholders.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 4,
+  "selected_count": 4,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_variant_existing_changed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "filename": "real_layout_variant_change_before_after.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "filename": "real_layout_variant_ambiguous_year_pivot.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "filename": "real_layout_variant_no_anchor_target_only.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

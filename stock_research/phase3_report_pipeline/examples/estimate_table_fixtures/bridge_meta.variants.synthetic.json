@@ -1,0 +1,50 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_existing_changed.pdf",
+    "source_pdf_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "extraction_method": "manual",
+    "_fixture_note": "기존 / 변경 column header. PR #18 variant window matches → metrics filled → primary=operating_profit, direction=up."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_change_before_after.pdf",
+    "source_pdf_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "extraction_method": "manual",
+    "_fixture_note": "변경 전 / 변경 후 column header. PR #18 variant window matches → metrics filled → primary=operating_profit, direction=down (downward revision)."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_ambiguous_year_pivot.pdf",
+    "source_pdf_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "extraction_method": "manual",
+    "_fixture_note": "Forecast-only year-pivot table (2024A 2025A 2026E 2027F) with no paired before/after data. PR #18 deliberately does NOT extract metrics from this shape (cannot determine old/new). breakdown gap_reason='ambiguous_year_pivot'. build --strict rejects (no metrics)."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_no_anchor_target_only.pdf",
+    "source_pdf_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "extraction_method": "manual",
+    "_fixture_note": "Header has '직전 / 현재' but the only data row is 목표주가 (not a metric). target_price set via side-anchor scan; metrics empty. breakdown gap_reason='target_price_only'. build --strict rejects."
+  }
+]

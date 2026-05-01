@@ -219,17 +219,22 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 layout parser
+## Compatibility with PR #17 + PR #18 layout parsers
 
-PR #17 extended `extract_report_estimate_table.py` with a real-WiseReport
-"표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader. The probe
-runbook is unchanged — `--pdf-engine auto` (PR #16) still selects the
-extraction engine, and the layout parser is wholly internal: when the
-text contains `수정 후` / `수정 전` markers near a `YYYYE` header, the
-new parser fills the metrics dict; when it doesn't (e.g., the cloud
-real-PDF smoke from PR #15/#16 on `대덕전자`), the layout parser
-correctly stays out of the way and `metrics={}` is reported as the
-honest result. No OCR/Vision/API fallback was added.
+PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
+**PR #18 extends this with additional broker-template variants**:
+`기존 / 변경`, `변경 전 / 변경 후`, `직전 / 현재` column headers, plus a
+`<metric>(<year>) <new> <old> ▲|▼|-` side-anchor scanner. The indicator
+(▲/▼/-) is REQUIRED for the side-anchor pattern so growth-rate / YoY rows
+without indicators don't produce false positives.
+
+The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
+the extraction engine, and all layout parsers are wholly internal. PR #18
+also adds an audit-only `gap_reason` field on each breakdown record so the
+operator can read why a particular PDF didn't yield a structured row
+(`no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` /
+`target_price_only` / `empty_text` / `parsed_metric_pair`). No OCR / Vision
+/ API fallback added.
 
 ## What this PR does NOT do
 

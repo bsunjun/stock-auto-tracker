@@ -408,6 +408,15 @@ rm -rf "$PR14_WORKDIR"
   prefers forward-year `YYYYE`. Still deterministic — no OCR. PR #12's
   arrow-pair scanner runs first; PR #17's layout fills only the
   metrics PR #12 missed, so synthetic regression is byte-identical.
+- **PR #18 (additional broker-template variants, MERGED)** — adds
+  `기존/변경`, `변경 전/변경 후`, `직전/현재` column-header readers
+  plus a `<metric>(<year>) <new> <old> ▲|▼|-` side-anchor scanner
+  (the indicator is REQUIRED so growth-rate rows without ▲/▼ don't
+  produce false positives). Adds an additive `gap_reason` audit
+  field on breakdown records: `parsed_metric_pair` /
+  `no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` /
+  `target_price_only` / `empty_text`. Still deterministic — no OCR.
+  PR #12 + PR #17 regression byte-identical.
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)

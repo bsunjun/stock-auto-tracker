@@ -295,7 +295,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -305,8 +305,23 @@ PR #15 hard caps:
 > **PR #17 은 OCR fallback 이 아니라 real WiseReport "표3. 실적 전망 / 수정 후 /
 > 수정 전 / 변동률" 표 layout parser 보강이다.** 4-column horizon 헤더에서
 > forward-year `YYYYE` 우선 선택, compact + split-line 두 형태 모두 처리.
-> 여전히 deterministic-only — OCR / Vision / API 호출 없음. PR #12 의
-> arrow-pair 경로가 우선이며, PR #17 layout 은 그것이 못 잡은 metric 만 보완한다.
+>
+> **PR #18 은 PR #17 외에도 흔한 broker-template 변형을 추가로 인식한다:**
+> `기존 / 변경`, `변경 전 / 변경 후`, `직전 / 현재` column header 와
+> `<metric>(<year>) <new> <old> ▲|▼|-` side-anchor row 까지 포함. 표가
+> 명확한 old/new pair 를 주지 않는 forecast-only 케이스는 `gap_reason` audit
+> 필드로 추적되며 structured row 는 emit 되지 않는다 (`ambiguous_year_pivot`
+> 등). 여전히 deterministic-only — OCR / Vision / API 호출 없음. PR #12 의
+> arrow-pair 경로가 우선이며, PR #17 / PR #18 layout 은 그것이 못 잡은
+> metric 만 보완한다.
+
+`gap_reason` (PR #18) 가능한 값:
+- `parsed_metric_pair` — primary metric 추출 성공
+- `no_revision_anchor` — 어떤 revision marker 도 발견 못 함
+- `no_metric_pair` — anchor 는 발견됐으나 old/new pair 추출 실패
+- `ambiguous_year_pivot` — forecast-only 표 (e.g. `2024A 2025A 2026E 2027F`)
+- `target_price_only` — metric 없이 목표주가만 발견
+- `empty_text` — pdfplumber 가 빈 text 반환
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**
