@@ -9,7 +9,10 @@ Inputs
   --scan-json    Path to scan_company.json from scan_wisereport_company.py
   --manual-meta  Path to manual partial parsed_meta JSON (list of dict; see
                  examples/parsed_meta.example.json)
-  --ticker-map   Path to ticker_map CSV (columns: name_kr,ticker)
+  --ticker-map   Path to ticker_map CSV. Either rich schema
+                 (company_name_kr,ticker,aliases,market,notes — PR #21) or
+                 legacy (name_kr,ticker — PR #4) is auto-detected by
+                 ticker_resolver.load_ticker_map_rows.
   --out          Output parsed_meta.json path
 
 Output
@@ -21,12 +24,16 @@ Output
 
 Bridge rules
   * Match strategy (first hit wins): source_pdf_sha256 → filename → "[<korean name>]"
-    substring inside scan filename. Returns None if no match.
+    substring inside scan filename (with PR #21 normalization on the name).
+    Returns None if no match.
   * If matched and source_pdf_sha256 / filename are blank in the manual record,
     bridge fills them from the scan record.
-  * `ticker` normalization: if value already starts with 'KRX:' it is kept as-is.
-    Otherwise the bridge looks the value up in the ticker_map; on miss, the
-    Korean name is preserved AND 'ticker_unmapped' is added to missing_fields.
+  * `ticker` normalization: if value already matches KRX:NNNNNN it is kept as-is.
+    Otherwise the bridge runs ticker_resolver.resolve over the value AND the
+    filename's '[<name>]' bracket; this honors aliases (e.g. Samsung Electronics
+    → 삼성전자 → KRX:005930) and entity-form prefixes ((주) / ㈜ / 주식회사).
+    On miss the Korean name is preserved AND 'ticker_unmapped' is added to
+    missing_fields.
   * `direction`: derived from old_target → new_target (up/down/flat). Bridge
     DOES NOT estimate target values themselves.
   * `source_key`: 'phase3:report_estimate:v1.3.2' (+ '+<sha256[:12]>' if known).
@@ -35,23 +42,27 @@ Bridge rules
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List
 
+# Local import — keeps bridge and resolver coupled by file location, no PYTHONPATH needed.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ticker_resolver  # noqa: E402
+
 REQUIRED_FIELDS = ["ticker", "broker", "report_date", "old_target", "new_target", "horizon"]
 SOURCE_KEY_BASE = "phase3:report_estimate:v1.3.2"
-BRIDGE_VERSION = "phase3:bridge_scan_to_parsed_meta:v1"
+BRIDGE_VERSION = "phase3:bridge_scan_to_parsed_meta:v2"
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--scan-json", required=True, help="scan_company.json path")
     p.add_argument("--manual-meta", required=True, help="manual partial parsed_meta JSON path")
-    p.add_argument("--ticker-map", required=True, help="ticker_map CSV path (columns: name_kr,ticker)")
+    p.add_argument("--ticker-map", required=True,
+                   help="ticker_map CSV path (rich PR #21 schema OR legacy 2-col schema)")
     p.add_argument("--out", required=True, help="output parsed_meta.json path")
     p.add_argument("--dry-run", dest="dry_run", action="store_true", default=True,
                    help="(default) summarize only; no file written")
@@ -61,17 +72,16 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
 
 
 def load_ticker_map(path: Path) -> dict[str, str]:
-    m: dict[str, str] = {}
-    with path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        if not reader.fieldnames or "name_kr" not in reader.fieldnames or "ticker" not in reader.fieldnames:
-            raise ValueError(f"ticker_map must have columns name_kr,ticker (got {reader.fieldnames})")
-        for row in reader:
-            name = (row.get("name_kr") or "").strip()
-            tk = (row.get("ticker") or "").strip()
-            if name and tk:
-                m[name] = tk
-    return m
+    """Backed by ticker_resolver.load_ticker_map. Rich schema is validated;
+    legacy schema is accepted with strict_market disabled."""
+    rows = ticker_resolver.load_ticker_map_rows(path)
+    is_legacy = all(not r.get("market") for r in rows)
+    errors = ticker_resolver.validate_ticker_map(rows, strict_market=not is_legacy)
+    if errors:
+        raise ValueError(
+            "ticker_map validation failed:\n  " + "\n  ".join(errors)
+        )
+    return ticker_resolver.build_lookup(rows)
 
 
 def derive_direction(old: object, new: object) -> str:
@@ -92,7 +102,7 @@ def derive_direction(old: object, new: object) -> str:
 
 
 def is_krx(t: object) -> bool:
-    return isinstance(t, str) and t.startswith("KRX:")
+    return ticker_resolver.is_krx(t)
 
 
 def find_scan_record(rec: dict, by_sha: dict, by_name: dict, scan: list[dict]) -> dict | None:
@@ -104,8 +114,17 @@ def find_scan_record(rec: dict, by_sha: dict, by_name: dict, scan: list[dict]) -
         return by_name[fn]
     name = rec.get("ticker") or rec.get("stock_name_kr") or ""
     if isinstance(name, str) and name and not is_krx(name):
+        norm = ticker_resolver.normalize_kr_company(name)
         for sr in scan:
-            if f"[{name}]" in (sr.get("filename") or ""):
+            sr_fn = sr.get("filename") or ""
+            if f"[{name}]" in sr_fn:
+                return sr
+            if norm and f"[{norm}]" in sr_fn:
+                return sr
+            # Compare against the bracket name (also normalized) so '(주)대덕전자'
+            # in the manual rec finds '[대덕전자]' in the scan filename.
+            sr_bracket = ticker_resolver.extract_bracketed_name(sr_fn)
+            if norm and sr_bracket and norm == sr_bracket:
                 return sr
     return None
 
@@ -123,8 +142,13 @@ def project_record(m: dict, by_sha: dict, by_name: dict, scan: list[dict], ticke
 
     t = rec.get("ticker", "") or ""
     if isinstance(t, str) and t and not is_krx(t):
-        if t in ticker_map:
-            rec["ticker"] = ticker_map[t]
+        hit = ticker_resolver.resolve(
+            t,
+            filename=rec.get("filename") or "",
+            ticker_map=ticker_map,
+        )
+        if hit is not None:
+            rec["ticker"] = hit
 
     rec["direction"] = derive_direction(rec.get("old_target"), rec.get("new_target"))
 

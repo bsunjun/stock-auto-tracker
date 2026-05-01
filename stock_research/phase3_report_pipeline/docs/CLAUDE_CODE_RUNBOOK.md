@@ -39,14 +39,33 @@ python3 scripts/vision_ocr_pdf.py --pdf <path> --pages "1-3" --max-pages 5
 - broker / old_target / new_target / horizon은 **PDF 본문 정보가 필요**하므로 사람 또는 별도 파서가 채운다 (현재 PR #4 범위에서는 OCR/Vision 미수행).
 - ticker는 한글명("SK스퀘어") 또는 KRX 코드("KRX:402340") 둘 다 허용 — bridge가 정규화한다.
 
-### 3a) bridge로 parsed_meta.json 생성 (PR #4, OCR/Vision 미사용)
+### 3a) bridge로 parsed_meta.json 생성 (PR #4 + PR #21, OCR/Vision 미사용)
 ```
 python3 scripts/bridge_scan_to_parsed_meta.py \
     --scan-json ./output/2026-04-30/scan_company.json \
     --manual-meta ./manual_meta.json \
-    --ticker-map examples/ticker_map.example.csv \
+    --ticker-map resources/ticker_map.csv \
     --out ./output/2026-04-30/parsed_meta.json
 # dry-run에서 매칭/missing_fields 분포 확인 → --apply
+```
+
+PR #21 ticker resolver 강화:
+- rich schema (`company_name_kr,ticker,aliases,market,notes`) 또는 legacy
+  schema (`name_kr,ticker`) 자동 인식.
+- 한글 정규화: `(주)`, `㈜`, `주식회사`, 끝 괄호 숫자 (`대덕전자(353200)`),
+  내부 공백 정규화.
+- 별칭 매칭: 영문명 (`Samsung Electronics`), 사명변경 이전 형 (`두산중공업`,
+  `현대중공업`, `대우조선해양` 등) 도 동일 ticker 로 해석.
+- 파일명 fallback: value 가 비었거나 매핑 미스이면 manual record 의
+  `filename` 에서 첫 `[...]` 브래킷을 꺼내 normalization → 재시도.
+- 매핑 실패 시 ticker 는 그대로 두고 `missing_fields`에 `ticker_unmapped`
+  를 추가 — `build --strict` 가 reject 한다.
+
+ticker_map 검증:
+```
+python3 scripts/ticker_resolver.py --verify \
+    --ticker-map resources/ticker_map.csv
+python3 examples/run_ticker_resolver_fixture.py
 ```
 - bridge는 sha256/filename을 채우고 한글 종목명을 KRX 코드로 매핑하며 direction을 자동 계산한다.
 - **누락된 필드는 추정하지 않고 `missing_fields`에 기록**한다.
