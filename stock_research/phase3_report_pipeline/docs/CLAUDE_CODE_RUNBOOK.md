@@ -272,6 +272,29 @@ PR #14 hard caps:
 - 실 PDF / 추출 텍스트 / 출력 JSON 어느 것도 repo 커밋 금지 — schema-aligned
   카운터만 PR comment 또는 외부 채팅에 paste.
 
+## Cloud-Drive PDF fetch probe (PR #15, ≤ 1 PDF)
+
+> **PR #15 는 parser 개선 PR 이 아니라 capability-discovery PR 이다.**
+> Claude Code cloud 세션이 Google Drive 의 PDF 본문 fetch 를 안전하게
+> 수행할 수 있는지 확인하는 절차와 paste-back 스키마만 추가한다.
+
+- 절차 ("Phase 0 — capability discovery" 부터 "Phase 5 — cleanup" 까지):
+  [`CLOUD_DRIVE_PDF_FETCH_PROBE.md`](CLOUD_DRIVE_PDF_FETCH_PROBE.md)
+- 결과 스키마 (paste-back 전용; 절대 commit 금지):
+  [`CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md`](CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md)
+
+PR #15 hard caps:
+- `pdf_count == 0` (Phase 0/1 stop) **또는** `pdf_count == 1` (Phase 2+).
+  PR #14 의 3 보다 더 작다 — 본 PR 은 capability discovery 우선이다.
+- Drive 원본 수정 / 이동 / 삭제 / rename 0건 (read-only API surfaces 만 사용).
+- OCR / Vision / API 호출 0건. PDF 본문은 deterministic `--pdf` (pdfplumber) 만 사용.
+- `direct_trade_signal=true` row 0건. Phase3 invariant.
+- `latest` / promote / Super Pack / `rolling --apply` 0건.
+- 실 PDF / 추출 텍스트 / 출력 JSON / 전체 sha256 어느 것도 repo 커밋 또는
+  paste-back 금지. schema-aligned 카운터 + sha **prefix(12 chars)** 만 paste.
+- Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
+  PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
+
 ## Deterministic estimate table parser (PR #12)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
