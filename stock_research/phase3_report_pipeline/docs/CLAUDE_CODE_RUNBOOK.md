@@ -295,7 +295,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -314,8 +314,24 @@ PR #15 hard caps:
 > 등). 여전히 deterministic-only — OCR / Vision / API 호출 없음. PR #12 의
 > arrow-pair 경로가 우선이며, PR #17 / PR #18 layout 은 그것이 못 잡은
 > metric 만 보완한다.
+>
+> **PR #19 는 side-anchor scan 을 revision-header proximity 안으로 제한한다:**
+> `<metric>(<year>) <a> <b> ▲|▼|-` 패턴이 본문 어디에든 있을 수 있으나
+> 실제 revision panel 은 항상 `직전/현재` (또는 `기존/변경`, `변경 전/후`,
+> `수정 전/후`, `추정치 변경`) 헤더 근처 ~15줄 안에 위치한다. 이를 벗어나면
+> growth-rate / YoY 행이 같은 모양으로 우연히 매치될 수 있어 reject 한다.
+>
+> **PR #20 은 variant column-window scan (직전/현재 등) 도 동일한 정확도
+> 처리를 적용한다:** 헤더 이후 window 길이를 40→15줄로 좁히고, window 안
+> 에서도 `목표주가` 라인을 stop condition 으로 사용해 그 다음 본문의
+> growth-rate 행이 실수로 metric pair 로 잡히지 않도록 한다. 추가로 각
+> 후보 row 에 value-shape filter 를 통과시켜 `sales / operating_profit /
+> net_income` 의 `old` `new` 두 값이 모두 abs<100 이면 growth-rate 으로
+> 보고 reject (`variant_rejected_growth_rate` gap_reason). EPS 는 원 단위
+> 라 작은 값이 정상이므로 면제. 본 변경은 실제 대덕전자 PDF cloud smoke 에서
+> `1.9 → -6.2` 가 op revision 으로 잘못 잡히던 false positive 를 제거한다.
 
-`gap_reason` (PR #18 + PR #19) 가능한 값:
+`gap_reason` (PR #18 + PR #19 + PR #20) 가능한 값:
 - `parsed_metric_pair` — primary metric 추출 성공
 - `no_revision_anchor` — 어떤 revision marker 도 발견 못 함
 - `no_metric_pair` — anchor 는 발견됐으나 old/new pair 추출 실패
@@ -327,6 +343,16 @@ PR #15 hard caps:
   근처 (~15줄) 가 아니어서 거부됨. growth-rate / YoY 행 false positive 방지.
 - **`side_anchor_header_found_no_metric_pair`** (PR #19) — 헤더는 발견했지만
   proximity window 내에 metric side-anchor row 가 없음.
+- **`variant_rejected_growth_rate`** (PR #20) — variant column-window 안
+  에서 적어도 1개의 후보 metric row 가 있었으나 모두 value-shape filter
+  로 growth-rate / YoY 로 reject 되어 surviving metric 이 없음. 헤더는
+  실재하나 그 아래 표는 절대값 revision 이 아니라 % 변동률 표였음을 의미.
+
+precedence (위에서 아래로, 먼저 만족하는 항목이 win):
+`parsed_metric_pair` → `empty_text` → `target_price_only` →
+`variant_rejected_growth_rate` (PR #20) → `no_metric_pair` →
+`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`
+(PR #19) → `ambiguous_year_pivot` → `no_revision_anchor`.
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**

@@ -428,6 +428,20 @@ rm -rf "$PR14_WORKDIR"
   header is found but no eligible metric row sits in its proximity
   window. Target-price side-anchor remains unrestricted (audit-only,
   never primary). PR #12/#17/#18 regression byte-identical.
+- **PR #20 (variant column-window precision fix, MERGED)** — applies
+  the same precision tightening to the PR #18 variant column-window
+  scanner (직전/현재, 기존/변경, 변경 전/후). The scan window is
+  capped at 15 lines past the header (down from 40), terminates
+  early when a `목표주가` line is hit inside the window, and
+  rejects any candidate metric row whose `old`/`new` both have
+  `abs<100` for sales/operating_profit/net_income (EPS exempt
+  because 원-단위 EPS values can legitimately be small). Rejected
+  rows surface as `gap_reason='variant_rejected_growth_rate'`.
+  Eliminates the cloud-smoke false positive observed on the real
+  대덕전자 PDF where the 40-line window captured an unrelated
+  growth-rate row (op `1.9 → -6.2`). Post-fix the same PDF either
+  yields the correct revision (op `201 → 251`) or zero structured
+  rows. PR #12/#17/#18/#19 regression byte-identical.
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)
