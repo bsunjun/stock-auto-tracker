@@ -397,6 +397,17 @@ rm -rf "$PR14_WORKDIR"
   remains a follow-up; for PR #13 the deterministic batch loop still
   goes through `--text-dir` so the synthetic fixture chain remains the
   single source of truth for regression.
+- **PR #16 (pypdf fallback engine, MERGED)** — adds
+  `--pdf-engine {auto,pdfplumber,pypdf}` so cloud sandboxes that can't
+  import `pdfplumber` (cffi/cryptography native panics) can still run
+  via the lighter `pypdf` engine. `auto` (default) tries pdfplumber
+  first then falls back to pypdf; both deterministic-only.
+- **PR #17 (real WiseReport table layout, MERGED)** — extends the
+  parser with a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout
+  reader. Compact + split-line forms both handled; horizon header
+  prefers forward-year `YYYYE`. Still deterministic — no OCR. PR #12's
+  arrow-pair scanner runs first; PR #17's layout fills only the
+  metrics PR #12 missed, so synthetic regression is byte-identical.
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)

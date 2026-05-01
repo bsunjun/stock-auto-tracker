@@ -1,0 +1,38 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_revision_table_a.pdf",
+    "source_pdf_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "extraction_method": "manual",
+    "_fixture_note": "Real-WiseReport revision table layout. Bridge supplies broker (manual priority); PR #17 parser supplies metric old/new + horizon. After merge: complete=true, primary=operating_profit, direction=up."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_revision_table_split_lines.pdf",
+    "source_pdf_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "extraction_method": "manual",
+    "_fixture_note": "Same layout but '수정 후' / '수정 전' rows split across multiple lines (pdfplumber wrap behavior). After merge: complete=true, primary=operating_profit, direction=up."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_no_revision_table.pdf",
+    "source_pdf_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "extraction_method": "manual",
+    "_fixture_note": "Comment-only PDF with target price change but no metric revision table. PR #17 parser emits no metric → structured_extraction empty → merge falls back to bridge filename-only-shape data which still has null targets / blank horizon → build --strict rejects."
+  }
+]
