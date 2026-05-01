@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -265,6 +265,20 @@ PR #26 also adds `gap_reason='year_pivot_no_revision_pair'` for the strict
 forecast-only year-pivot case (no `목표주가/가이던스/추정치 변경/변동률/
 revision` keywords). The legacy PR #18 `ambiguous_year_pivot` path remains
 for texts that DO have those keywords, preserving fixture byte-identity.
+
+**PR #27 promotes the PR #26 `flat_possible_duplicate_column` audit flag
+into a hard rejection.** The variant column-window scanner now refuses to
+commit any row whose `old`/`new` raw tokens are byte-identical strings,
+UNLESS the same line carries an explicit flat-context marker
+(`유지 / 동일 / 변동 없음 / unchanged / flat / no change`). Rejected rows
+never enter the breakdown's `metrics` dict, and when no metric survives
+the variant scan, `gap_reason='duplicate_column_flat_rejected'` fires.
+The PR #26 audit flag is removed. PR #12 arrow-pair flat (`<metric> X →
+X`) is unaffected — arrow-pair scanner is a separate code path. On the
+post-PR-#22 5-PDF cloud smoke this drops LG전자 from the structured rows
+(its `change_before_after` window had `매출액 23,733 23,733` and
+`영업이익 1,673.6 1,673.6` rows that the parser previously emitted as
+flat); structured_rows_total goes from 2 to 1, no false positives.
 
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18

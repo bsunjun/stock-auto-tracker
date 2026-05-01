@@ -1,0 +1,14 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[표3. 실적 전망 2026E (단위: 십억원)]
+
+                       변경 전          변경 후
+매출액                  1,200            1,250
+영업이익                  150              150       (변동 없음)
+EPS (원)                  700              700       (유지)
+
+영업이익과 EPS 는 byte-identical 이지만 line 끝에 '(변동 없음)' / '(유지)'
+명시적 flat context 가 있어 PR #27 parser 가 admit 한다.
+매출액은 정상 revision (1,200 → 1,250 up).

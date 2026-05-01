@@ -1,0 +1,15 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[표3. 실적 전망 2026E (단위: 십억원)]
+
+                       변경 전          변경 후
+매출액                  1,673.6          1,673.6
+영업이익                  1,673.6          1,673.6
+
+위 두 라인 모두 byte-identical numeric token 으로 행 안 distinct 토큰
+수가 1 이며 'unchanged' 류 명시적 flat context 가 없다.
+PR #27 parser 는 두 후보 모두 reject 하고 metrics 를 비운다.
+다른 helper (NL / KV / arrow-pair / side-anchor) 도 hit 하지 않으면
+gap_reason='duplicate_column_flat_rejected' 로 audit 만 남는다.

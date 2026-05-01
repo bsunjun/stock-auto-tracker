@@ -1,0 +1,50 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_duplicate_column_flat_rejected.pdf",
+    "source_pdf_sha256": "4040404040404040404040404040404040404040404040404040404040404040",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant column-window (변경 전 / 변경 후) with byte-identical numeric tokens on every metric row AND no flat-context marker on those lines. PR #27 rejects all candidates; metrics empty → gap_reason='duplicate_column_flat_rejected'. variant_kind='change_before_after' still recorded on breakdown. structured row count = 0. build --strict rejects."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_explicit_flat_allowed.pdf",
+    "source_pdf_sha256": "5050505050505050505050505050505050505050505050505050505050505050",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant column-window with two byte-identical metric rows (영업이익 150/150, EPS 700/700) but each line carries an explicit '(변동 없음)' or '(유지)' marker. PR #27 admits both as legitimate flat revisions. 매출액 1,200/1,250 is a normal up revision. metrics={sales,op,eps}, primary=op (priority order; tie-broken to op since sales is up but op-or-better takes precedence: actually op is up too — wait, op is 150/150 flat). Primary precedence: op>ni>sales>eps so op=primary, direction=flat (admitted). gap_reason='parsed_metric_pair'. Note this fixture demonstrates flat-context override; build --strict accepts."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_arrow_pair_flat_legacy_allowed.pdf",
+    "source_pdf_sha256": "6060606060606060606060606060606060606060606060606060606060606060",
+    "extraction_method": "manual",
+    "_fixture_note": "PR #12 arrow-pair scanner. Lines `매출액 30,000 → 30,000` and `영업이익 100 → 110`. Arrow-pair scanner emits BEFORE PR #27's variant column-window helper runs and never invokes validate_flat_revision_pair. metrics={sales=flat, op=up}, primary=op, direction=up. Verifies that PR #12 legacy flat behavior is unaffected by PR #27."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_mixed_duplicate_sales_valid_op.pdf",
+    "source_pdf_sha256": "7070707070707070707070707070707070707070707070707070707070707070",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant column-window with sales 1,673.6/1,673.6 (rejected as dup-column) AND op 130/150 + EPS 650/700 (valid). metrics={op,eps} only — sales does not enter the breakdown's metrics dict at all. Primary=op, direction=up, gap_reason='parsed_metric_pair' (since op survived). variant_gap_hint stays empty because at least one metric committed; the dup-flat reject is silent in mixed cases."
+  }
+]

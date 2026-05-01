@@ -317,7 +317,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -381,20 +381,37 @@ PR #15 hard caps:
   변동률 / revision` 키워드가 모두 부재할 때만 발생. 동일 텍스트가
   키워드 중 하나라도 가지면 legacy `ambiguous_year_pivot` 로 fall
   through (PR #18 fixture 의 byte-identity 보존을 위한 분기).
+- **`duplicate_column_flat_rejected`** (PR #27) — variant column-window
+  scanner 가 한 metric row 에서 byte-identical 두 numeric token (old
+  == new as strings) 을 보았으나 같은 line 에 명시적 flat context
+  (`유지 / 동일 / 변동 없음 / unchanged / flat / no change`) 가 없어
+  reject. variant scan 안에서 모든 후보 row 가 reject 되어 surviving
+  metric 이 0 일 때만 발화. 일부 row 만 reject 되는 mixed 케이스에서는
+  발화하지 않으며 (gap=parsed_metric_pair) rejected metric 은 단순히
+  breakdown 의 metrics dict 에서 빠진다.
 
 precedence (위에서 아래로, 먼저 만족하는 항목이 win):
 `parsed_metric_pair` → `empty_text` → `target_price_only` →
-`variant_rejected_growth_rate` (PR #20) → `no_metric_pair` →
-`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`
-(PR #19) → `natural_language_revision_ambiguous` (PR #26) →
+`variant_rejected_growth_rate` (PR #20) → `duplicate_column_flat_rejected`
+(PR #27) → `no_metric_pair` → `side_anchor_no_near_header` /
+`side_anchor_header_found_no_metric_pair` (PR #19) →
+`natural_language_revision_ambiguous` (PR #26) →
 `year_pivot_no_revision_pair` (PR #26) → `ambiguous_year_pivot` →
-`no_revision_anchor`.
+`no_revision_anchor`. 단, variant scan 안에서 growth-rate 와 dup-flat
+reject 가 동시에 일어나면 `variant_rejected_growth_rate` 가 우선
+(보다 구체적 시그널).
 
-audit-only flag (PR #26): variant column-window scanner 가 한 줄에서
-연속된 두 numeric token 을 byte-identical 으로 잡으면 해당 metric
-breakdown entry 에 `audit_flags=['flat_possible_duplicate_column']` 가
-달린다. structured row 는 그대로 (direction='flat', dts=False) 발행되며,
-operator 가 의도적 flat 인지 column 중복 read 인지 판단한다.
+PR #27: variant column-window scanner 의 byte-identical 두 numeric
+token 처리 contract:
+1. arrow-pair scanner (PR #12; `<metric> X → Y`) 는 별도 코드 경로이며
+   `validate_flat_revision_pair` 게이트를 호출하지 않는다. PR #12
+   broker_b_op_only_up_sales_flat fixture 처럼 `매출액 30,000 → 30,000`
+   같은 legacy flat 은 그대로 admit.
+2. variant column-window scanner 에서 old==new 인 row 는 같은 line 에
+   `_FLAT_CONTEXT_KEYWORDS` (`유지`, `동일`, `변동 없음`, `변동없음`,
+   `unchanged`, `flat`, `no change`, `no-change`) 중 하나가 있을 때만
+   admit. 없으면 reject (metrics dict 진입 금지).
+3. PR #26 audit flag `flat_possible_duplicate_column` 은 제거.
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**

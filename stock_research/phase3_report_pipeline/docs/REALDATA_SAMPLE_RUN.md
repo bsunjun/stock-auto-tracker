@@ -463,6 +463,29 @@ rm -rf "$PR14_WORKDIR"
   (sales 23,733/23,733 AND op 1,673.6/1,673.6) — operator review
   flag without changing primary emission. PR #12/#17/#18/#19/#20/
   #21/#22/#25 regression byte-identical.
+- **PR #27 (duplicate-column flat disambiguation, MERGED)** —
+  promotes the PR #26 audit flag into a hard rejection in the
+  variant column-window scanner. ANY byte-identical `old`/`new`
+  raw token pair is now rejected unless the same line carries an
+  explicit flat-context marker (`유지 / 동일 / 변동 없음 /
+  unchanged / flat / no change`). Rejected rows never enter the
+  breakdown's `metrics` dict; when no metric survives the variant
+  scan, `gap_reason='duplicate_column_flat_rejected'` fires. The
+  PR #26 audit flag is removed. PR #12 arrow-pair flat
+  (`<metric> X → X`) is unaffected — it goes through a different
+  scanner that does not invoke `validate_flat_revision_pair`. The
+  5-PDF cloud smoke drops LG전자 from the structured rows
+  (`structured_rows_total`: 2 → 1); 대덕전자 op 201→251 still
+  emits cleanly. Three new helpers added: `has_explicit_flat_context`,
+  `is_duplicate_column_flat_candidate`, `validate_flat_revision_pair`.
+  Four new fixtures
+  (`real_layout_duplicate_column_flat_rejected`,
+  `real_layout_explicit_flat_allowed`,
+  `real_layout_arrow_pair_flat_legacy_allowed`,
+  `real_layout_mixed_duplicate_sales_valid_op`) cover the rejected,
+  context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
+  regression byte-identical (PR #26 flat fixture's structured row
+  unchanged; only its breakdown changes by intent).
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)

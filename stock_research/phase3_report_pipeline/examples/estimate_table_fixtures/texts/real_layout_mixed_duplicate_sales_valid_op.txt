@@ -1,0 +1,17 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[표3. 실적 전망 2026E (단위: 십억원)]
+
+                       변경 전          변경 후
+매출액                  1,673.6          1,673.6
+영업이익                  130              150
+EPS (원)                  650              700
+
+매출액은 byte-identical numeric token + flat context 부재 → PR #27
+이 reject. 영업이익 / EPS 는 정상 revision.
+metrics dict 에서 sales 만 빠지고 op / eps 가 살아남아 primary=op
+direction=up 으로 emit 된다. 일부만 reject 되는 mixed 케이스는
+gap_hint 가 발화하지 않는다 (variant_gap_hint 는 surviving metric 이
+하나도 없을 때만 set).

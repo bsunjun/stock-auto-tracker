@@ -17,7 +17,7 @@ phase3_report_pipeline/
 │   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9 / #10)
 │   ├── wisereport_sample_select.py       # PR #11 — 실제 Drive 에서 PDF 10개만 read-only 선택 + sha256/size/mtime 인벤토리
 │   │                                     #          (PDF 본문 파싱 아님 — broker/target/horizon 추출은 별도 PR)
-│   ├── extract_report_estimate_table.py  # PR #12/#13/#16/#17/#18/#19/#20/#26 — deterministic-first PDF estimate table parser
+│   ├── extract_report_estimate_table.py  # PR #12/#13/#16/#17/#18/#19/#20/#26/#27 — deterministic-first PDF estimate table parser
 │   │                                     #   PR #12: --text / --inventory + --text-dir (arrow-pair regex)
 │   │                                     #   PR #13: --pdf (단일 파일, pdfplumber lazy import, OCR/Vision 없음)
 │   │                                     #   PR #16: --pdf-engine {auto,pdfplumber,pypdf} (auto = pdfplumber→pypdf fallback)
@@ -26,6 +26,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #19: side-anchor 정확도 개선 — header proximity (~15 lines) 내에서만 scan
 │   │                                     #   PR #20: variant column-window 정확도 개선 — window 40→15줄, 목표주가 stop, value-shape filter (sales/op/ni 양쪽 abs<100 → growth-rate 으로 reject; eps 면제)
 │   │                                     #   PR #26: 자연어 revision 보강 (`<metric> X에서 Y로 상향/하향`; direction word 필수, 방향 일치 강제), inline KV side-anchor (`<metric>(year): 기존 X / 변경 Y`), variant column-window 의 byte-identical 두 column 에 audit_flags=['flat_possible_duplicate_column'] 추가
+│   │                                     #   PR #27: variant column-window 의 byte-identical old/new 를 hard reject — '유지 / 동일 / 변동 없음 / unchanged / flat / no change' 같은 명시적 flat context 가 같은 line 에 있을 때만 admit. PR #26 의 audit_flag 는 제거되고 새 gap_reason 'duplicate_column_flat_rejected' 가 발화. arrow-pair scanner 는 별도 코드 경로이며 영향 없음 (PR #12 fixture byte-identical).
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
