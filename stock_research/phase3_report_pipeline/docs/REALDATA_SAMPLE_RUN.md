@@ -493,6 +493,40 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #34 (no_metric_pair window-shape sub-taxonomy, IN REVIEW)** —
+  refines the legacy `no_metric_pair` bucket (17 / 50 PDFs in the
+  PR #33 wider 50-PDF official smoke) via a window-shape classifier
+  that inspects the revision window opened by
+  `find_estimate_revision_table_window` (PR #17; 수정 후 / 수정 전 anchor)
+  or `find_variant_estimate_table_window` (PR #18; 기존/변경, 변경 전/후,
+  직전/현재 paired-column header). Adds 4 specific gap_reasons:
+  `no_metric_pair_target_price_only_window`,
+  `no_metric_pair_anchor_outside_pivot`,
+  `no_metric_pair_split_window_too_long`,
+  `no_metric_pair_unhandled_broker_template`. The classifier inspects
+  ONLY line-shape counters inside the window — never extracts a
+  numeric pair, never combines forecast year columns, never promotes
+  margin / yoy / 목표주가 rows to primary. Conservative invariants:
+  forecast-only `2024A 2025A 2026E 2027F` columns never yield a
+  fabricated old/new pair; structured-row extraction is untouched (PR
+  #18 variant scanner still owns the `기존(YYYY) / 변경(YYYY)`
+  paired-column path). New fixtures (4 synthetic SAMPLECO):
+  `real_layout_no_metric_pair_target_price_only_window.txt`,
+  `real_layout_no_metric_pair_anchor_outside_pivot.txt`,
+  `real_layout_no_metric_pair_split_window_too_long.txt`,
+  `real_layout_no_metric_pair_unhandled_broker_template.txt`. New
+  inventory `inventory.no_metric_pair_taxonomy.json` (4 entries). PR
+  #12-#33 inventories byte-identical (none of the existing 10
+  inventories produce `no_metric_pair`). PR #18 synthetic fixture
+  stays at `ambiguous_year_pivot` (revision window doesn't open).
+  Post-PR-#34 50-PDF official `--pdf-dir` runner smoke:
+  `no_metric_pair` 17 → **0**;
+  `no_metric_pair_unhandled_broker_template` 0 → **12**;
+  `no_metric_pair_anchor_outside_pivot` 0 → **5**;
+  `no_metric_pair_target_price_only_window` / `_split_window_too_long`
+  remained 0 (no real PDF in the cohort fits those strict gates);
+  structured / accepted unchanged (6 / 2; both `up`);
+  `direct_trade_signal_all_false=True`; templates md5 unchanged.
 - **PR #33 (year-pivot metric-header sub-taxonomy, IN REVIEW)** —
   refines the PR #31 `year_pivot_has_metric_headers_no_old_new` bucket
   (7 / 20 PDFs in the PR #30/#31/#32 official smoke) via a row-level
