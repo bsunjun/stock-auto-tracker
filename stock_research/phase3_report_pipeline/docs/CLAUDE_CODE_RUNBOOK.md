@@ -317,7 +317,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -433,6 +433,48 @@ PR #28: side-anchor template 보강:
    - `extract_labeled_old_new_pair(window_text)` — 양쪽 label REQUIRED;
      없으면 (None, None) 반환
    - `reject_percentage_or_margin_context(line)` — margin/% 게이트
+
+PR #29: --inventory batch path 정비:
+1. **`HARD_MAX_PDFS` 50 / `DEFAULT_MAX_PDFS` 10** — 단일 PDF smoke 는
+   변화 없음. operator-host batch smoke 는 `--max-pdfs` 를 50까지
+   올릴 수 있고 51 이상은 exit 2 로 거부.
+2. **신규 4번째 output `parser_batch_summary.json`** — `--apply` 시
+   `<workdir>/` 에 항상 작성. counter / file-name 만 포함하며 PDF
+   본문이나 추출 텍스트 leak 없음. schema =
+   `phase3:parser_batch_summary:v1`. 필드: `pdf_count`,
+   `parsed_pdf_count`, `failed_pdf_count`, `structured_rows_total`,
+   `breakdown_rows_total`, `target_price_secondary_rows_total`,
+   `direct_trade_signal_true_count`, `pdf_engine_used_counts`,
+   `gap_reason_counts`, `parsed_metric_pair_count`,
+   `ticker_hint_counts`, `files_with_structured_rows`,
+   `files_without_structured_rows`, `files_with_target_price_only`,
+   `files_with_empty_text`, `files_with_parser_errors`,
+   `forbidden_actions_confirmed` (OCR/Vision/API, dts=true,
+   target_price-as-primary, repo write, drive write, rolling --apply,
+   promote/Super Pack 모두 0).
+3. **별도 chain runner**: `examples/run_inventory_batch_smoke.py` —
+   parser → (선택) bridge → (선택) merge → (선택) build --strict
+   (모두 dry-run-friendly; outputs to `/tmp` only). `--chain-bridge`,
+   `--chain-merge`, `--chain-build` 플래그로 단계별 활성. rolling
+   --apply 는 코드 어디에도 호출하지 않음. workdir 가 repo 안에 있으면
+   exit 2; `--max-pdfs` 51+ 도 exit 2.
+
+CLI 사용 예시 (synthetic batch fixture; dry-run 끝까지):
+```
+python3 stock_research/phase3_report_pipeline/examples/run_inventory_batch_smoke.py \
+    --inventory stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/inventory.batch_smoke.json \
+    --text-dir  stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/texts \
+    --workdir   /tmp/pr29_smoke \
+    --manual-meta /tmp/pr29_smoke/manual_meta.json \
+    --ticker-map  stock_research/phase3_report_pipeline/resources/ticker_map.csv \
+    --chain-bridge --chain-merge --chain-build
+```
+산출 (workdir):
+- `parser_batch_summary.json` — 항상 작성 (PR #29)
+- `parsed_meta.json` — `--chain-bridge` 시
+- `merged_parsed_meta.json` — `--chain-merge` 시
+- `build_output/<date>/estimate_revision_*.json` — `--chain-build` 시
+- `inventory_batch_smoke_summary.json` — runner 의 aggregated summary
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**
