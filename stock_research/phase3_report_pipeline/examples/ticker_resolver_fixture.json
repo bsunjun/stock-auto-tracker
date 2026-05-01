@@ -206,6 +206,48 @@
       "filename": "20260430_[비상장샘플] 상장 전 데모.pdf",
       "expected": null,
       "_note": "PR #25: pre-listing / synthetic placeholder must NEVER resolve — governance keeps unlisted entities out of ticker_map."
+    },
+    {
+      "case": "pr32_canonical_lx_international",
+      "value": "LX인터내셔널",
+      "filename": "",
+      "expected": "KRX:001120",
+      "_note": "PR #32: LX인터내셔널 (renamed from LG상사 in 2021 LG/LX split; KRX code unchanged)."
+    },
+    {
+      "case": "pr32_alias_lg_sangsa_legacy",
+      "value": "LG상사",
+      "filename": "",
+      "expected": "KRX:001120",
+      "_note": "PR #32: pre-rename LG상사 alias resolves to LX인터내셔널 KRX:001120."
+    },
+    {
+      "case": "pr32_canonical_lg_innotek",
+      "value": "LG이노텍",
+      "filename": "",
+      "expected": "KRX:011070",
+      "_note": "PR #32: LG이노텍 — LG group display/optical components company on KOSPI."
+    },
+    {
+      "case": "pr32_alias_lg_innotek_korean",
+      "value": "엘지이노텍",
+      "filename": "",
+      "expected": "KRX:011070",
+      "_note": "PR #32: 한글 alias for LG이노텍."
+    },
+    {
+      "case": "pr32_unresolved_daehan_shipyard",
+      "value": "대한조선",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #32: 대한조선 is private / non-KRX-listed per governance — MUST NOT resolve to any KRX code."
+    },
+    {
+      "case": "pr32_empty_ticker_bracket_lx_international",
+      "value": "",
+      "filename": "20260430_[LX인터내셔널] 분기 1천억원대 이익 체력 회복.pdf",
+      "expected": "KRX:001120",
+      "_note": "PR #32: empty ticker + filename bracket fallback resolves LX인터내셔널 → KRX:001120 (PR #22 fallback path)."
     }
   ]
 }

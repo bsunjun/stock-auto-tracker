@@ -146,13 +146,38 @@ def project_record(m: dict, by_sha: dict, by_name: dict, scan: list[dict], ticke
     # values stay untouched (is_krx short-circuits the call). On miss, ticker
     # is left as-is and `missing_fields` records 'ticker_unmapped' below — we
     # never invent a code.
+    #
+    # PR #32: when `rec.ticker` is empty / non-KRX AND a `ticker_hint` is
+    # present on the row (e.g. supplied via manual_meta or sourced from the
+    # parser's filename-bracket extraction), try the hint as a separate
+    # resolver `value` BEFORE falling back to the legacy ticker+filename
+    # path. The lookup order is therefore:
+    #   1. row.ticker is already KRX → keep as-is
+    #   2. ticker_hint (if non-KRX, non-empty) → ticker_map lookup +
+    #      filename-bracket retry inside `ticker_resolver.resolve`
+    #   3. row.ticker (legacy path) → ticker_map lookup +
+    #      filename-bracket retry inside `ticker_resolver.resolve`
+    #   4. miss → leave the original value, surface `ticker_unmapped`
+    # This NEVER fabricates a code: if neither the hint nor the bracket
+    # appears in `ticker_map`, the row stays unresolved by design (e.g.
+    # `대한조선` is intentionally absent from the map per governance and
+    # therefore stays unresolved here).
     t = rec.get("ticker", "") or ""
     if not is_krx(t):
-        hit = ticker_resolver.resolve(
-            t if isinstance(t, str) else "",
-            filename=rec.get("filename") or "",
-            ticker_map=ticker_map,
-        )
+        hit: str | None = None
+        hint = rec.get("ticker_hint") or ""
+        if isinstance(hint, str) and hint and not is_krx(hint):
+            hit = ticker_resolver.resolve(
+                hint,
+                filename=rec.get("filename") or "",
+                ticker_map=ticker_map,
+            )
+        if hit is None:
+            hit = ticker_resolver.resolve(
+                t if isinstance(t, str) else "",
+                filename=rec.get("filename") or "",
+                ticker_map=ticker_map,
+            )
         if hit is not None:
             rec["ticker"] = hit
 
