@@ -486,6 +486,30 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #28 (additional side-anchor template variant, MERGED)** —
+  adds three conservative side-anchor template guards driven by
+  the post-PR-#27 5-PDF cloud smoke residuals (삼성물산
+  `side_anchor_header_found_no_metric_pair` and 두산퓨얼셀
+  `ambiguous_year_pivot`). Confirmed by anonymized inspection that
+  neither PDF has the simpler A/B/C/D sub-forms PR #28 supports
+  (삼성물산 = SK증권 multi-column-positional template; 두산퓨얼셀 =
+  narrative). PR #28 helpers therefore intentionally do NOT fire
+  on the cohort (false-positive prevention beats recall). New
+  helpers (`parse_side_anchor_multiline_kv_revision`,
+  `collect_metric_context_window`, `extract_labeled_old_new_pair`,
+  `reject_percentage_or_margin_context`) handle the multi-line KV
+  form (`<metric>(year)?\\n기존 X\\n변경 Y`) and the reversed-
+  inline KV form (`<metric>(year): 변경 Y / 기존 X`). PR #26
+  inline KV regex now also runs a row-level margin / yoy / (%)
+  reject. Four new fixtures
+  (`real_layout_side_anchor_multiline_metric_then_values`,
+  `real_layout_side_anchor_values_then_metric_rejected`,
+  `real_layout_side_anchor_target_price_only_rejected`,
+  `real_layout_side_anchor_margin_row_rejected`) cover the admit,
+  rejected-no-labels, target-price-only, and margin/yoy reject
+  cases. PR #12-#27 regression byte-identical. 5-PDF cloud smoke
+  unchanged (structured_rows_total = 1, ticker resolution 5/5,
+  direct_trade_signal=true count = 0).
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)

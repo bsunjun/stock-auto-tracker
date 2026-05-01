@@ -1,0 +1,50 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_multiline_metric_then_values.pdf",
+    "source_pdf_sha256": "8080808080808080808080808080808080808080808080808080808080808080",
+    "extraction_method": "manual",
+    "_fixture_note": "Multi-line KV form: '영업이익(26E)' metric line stands alone, then '기존 201' and '변경 251' on the next two lines. PR #28 helper picks up op=201/251. The other metric '매출액' has its labels inline on a single line ('매출액\\n2026E 기존 1,400 변경 1,500') — also handled by the multi-line helper since it joins window lines and runs both KV regexes against the joined text. metrics={op,sales}, primary=op (priority), direction=up, gap_reason='parsed_metric_pair'."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_values_then_metric_rejected.pdf",
+    "source_pdf_sha256": "9090909090909090909090909090909090909090909090909090909090909090",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Values appear BEFORE the metric line and there are no old/new labels. PR #28 helper anchors at the metric line and only looks AHEAD for labeled pairs, so this case is silently skipped. Other helpers (arrow-pair / variant column-window / inline KV / NL) also miss because there is no connector / arrow / explicit label. metrics empty; gap_reason falls through to 'side_anchor_header_found_no_metric_pair' (the body still mentions '추정치 변경' which trips PR #19's hint detector)."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_target_price_only_rejected.pdf",
+    "source_pdf_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Side-anchor target-price form '목표주가 190,000 120,000 ▲' fires PR #18's _SIDE_ANCHOR_TARGET_PRICE_RE → target_price={old:120000,new:190000} lands in target_price_secondary.json (audit-only). No metric panel exists. metrics empty; primary=None; gap_reason='target_price_only'. Build --strict rejects (target-price never primary)."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_margin_row_rejected.pdf",
+    "source_pdf_sha256": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+    "extraction_method": "filename_only",
+    "_fixture_note": "Margin / yoy rows: '매출액 기존 6.9 변경 8.4 (margin)' AND '영업이익 기존 1.9 변경 2.1 (yoy)'. PR #26 inline KV regex matches both line shapes; PR #28's row-level margin/yoy reject fires on each (line contains 'margin' or 'yoy' from the hint set). The variant column-window scanner also opens on the first line (since both 기존/변경 are present) and PR #20's value-shape filter rejects sales/op abs<100 as growth-rate. metrics empty across all helpers; gap_reason='variant_rejected_growth_rate' (PR #20 wins precedence over the silent inline-KV margin reject). build --strict rejects."
+  }
+]

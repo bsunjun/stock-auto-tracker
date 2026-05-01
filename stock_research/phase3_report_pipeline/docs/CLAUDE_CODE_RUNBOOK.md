@@ -317,7 +317,7 @@ PR #15 hard caps:
 - Drive 가 마운트된 operator host 에서의 실제 sample run 은 PR #14 가 담당한다 —
   PR #15 와 PR #14 는 독립적이며 동시에 사용해도 무방하다.
 
-## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27)
+## Deterministic estimate table parser (PR #12 + PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
 > synthetic text fixture 기반 검증만 수행했고, 실제 WiseReport PDF 본문 파싱은
@@ -412,6 +412,27 @@ token 처리 contract:
    `unchanged`, `flat`, `no change`, `no-change`) 중 하나가 있을 때만
    admit. 없으면 reject (metrics dict 진입 금지).
 3. PR #26 audit flag `flat_possible_duplicate_column` 은 제거.
+
+PR #28: side-anchor template 보강:
+1. **Multi-line KV form** — `<metric>(year)?` 만 있는 line 다음 1-3줄
+   안에서 `<old_label> <num>` AND `<new_label> <num>` 페어를 찾으면
+   commit. metric line 자체에 숫자/추가 텍스트가 있으면 anchor 안 됨
+   (false positive 방지). label 순서 무관 (기존-then-변경 또는
+   변경-then-기존 모두 처리).
+2. **Reversed-inline KV form** — PR #26 inline KV regex 의 forward
+   순서 (`<metric>(year): 기존 X / 변경 Y`) 외에 reversed 순서
+   (`<metric>(year): 변경 Y / 기존 X`) 도 매칭하도록 두 번째 regex
+   추가. 두 패턴 모두 fall-through; 첫 매칭이 우선.
+3. **Row-level margin / yoy / (%) reject** — PR #26 inline KV 가
+   매칭한 row 가 `영업이익률 / 이익률 / 변동률 / 성장률 / yoy / qoq /
+   margin / growth / yield / (%)` 중 하나를 포함하면 거부. multi-line
+   KV helper 도 lookahead window 안에 같은 marker 가 있으면 거부.
+4. 새 helper 4개:
+   - `parse_side_anchor_multiline_kv_revision(text)` — multi-line 진입점
+   - `collect_metric_context_window(lines, idx, window=4)` — lookahead helper
+   - `extract_labeled_old_new_pair(window_text)` — 양쪽 label REQUIRED;
+     없으면 (None, None) 반환
+   - `reject_percentage_or_margin_context(line)` — margin/% 게이트
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**

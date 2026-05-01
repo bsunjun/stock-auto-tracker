@@ -940,6 +940,169 @@ def validate_flat_revision_pair(line: str, old_val: object, new_val: object) -> 
     return has_explicit_flat_context(line)
 
 
+# --- PR #28: side-anchor KV multi-line + reversed-order + margin reject ---
+#
+# The post-PR-#27 5-PDF cloud smoke leaves three residual gap_reasons:
+#   * 삼성물산 — SK증권 'recommend / consensus' template that uses 신규 / 이전
+#     labels on header lines 3+ above the data row. The full extraction
+#     would need column-positional inference and is out of scope for PR #28
+#     (high false-positive risk). The PR #28 helpers intentionally do NOT
+#     fire on this PDF.
+#   * 두산퓨얼셀 — narrative-heavy report with no clear revision panel. Same
+#     conservative non-action.
+#   * LG전자 — flat duplicate-column false positive ALREADY addressed by
+#     PR #27's hard reject.
+#
+# What PR #28 adds:
+#   1. Multi-line KV form, e.g.
+#         <metric>
+#         2026E 기존 201 변경 251
+#      OR
+#         <metric>(26E)
+#         기존 201
+#         변경 251
+#      Both flavours: the metric label / horizon line carries no other
+#      content, and the next 1-3 lines contain BOTH `<old_label> <num>`
+#      AND `<new_label> <num>` (in either order).
+#   2. Reversed-inline KV: existing PR #26 KV regex required forward order
+#      (old-label first, then new-label). Real broker templates sometimes
+#      put `변경 후 / 변경 전` reversed. PR #28 extends the KV regex with
+#      a SECOND alternative for the reversed order; either match wins.
+#   3. Margin / % / growth-rate row reject: any candidate window whose
+#      lines mention `영업이익률`, `이익률`, `(%)`, `변동률`, `성장률`,
+#      `margin`, `growth`, `yoy`, `qoq`, `yield` is rejected outright. This
+#      protects against `영업이익률(%) 6.9 8.4` style rows even when they
+#      contain incidental old-style labels.
+
+_PERCENT_OR_MARGIN_HINTS: tuple[str, ...] = (
+    "영업이익률", "지배주주순이익률", "순이익률", "이익률",
+    "변동률", "변동 률", "성장률",
+    "yoy", "qoq", "margin", "growth", "yield",
+    "(%)",
+)
+
+
+def reject_percentage_or_margin_context(line: str) -> bool:
+    """True iff `line` carries a marker that indicates this is NOT an
+    absolute revision row. Used to reject candidates near `영업이익률(%)`
+    or `(%)` / `margin` / `growth` lines.
+    """
+    if not isinstance(line, str):
+        return True
+    lo = line.lower()
+    for k in _PERCENT_OR_MARGIN_HINTS:
+        if k in line:
+            return True
+        if k.isascii() and k.lower() in lo:
+            return True
+    return False
+
+
+def collect_metric_context_window(lines: list[str], idx: int, window: int = 4) -> list[str]:
+    """Return up to `window` lines starting at `idx` (inclusive). The PR #28
+    multi-line KV helper looks ahead from a metric-only line for a labeled
+    old/new pair; this helper bounds the search."""
+    if not isinstance(lines, list):
+        return []
+    return lines[idx:idx + window]
+
+
+# Old/new label patterns used independently when the KV pair spans multiple
+# lines. The strict `\b` word boundary together with the closed label set
+# blocks accidental matches against body prose.
+_OLD_LABEL_NUMBER_RE = re.compile(
+    r"(?:기존|이전|prev|previous|변경 전|변경전)\s*"
+    r"(?P<num>[+-]?[\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_NEW_LABEL_NUMBER_RE = re.compile(
+    r"(?:변경 후|변경후|변경|현재|curr|current|new)\s*"
+    r"(?P<num>[+-]?[\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def extract_labeled_old_new_pair(window_text: str) -> tuple[str | None, str | None]:
+    """Find one `<old_label> <num>` AND one `<new_label> <num>` pair anywhere
+    in `window_text` (newlines preserved). Returns (old_str, new_str) or
+    (None, None). BOTH labels are REQUIRED — the helper never infers old/new
+    from positional cues. Order is independent: either label can come first.
+    """
+    if not isinstance(window_text, str) or not window_text:
+        return None, None
+    om = _OLD_LABEL_NUMBER_RE.search(window_text)
+    nm = _NEW_LABEL_NUMBER_RE.search(window_text)
+    if om is None or nm is None:
+        return None, None
+    return om.group("num"), nm.group("num")
+
+
+# Metric-only line: `<metric>` or `<metric>(<year>)` with nothing else.
+# Anchored ^...\s*$ so a row carrying numbers (a typical table data line)
+# never matches.
+_METRIC_HEADER_LINE_RE = re.compile(
+    r"^(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
+    r"(?:\s*\(?\s*(?P<horizon>\d{2,4}[EF]?)\s*\)?)?"
+    r"\s*[:：]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_side_anchor_multiline_kv_revision(text: str) -> tuple[dict[str, dict], str]:
+    """Parse multi-line side-anchor KV revision rows (PR #28).
+
+    Walks the text line-by-line. For each line that matches
+    `_METRIC_HEADER_LINE_RE` (i.e. `<metric>` or `<metric>(year)?` with
+    nothing else after the optional horizon), look at the next 3 lines
+    for a `<old_label> <num>` AND `<new_label> <num>` pair. If both are
+    found AND no line in the window triggers
+    `reject_percentage_or_margin_context`, commit the metric.
+
+    Returns (metrics, horizon_token).
+
+    Conservative defenses:
+      * The metric line must be 'metric-only' (no numbers, no extra text)
+        so a normal data row can never match this entry point.
+      * Both old AND new labels are REQUIRED in the window — never infer.
+      * % / margin / growth-rate context anywhere in the window rejects
+        the candidate.
+      * `parse_numeric` must return a finite float for both old and new.
+      * Stable per-metric: first commit wins; later windows for the same
+        metric are silently ignored (matches the existing additive
+        helpers' behaviour).
+    """
+    if not isinstance(text, str) or not text:
+        return {}, ""
+    lines = text.splitlines()
+    metrics: dict[str, dict] = {}
+    horizon = ""
+    for i, line in enumerate(lines):
+        m = _METRIC_HEADER_LINE_RE.match(line.strip())
+        if not m:
+            continue
+        metric_label = m.group("metric")
+        metric_name = METRIC_ALIASES.get(metric_label) \
+                      or METRIC_ALIASES.get(metric_label.lower())
+        if metric_name is None or metric_name in metrics:
+            continue
+        window = collect_metric_context_window(lines, i, window=4)
+        if any(reject_percentage_or_margin_context(w) for w in window):
+            continue
+        # Only look at lines AFTER the metric line for the labeled pair —
+        # body prose appearing BEFORE the metric is unrelated.
+        body = "\n".join(window[1:])
+        old_str, new_str = extract_labeled_old_new_pair(body)
+        if old_str is None or new_str is None:
+            continue
+        if parse_numeric(old_str) is None or parse_numeric(new_str) is None:
+            continue
+        metrics[metric_name] = {"old": old_str, "new": new_str}
+        h = m.group("horizon")
+        if h and not horizon:
+            horizon = _normalize_horizon(h)
+    return metrics, horizon
+
+
 def parse_year_pivot_revision_rows(text: str) -> bool:
     """Detect a year-pivot forecast table that lists multiple year columns
     (e.g. 2024A 2025A 2026E) for metric rows but DOES NOT supply paired
@@ -1081,6 +1244,9 @@ def parse_natural_language_revision(text: str) -> tuple[dict[str, dict], str]:
 #   이전 / 현재    (previous / current; KR)
 #   prev / curr   (English short form)
 #   변경 전 / 변경 후
+# PR #26 single-line forward-order KV form. PR #28 adds a SECOND regex for
+# the reversed order (new-label first); the reader applies both passes and
+# takes whichever match yields a metric.
 _SIDE_ANCHOR_KV_RE = re.compile(
     r"(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
     # horizon is optional; accepts both '(2026E)' and bare '2026E'
@@ -1089,36 +1255,71 @@ _SIDE_ANCHOR_KV_RE = re.compile(
     r"(?:기존|이전|prev|previous|변경 전|변경전)\s*"
     r"(?P<old>[+-]?[\d,]+(?:\.\d+)?)"
     r"\s*[/／,]?\s*"
-    r"(?:변경|현재|curr|current|new|변경 후|변경후)\s*"
+    r"(?:변경 후|변경후|변경|현재|curr|current|new)\s*"
     r"(?P<new>[+-]?[\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+# PR #28 reversed-order: same shape but new-label first (e.g.
+# `영업이익(26E) 변경 251 기존 201`). Some broker templates emit revision
+# panels in this order; the alternation here keeps the forward regex
+# unchanged so PR #26 fixtures stay byte-identical.
+_SIDE_ANCHOR_KV_REVERSED_RE = re.compile(
+    r"(?P<metric>매출액|매출|영업이익|OP|순이익|지배순이익|NI|EPS)"
+    r"(?:\s*\(?\s*(?P<horizon>\d{2,4}[EF]?)\s*\)?)?"
+    r"\s*[:：]?\s*"
+    r"(?:변경 후|변경후|변경|현재|curr|current|new)\s*"
+    r"(?P<new>[+-]?[\d,]+(?:\.\d+)?)"
+    r"\s*[/／,]?\s*"
+    r"(?:기존|이전|prev|previous|변경 전|변경전)\s*"
+    r"(?P<old>[+-]?[\d,]+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 
 def parse_side_anchor_kv_revision(text: str) -> tuple[dict[str, dict], str]:
-    """Parse `<metric>(year)?: 기존 X / 변경 Y` style KV side-anchor rows.
+    """Parse `<metric>(year)?: 기존 X / 변경 Y` style KV side-anchor rows
+    (PR #26) AND the reversed-order variant `<metric>(year)?: 변경 Y / 기존
+    X` (PR #28).
 
     Returns (metrics, horizon). Both labels MUST appear inline; horizon is
     optional. Caller uses this to fill metrics the PR #18/#19 side-anchor
-    scanner missed (which requires `<metric>(year) <a> <b> ▲|▼|-`).
+    scanner missed (which requires `<metric>(year) <a> <b> ▲|▼|-`). Forward
+    order matches first; reversed-order is checked second and only fills
+    metrics not already in the dict.
     """
     if not isinstance(text, str) or not text:
         return {}, ""
     metrics: dict[str, dict] = {}
     horizon = ""
-    for m in _SIDE_ANCHOR_KV_RE.finditer(text):
-        metric_label = m.group("metric")
-        metric = METRIC_ALIASES.get(metric_label) \
-                 or METRIC_ALIASES.get(metric_label.lower())
-        if metric is None or metric in metrics:
-            continue
-        old_raw, new_raw = m.group("old"), m.group("new")
-        if parse_numeric(old_raw) is None or parse_numeric(new_raw) is None:
-            continue
-        metrics[metric] = {"old": old_raw, "new": new_raw}
-        h = m.group("horizon")
-        if h and not horizon:
-            horizon = _normalize_horizon(h)
+
+    def _consume(regex: "re.Pattern[str]") -> None:
+        nonlocal horizon
+        for m in regex.finditer(text):
+            metric_label = m.group("metric")
+            metric = METRIC_ALIASES.get(metric_label) \
+                     or METRIC_ALIASES.get(metric_label.lower())
+            if metric is None or metric in metrics:
+                continue
+            # PR #28: reject rows whose surrounding line carries a margin /
+            # % / growth marker. The match span gives us a window — use the
+            # whole text-line containing the match start.
+            line_start = text.rfind("\n", 0, m.start()) + 1
+            line_end = text.find("\n", m.end())
+            if line_end == -1:
+                line_end = len(text)
+            row_line = text[line_start:line_end]
+            if reject_percentage_or_margin_context(row_line):
+                continue
+            old_raw, new_raw = m.group("old"), m.group("new")
+            if parse_numeric(old_raw) is None or parse_numeric(new_raw) is None:
+                continue
+            metrics[metric] = {"old": old_raw, "new": new_raw}
+            h = m.group("horizon")
+            if h and not horizon:
+                horizon = _normalize_horizon(h)
+
+    _consume(_SIDE_ANCHOR_KV_RE)            # forward (PR #26)
+    _consume(_SIDE_ANCHOR_KV_REVERSED_RE)   # reversed (PR #28)
     return metrics, horizon
 
 
@@ -1313,11 +1514,28 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         if m not in metrics:
             metrics[m] = vals
 
-    # PR #26: side-anchor KV form (`<metric>(year): 기존 X / 변경 Y`).
-    # Additive — only fills missing metrics. Inline labels REQUIRED so the
-    # table-layout (PR #18) variants don't double-fire here.
+    # PR #26 + PR #28: side-anchor KV form. Forward order is
+    # `<metric>(year): 기존 X / 변경 Y`; reversed order (PR #28)
+    # is `<metric>(year): 변경 Y / 기존 X`. PR #28 also adds a
+    # margin/% reject so `영업이익률(%) 6.9 8.4` style rows are
+    # never picked up. Inline labels REQUIRED so the table-layout
+    # (PR #18) variants don't double-fire.
     kv_metrics, kv_horizon = parse_side_anchor_kv_revision(text)
     for m, vals in kv_metrics.items():
+        if m not in metrics:
+            metrics[m] = vals
+
+    # PR #28: multi-line side-anchor KV. Picks up
+    #     <metric>
+    #     <year> 기존 X 변경 Y
+    # OR
+    #     <metric>(year)
+    #     기존 X
+    #     변경 Y
+    # Additive — only fills metrics the prior helpers missed. Window-level
+    # margin/% reject inside the helper.
+    multiline_metrics, multiline_horizon = parse_side_anchor_multiline_kv_revision(text)
+    for m, vals in multiline_metrics.items():
         if m not in metrics:
             metrics[m] = vals
 
@@ -1348,7 +1566,8 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
     # 2. PR #18 variant-window horizon
     # 3. PR #18 side-anchor horizon (most-priority metric)
     # 4. PR #26 side-anchor KV horizon
-    # 5. existing parse_horizon (first bare/E/F token in raw text)
+    # 5. PR #28 side-anchor multi-line KV horizon
+    # 6. existing parse_horizon (first bare/E/F token in raw text)
     if layout_horizon:
         horizon = layout_horizon
     elif variant_horizon:
@@ -1357,6 +1576,8 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         horizon = side_horizon
     elif kv_horizon:
         horizon = kv_horizon
+    elif multiline_horizon:
+        horizon = multiline_horizon
     # else: keep parse_horizon-derived horizon
 
     # PR #18 + PR #19 + PR #20 + PR #26: gap_reason classification — additive audit field.

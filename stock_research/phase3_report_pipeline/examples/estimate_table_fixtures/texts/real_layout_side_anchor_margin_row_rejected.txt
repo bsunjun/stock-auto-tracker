@@ -1,0 +1,18 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[코멘트]
+broker template 이 metric 줄에 margin / yoy / (%) 등 percentage marker
+를 함께 출력한 경우. PR #26 inline KV regex 가 형태상 매칭하더라도
+PR #28 의 margin/% 게이트가 row 단위에서 reject 한다.
+
+매출액 기존 6.9 변경 8.4 (margin)
+영업이익 기존 1.9 변경 2.1 (yoy)
+
+위 두 줄 모두 절대값 revision 이 아니라 % / yoy 행이며, PR #28 margin
+reject 가 inline KV 매칭을 무효화한다. 또한 변형으로 variant column-
+window 가 두 번째 줄을 row data 로 잡았더라도 PR #20 value-shape filter
+가 sales/op/ni abs<100 을 growth-rate 으로 reject 한다.
+metric pair 가 어떤 helper 에서도 commit 되지 않으므로 structured row
+는 0 이며 gap_reason 은 variant_rejected_growth_rate 가 된다.
