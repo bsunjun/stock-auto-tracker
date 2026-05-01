@@ -33,7 +33,9 @@ phase3_report_pipeline/
 ├── docs/
 │   ├── CLAUDE_CODE_RUNBOOK.md            # 단계별 실행 가이드
 │   ├── PIPELINE_SCHEMA.md                # 데이터 흐름·스키마 매핑
-│   └── MOBILE_CLAUDE_CODE_PROMPT.md      # 모바일 에이전트 시스템 프롬프트
+│   ├── MOBILE_CLAUDE_CODE_PROMPT.md      # 모바일 에이전트 시스템 프롬프트
+│   ├── REALDATA_SAMPLE_RUN.md            # operator-host 절차 (PR #11 sample, PR #14 1–3 PDF smoke)
+│   └── REAL_PDF_SMOKE_RESULT_TEMPLATE.md # PR #14 — 1–3 PDF smoke 결과 paste-back 스키마 (commit 금지)
 └── config/
     └── phase3_report_pipeline.example.json
 ```
@@ -62,6 +64,8 @@ phase3_report_pipeline/
 4b. (선택, rolling/promotion 측면에서 dry-run 전용) `run_estimate_revision_dryrun.py` 로 3c/4 + rolling 검증을 한 번에 (PR #9). runner 의 `--apply` 는 거부된다. 단, `merge_meta`/`build_report_estimate` 는 다음 단계 입력 JSON 생성을 위해 `/tmp` workdir 안에서만 내부적으로 `--apply` 로 호출된다 — repo/Drive/templates/latest/promote/Super Pack/실제 rolling CSV 어디에도 쓰지 않는다.
 5. `stock_research/scripts/rolling_append.py --strict-estimate`(PR #8) 로 CSV 누적 (dedupe-keys: `date,ticker,broker,source_key`). `templates/*.csv` 는 dry-run 전용; `--apply` 가 templates 경로를 가리키면 거부됨.
 6. `promote_report_outputs.py --apply --confirm-promote` (이중 gate, 사용자 직접만)
+
+> Operator-host에서 실제 WiseReport PDF 1–3 개에 대해 PR #13 의 `--pdf` deterministic 경로를 처음 돌려보는 smoke 절차는 [`docs/REALDATA_SAMPLE_RUN.md`](docs/REALDATA_SAMPLE_RUN.md) 의 "PR #14 — Real-PDF pdfplumber smoke" 섹션 참조. 결과는 [`docs/REAL_PDF_SMOKE_RESULT_TEMPLATE.md`](docs/REAL_PDF_SMOKE_RESULT_TEMPLATE.md) 의 schema 만 PR comment / chat 으로 paste — 실 PDF / 추출 텍스트 / 출력 JSON 어느 것도 repo 에 커밋하지 않는다.
 
 ## Safety Gates
 

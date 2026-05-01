@@ -223,6 +223,143 @@ That is the **correct outcome for PR #11 scope**:
 The four blocked fields are precisely the ones counted in
 `reject_reason_counts` above.
 
+## PR #14 — Real-PDF pdfplumber smoke (1–3 PDFs)
+
+After PR #12/#13 the parser supports a `--pdf` single-file path via
+`pdfplumber`. The realistic next step on the operator host is a
+**very small** smoke test against 1–3 real WiseReport PDFs to confirm
+that the deterministic Korean text extraction actually fills the four
+blocking fields (`broker / old_target / new_target / horizon`) on real
+broker templates, and that nothing leaks out as `direct_trade_signal=true`
+or as a primary target-price row.
+
+> Hard cap: **`pdf_count <= 3`** in PR #14. The selector caps at 10 for
+> sample runs (PR #11); this smoke is intentionally tighter. If the
+> first 3 PDFs reveal parser gaps, fix them in a follow-up PR before
+> scaling.
+
+> Real PDF bytes / extracted text / output JSON are NEVER committed to
+> the repo. Only the schema-aligned counters in
+> [`REAL_PDF_SMOKE_RESULT_TEMPLATE.md`](REAL_PDF_SMOKE_RESULT_TEMPLATE.md)
+> get pasted back, and only into a PR comment or chat — not a tracked
+> file. The `.gitignore` patterns from PR #11 are a defense-in-depth
+> backstop.
+
+### Where each part runs
+
+| Environment | What runs | Real PDFs processed |
+|---|---|---|
+| **Claude sandbox** (this PR's CI environment) | docs / template only — no parser execution | **0** |
+| **Operator host / Mac with Google Drive mounted** | `pip install pdfplumber`, then PR #14 steps below against 1–3 PDFs | **1–3** |
+
+### Pre-flight (operator host)
+
+1. Ensure the workdir is OUTSIDE the repo:
+   ```
+   export PR14_WORKDIR=/tmp/pr14_smoke
+   rm -rf "$PR14_WORKDIR" && mkdir -p "$PR14_WORKDIR"
+   ```
+2. Install pdfplumber if missing (deterministic-only, no API cost):
+   ```
+   python3 -m pip install --user pdfplumber
+   python3 -c "import pdfplumber; print(pdfplumber.__version__)"
+   ```
+3. `git status` is clean. The repo's `.gitignore` already blocks
+   `_realdata/` / `tmp_workdir/` / `pr11_realdata/` / `_pipeline_workdir/`
+   patterns; do not add real-data paths to staging.
+
+### Step 1 — Pick 1–3 PDFs (PR #11 selector reused)
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/wisereport_sample_select.py \
+  --root "$GOOGLE_DRIVE_ROOT/01_data_inbox/wisereport_company" \
+  --date 2026-04-30 \
+  --include-folder 기업 \
+  --max 3 \
+  --copy-pdfs \
+  --out "$PR14_WORKDIR"
+```
+
+Note `--max 3`: the selector hard-caps at 10 in general but you must
+self-cap to 3 here. `--copy-pdfs` materializes the bytes under
+`$PR14_WORKDIR/pdfs/` so step 2 can point `--pdf` at a local copy
+instead of a Drive path. The selector inventory still records sha256
+prefixes for the result template.
+
+### Step 2 — Run the parser per PDF
+
+```
+for pdf in "$PR14_WORKDIR"/pdfs/*.pdf; do
+  python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
+    --pdf "$pdf" \
+    --date 2026-04-30 \
+    --workdir "$PR14_WORKDIR/_extract_$(basename "$pdf" .pdf)" \
+    --apply
+done
+```
+
+Optional inspection (text only; **MUST live outside the repo**):
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/extract_report_estimate_table.py \
+  --pdf "$PR14_WORKDIR/pdfs/<one>.pdf" \
+  --date 2026-04-30 \
+  --workdir "$PR14_WORKDIR/_extract_dbg" \
+  --debug-text-out "$PR14_WORKDIR/_extract_dbg/extracted.txt" \
+  --apply
+```
+
+If pdfplumber is missing, the parser exits with code 2 and a
+`pip install pdfplumber` directive — record this in the result
+template's `pdfplumber_installed: false` field instead of forcing the
+run.
+
+### Step 3 — Merge each parser output into the chain (per PDF, dry-run)
+
+Build a synthetic single-record bridge_meta per PDF (same shape as
+`examples/estimate_table_fixtures/bridge_meta.synthetic.json`) and feed
+the per-PDF `structured_extraction.json` through the existing PR #9/#10
+runner. Repeat for each of the 1–3 PDFs.
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/run_estimate_revision_dryrun.py \
+  --date 2026-04-30 \
+  --bridge-meta "$PR14_WORKDIR/_extract_<stem>/bridge_meta_for_one.json" \
+  --structured  "$PR14_WORKDIR/_extract_<stem>/structured_extraction.json" \
+  --workdir     "$PR14_WORKDIR/_pipeline_<stem>" \
+  --keep-workdir
+```
+
+(The chain itself never calls `--apply` against the real rolling CSV —
+PR #8's `--strict-estimate` is dry-run-only inside the runner.)
+
+### Step 4 — Fill `REAL_PDF_SMOKE_RESULT_TEMPLATE.md`, paste, then delete locally
+
+Open
+[`REAL_PDF_SMOKE_RESULT_TEMPLATE.md`](REAL_PDF_SMOKE_RESULT_TEMPLATE.md),
+fill the YAML block from each step's outputs (sha **prefixes only**, no
+verbatim PDF body, no broker/target pairs), and paste the result into a
+PR comment or chat. Delete the local filled copy afterwards. The
+template's "What NOT to paste" section enumerates the redactions.
+
+### Step 5 — Cleanup
+
+```
+rm -rf "$PR14_WORKDIR"
+```
+
+### Forbidden-action checklist (operator self-confirms)
+
+| Forbidden | Method that prevents it |
+|---|---|
+| Processing more than **3** PDFs | Operator self-caps at `--max 3`; selector inventory `selected_count <= 3` after cap. |
+| OCR / Vision / API calls | `extract_report_estimate_table.py --ocr` refused (exit 2). pdfplumber is local-only. |
+| Drive original modify / move / delete | Selector is read-only; `--copy-pdfs` writes to `$PR14_WORKDIR/pdfs/` only. |
+| `latest` updates / promote / Super Pack rebuild | Not invoked by any PR #11/#12/#13/#14 script. |
+| `rolling_append.py --apply` | Runner forces `--strict-estimate --dry-run`. |
+| Generating `direct_trade_signal=true` rows | Build-step gate (PR #7), runner (PR #9/#10), and parser (PR #12) all refuse to write or proceed if violated. |
+| Committing real PDF / extracted text / output JSON | `.gitignore` from PR #11 + operator self-check `git status`. |
+
 ## Proposed follow-ups (for separate PRs, with explicit cost gates)
 
 - **PR #12 (parser, MERGED)** — adds `extract_report_estimate_table.py`,

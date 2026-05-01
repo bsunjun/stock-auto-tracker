@@ -253,6 +253,25 @@ python3 scripts/promote_report_outputs.py --date 2026-04-30 --apply --confirm-pr
 Drive 가 마운트된 운영자 호스트에서 직접 실행한다. 실데이터 결과는 repo 에
 커밋하지 않고 PR comment 또는 외부 채팅에 요약만 paste 한다.
 
+## Real-PDF pdfplumber smoke (PR #14, 1–3 PDFs)
+
+> **PR #14 는 코드 PR 이 아니라 runbook + 결과 스키마 PR 이다.** 실제 PDF
+> 1–3 개에 대해 PR #13 의 `--pdf` deterministic 경로를 operator host 에서
+> 실행하기 위한 절차와, 결과를 안전하게 paste 하기 위한 템플릿만 추가한다.
+
+- 절차 ("PR #14 — Real-PDF pdfplumber smoke (1–3 PDFs)" 섹션):
+  [`REALDATA_SAMPLE_RUN.md`](REALDATA_SAMPLE_RUN.md)
+- 결과 스키마 (paste-back 전용; 절대 commit 금지):
+  [`REAL_PDF_SMOKE_RESULT_TEMPLATE.md`](REAL_PDF_SMOKE_RESULT_TEMPLATE.md)
+
+PR #14 hard caps:
+- `pdf_count <= 3`
+- `direct_trade_signal=true row 0건`
+- OCR/Vision/API 호출 0건 (`pdfplumber` deterministic only)
+- Drive 원본 변경 0건, `latest`/promote/Super Pack 0건, `rolling --apply` 0건
+- 실 PDF / 추출 텍스트 / 출력 JSON 어느 것도 repo 커밋 금지 — schema-aligned
+  카운터만 PR comment 또는 외부 채팅에 paste.
+
 ## Deterministic estimate table parser (PR #12)
 
 > **PR #12 는 deterministic-first PDF estimate table parser 의 시작점이다.**
