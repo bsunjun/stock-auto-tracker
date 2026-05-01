@@ -1,0 +1,22 @@
+[project]
+name = "stock-auto-tracker"
+version = "0.1.0"
+description = "Automatic stock price tracker and portfolio snapshot CLI"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.0.0",
+  "pyyaml>=6.0.0",
+  "yfinance>=0.2.40",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.4.0",
+]
+
+[project.scripts]
+stock-tracker = "stock_auto_tracker.cli:main"
+
+[tool.ruff]
+line-length = 100
