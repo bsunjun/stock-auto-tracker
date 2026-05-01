@@ -225,24 +225,31 @@ The four blocked fields are precisely the ones counted in
 
 ## Proposed follow-ups (for separate PRs, with explicit cost gates)
 
-- **PR #12 (parser, IN PROGRESS / partial)** — adds
-  `extract_report_estimate_table.py`, a deterministic-first parser for
-  `broker / old_target / new_target / horizon` operating on PDF body
-  TEXT (not bytes). PR #12 ships the synthetic-fixture path; the
-  `--pdf` (pdfplumber) input is intentionally NOT yet wired up.
-  Real-PDF execution must still happen on the operator host AFTER the
-  parser is extended in a follow-up commit (or via OCR fallback under
-  PR #14's cost gate).
-  **PR #12 design constraints already enforced**:
+- **PR #12 (parser, MERGED)** — adds `extract_report_estimate_table.py`,
+  a deterministic-first parser for `broker / old_target / new_target /
+  horizon` operating on PDF body TEXT (not bytes). The synthetic-fixture
+  path (`--text` / `--inventory`) is fully verified.
+  **Design constraints**:
     - primary metric priority: `operating_profit > net_income > sales > eps`;
     - every PDF with a parseable 목표주가 numeric pair is recorded to
       `target_price_secondary.json` (audit) regardless of primary
       emission; target price NEVER becomes a primary estimate row.
       `merge_meta.py` / `build_report_estimate_v132.py` /
       `rolling_append.py` do NOT consume this file;
-    - `direct_trade_signal=false` on every emitted row, in every output
-      file, in every mode.
-- **PR #13 (ticker_map expansion)**: Replace
+    - `direct_trade_signal=false` on every emitted row.
+- **PR #13 (pdfplumber path, MERGED)** — wires the `--pdf` single-file
+  input through `pdfplumber` (lazy import, no-cost, no OCR/Vision/API).
+  Operator must `pip install pdfplumber` before using `--pdf`. Adds
+  `--debug-text-out` for inspection, with hard repo-path refusal.
+  Inventory-driven batch (`--inventory` selected[] entries → PDFs)
+  remains a follow-up; for PR #13 the deterministic batch loop still
+  goes through `--text-dir` so the synthetic fixture chain remains the
+  single source of truth for regression.
+- **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
+  fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
+  estimate` per page-1 only (PR #5 already restricts payload to page 1)
+  — but require explicit per-PDF approval, never bulk.
+- **PR #15 (ticker_map expansion)**: Replace
   `examples/ticker_map.example.csv` with a fuller CSV covering the most
   common WiseReport tickers, or fetch it from KRX once and snapshot.
   ticker_map currently has 3 entries — that's why ~80% of the 10-PDF
