@@ -86,5 +86,65 @@
     "horizon": "12M",
     "filename": "20260430_[세아베스틸지주] 본업 실적 개선 기대.pdf",
     "extraction_method": "manual"
+  },
+  {
+    "case": "pr32_ticker_hint_lg_innotek_with_bracket",
+    "ticker": "",
+    "ticker_hint": "LG이노텍",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 240000,
+    "new_target": 280000,
+    "horizon": "12M",
+    "filename": "20260430_[LG이노텍] CPU와 메모리, 주가 상승의 나침반.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr32_ticker_hint_lx_international_no_bracket",
+    "ticker": "",
+    "ticker_hint": "LX인터내셔널",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 30000,
+    "new_target": 36000,
+    "horizon": "12M",
+    "filename": "20260430_lx인터내셔널_헤더없음.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr32_ticker_hint_daehan_shipyard_excluded",
+    "ticker": "",
+    "ticker_hint": "대한조선",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "20260430_[대한조선] 순수 이익 피지컬 관점의 저평가.pdf",
+    "extraction_method": "filename_only"
+  },
+  {
+    "case": "pr32_existing_krx_preserved_against_hint",
+    "ticker": "KRX:353200",
+    "ticker_hint": "LG이노텍",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 120000,
+    "new_target": 190000,
+    "horizon": "12M",
+    "filename": "20260430_[대덕전자] 클 대.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr32_ticker_hint_alias_lg_sangsa_legacy",
+    "ticker": "",
+    "ticker_hint": "LG상사",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 30000,
+    "new_target": 35000,
+    "horizon": "12M",
+    "filename": "20260430_lg상사_legacy.pdf",
+    "extraction_method": "manual"
   }
 ]

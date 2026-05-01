@@ -493,6 +493,34 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #32 (ticker resolution improvement for real-PDF batch smoke,
+  IN REVIEW)** — bridge / ticker_map enhancement only; parser code is
+  not touched. (a) `resources/ticker_map.csv` 3rd expansion adds
+  `LX인터내셔널 → KRX:001120` (KOSPI; renamed from LG상사 in 2021,
+  ticker code unchanged) and `LG이노텍 → KRX:011070` (KOSPI), each
+  with verified KRX-listing governance and aliases. (b)
+  `bridge_scan_to_parsed_meta.project_record` learns to consult
+  `row.ticker_hint` BEFORE the PR #22 filename-bracket fallback. The
+  resolver lookup order is now: `row.ticker(KRX) → ticker_hint →
+  row.ticker(legacy) → filename bracket → ticker_unmapped`.
+  Conservative: when neither `ticker_hint` nor the bracket appears in
+  `ticker_map` the row stays unresolved by design — `대한조선` is
+  intentionally absent (private / non-KRX-listed per governance) and
+  PR #32 keeps it unresolved. PR #12-#31 parser inventories produce
+  identical structured / breakdown / gap_reason outputs (no parser
+  code changed). `ticker_resolver_fixture` 31 → 37 PASS; new
+  `bridge_filename_fallback_fixture` cases 8 → 13 PASS, including the
+  ticker_hint priority paths (`pr32_ticker_hint_lg_innotek_with_bracket`,
+  `pr32_ticker_hint_lx_international_no_bracket`,
+  `pr32_ticker_hint_daehan_shipyard_excluded`,
+  `pr32_existing_krx_preserved_against_hint`,
+  `pr32_ticker_hint_alias_lg_sangsa_legacy`). Post-PR-#32 20-PDF
+  official `--pdf-dir` runner smoke (same cohort as PR #31 baseline):
+  `ticker_resolved_count` 16 → 19, `ticker_unresolved_count` 4 → 1
+  (only `대한조선` remains as governance-excluded), `ticker_not_krx`
+  build reject 4 → 1, structured_rows / accepted unchanged
+  (`대덕전자 op 201→251 up`), `direct_trade_signal_all_false=True`,
+  templates md5 unchanged.
 - **PR #31 (year-pivot gap taxonomy refinement, IN REVIEW)** — refines
   the legacy `ambiguous_year_pivot` bucket (10/20 PDFs in the PR #30
   20-PDF smoke) into 4 specific sub-categories via a new classifier

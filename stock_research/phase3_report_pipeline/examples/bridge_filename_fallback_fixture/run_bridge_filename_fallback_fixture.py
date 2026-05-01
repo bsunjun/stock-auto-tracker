@@ -52,6 +52,12 @@ def expected_for(case: str) -> tuple[str, frozenset[str]]:
         "pr22_empty_ticker_no_bracket_filename":              ("",           frozenset({"ticker"})),
         "pr25_empty_ticker_bracket_doosan_fuelcell":          ("KRX:336260", frozenset()),
         "pr25_empty_ticker_bracket_seah_besteel_holdings":    ("KRX:001430", frozenset()),
+        # PR #32 — ticker_hint priority (new resolver path).
+        "pr32_ticker_hint_lg_innotek_with_bracket":           ("KRX:011070", frozenset()),
+        "pr32_ticker_hint_lx_international_no_bracket":       ("KRX:001120", frozenset()),
+        "pr32_ticker_hint_daehan_shipyard_excluded":          ("",           frozenset({"ticker"})),
+        "pr32_existing_krx_preserved_against_hint":           ("KRX:353200", frozenset()),
+        "pr32_ticker_hint_alias_lg_sangsa_legacy":            ("KRX:001120", frozenset()),
     }
     return table[case]
 

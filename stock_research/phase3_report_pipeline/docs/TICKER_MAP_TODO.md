@@ -62,6 +62,16 @@ KRX code in the "code" column once verified.
 | 한화비전 | KRX:013570 (?) | KOSPI | Surfaced in 2026-04-30 search results; code not independently confirmed at PR #25 merge time. |
 | 저스템 | (?) | KOSDAQ | Recent IPO; KRX code requires confirmation against KIND. |
 
+Recently added (PR #32 — 3rd expansion)
+---------------------------------------
+- `LX인터내셔널 → KRX:001120` (KOSPI) — surfaced as `ticker_unresolved` ×2
+  in the PR #31 20-PDF official `--pdf-dir` runner smoke. Code unchanged
+  from the pre-rename 'LG상사'; aliases added: `LG상사`, `엘지상사`,
+  `LX International`.
+- `LG이노텍 → KRX:011070` (KOSPI) — surfaced as `ticker_unresolved` ×1
+  in the same smoke. Aliases added: `엘지이노텍`, `LG INNOTEK`,
+  `LG Innotek`.
+
 Add to this table whenever you encounter a Korean company name in a
 WiseReport PDF that the resolver returns `None` for AND the company
 appears to be listed but you cannot cite the code immediately. The

@@ -66,8 +66,14 @@ ticker_map 검증:
 python3 scripts/ticker_resolver.py --verify \
     --ticker-map resources/ticker_map.csv
 python3 examples/run_ticker_resolver_fixture.py
-# PR #22 hotfix: bridge gate가 빈 ticker도 filename bracket fallback을 타게
-# 통과시키는지 end-to-end 확인
+# PR #22 hotfix + PR #32: bridge gate가 빈 ticker도 ticker_hint와
+# filename bracket fallback을 타게 통과시키는지 end-to-end 확인.
+# PR #32 가 추가한 ticker_hint 우선순위:
+#   1. row.ticker 가 KRX 면 그대로 사용
+#   2. row.ticker 가 비어 있거나 비-KRX면 row.ticker_hint 로 ticker_resolver 호출
+#      (ticker_hint 자체에 filename 도 함께 전달되어 bracket fallback 동시 시도)
+#   3. ticker_hint 매칭 실패 시 기존 row.ticker (legacy 경로) + filename bracket
+#   4. 그래도 미해결이면 ticker_unmapped 로 기록 (KRX 임의 생성 절대 금지)
 python3 examples/bridge_filename_fallback_fixture/run_bridge_filename_fallback_fixture.py
 ```
 - bridge는 sha256/filename을 채우고 한글 종목명을 KRX 코드로 매핑하며 direction을 자동 계산한다.
