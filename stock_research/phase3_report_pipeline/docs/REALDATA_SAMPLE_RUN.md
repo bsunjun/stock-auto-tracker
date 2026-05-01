@@ -493,6 +493,39 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #33 (year-pivot metric-header sub-taxonomy, IN REVIEW)** —
+  refines the PR #31 `year_pivot_has_metric_headers_no_old_new` bucket
+  (7 / 20 PDFs in the PR #30/#31/#32 official smoke) via a row-level
+  classifier. Adds 3 specific gap_reasons:
+  `year_pivot_metric_rows_all_yoy_growth`,
+  `year_pivot_metric_rows_all_margin`,
+  `year_pivot_metric_rows_mixed_units`; the original
+  `year_pivot_has_metric_headers_no_old_new` is retained as a fallback
+  for the zero-metric-row case so the parent label remains stable.
+  Conservative invariants: row-level classifier scans only lines that
+  begin with one of `_METRIC_LABEL_PREFIXES` (매출액 / 영업이익 /
+  순이익 / EPS …); never combines absolute revenue rows with
+  margin / yoy rows to fabricate a revision pair. yoy markers
+  (`(YoY)`, `(yoy)`, `(QoQ)`, `(%, YoY)`, `성장률`, `증가율`, `증감률`,
+  `growth`) take priority over margin markers (`(margin)`, `OPM(%)`,
+  `GPM(%)`, `NPM(%)`, `이익률`, `원가율`, `(%)`) so a row tagged
+  `(%, YoY)` resolves to yoy. Reserved for future PRs (documented but
+  not actively triggered): `year_pivot_metric_headers_no_revision_value`,
+  `year_pivot_unhandled_broker_template`. New fixtures:
+  `real_layout_year_pivot_metric_rows_all_yoy_growth.txt` and
+  `real_layout_year_pivot_metric_rows_all_margin.txt`;
+  `inventory.year_pivot_taxonomy.json` 5 → 7 entries. Existing PR
+  #31 fixtures `_metric_headers_no_old_new` and `_margin_yoy_rejected`
+  now resolve to `year_pivot_metric_rows_mixed_units` (text
+  unchanged, gap_reason refined). PR #18 fixture
+  `real_layout_variant_ambiguous_year_pivot.txt` stays at
+  `ambiguous_year_pivot` (it has neither margin nor yoy markers). Post-
+  PR-#33 20-PDF official `--pdf-dir` runner smoke: all 7
+  previously-`year_pivot_has_metric_headers_no_old_new` PDFs collapsed
+  to `year_pivot_metric_rows_mixed_units` (the dominant real-broker
+  pattern). `parsed_metric_pair: 1` (대덕전자) and
+  `direct_trade_signal_all_false=True` unchanged. Templates md5
+  unchanged (`6090bfeb9242b17f0fdf653c792d82d7`).
 - **PR #32 (ticker resolution improvement for real-PDF batch smoke,
   IN REVIEW)** — bridge / ticker_map enhancement only; parser code is
   not touched. (a) `resources/ticker_map.csv` 3rd expansion adds

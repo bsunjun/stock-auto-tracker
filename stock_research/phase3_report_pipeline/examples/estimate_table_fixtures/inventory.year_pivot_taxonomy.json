@@ -1,13 +1,13 @@
 {
   "schema": "phase3:wisereport_sample_inventory:v1",
-  "_note": "PR #31 year-pivot gap taxonomy refinement. Five anonymized synthetic fixtures exercise (a) renamed PR #26 path → year_pivot_forecast_only_no_revision, (b) explicit 기존(26E)/변경(26E) revision panel embedded under a year-pivot table → parsed_metric_pair (operating_profit primary, direction=up), (c) year-pivot + 영업이익률(%)/순이익률(%)/EPS 성장률(YoY) rows + 목표주가 keyword → year_pivot_has_metric_headers_no_old_new, (d) year-pivot + 수정/변경 prose phrases near the pivot table → year_pivot_positional_revision_candidate, (e) year-pivot consisting entirely of margin/YoY rows → year_pivot_has_metric_headers_no_old_new (no primary metric extractable). Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "_note": "PR #31 year-pivot gap taxonomy + PR #33 metric-header sub-taxonomy. Seven anonymized synthetic fixtures exercise (a) renamed PR #26 path → year_pivot_forecast_only_no_revision, (b) explicit 기존(26E)/변경(26E) revision panel embedded under a year-pivot table → parsed_metric_pair (operating_profit primary, direction=up), (c) year-pivot + absolute 매출액/영업이익 rows + margin (이익률) rows + EPS 성장률 row + 목표주가 keyword → year_pivot_metric_rows_mixed_units (PR #33), (d) year-pivot + 수정/변경 prose phrases near the pivot table → year_pivot_positional_revision_candidate, (e) year-pivot consisting entirely of margin / YoY rows mixed → year_pivot_metric_rows_mixed_units (PR #33), (f) year-pivot consisting ENTIRELY of yoy / 성장률 rows → year_pivot_metric_rows_all_yoy_growth (PR #33), (g) year-pivot consisting ENTIRELY of margin / 이익률 rows → year_pivot_metric_rows_all_margin (PR #33). Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
   "root": "<synthetic>",
   "date": "2026-04-30",
   "include_folder": "기업",
   "max_pdfs": 10,
   "hard_max": 10,
-  "total_seen": 5,
-  "selected_count": 5,
+  "total_seen": 7,
+  "selected_count": 7,
   "skipped_count": 0,
   "selected": [
     {
@@ -34,6 +34,16 @@
       "filename": "real_layout_year_pivot_margin_yoy_rejected.pdf",
       "ticker_hint": "SAMPLECO",
       "source_pdf_sha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5"
+    },
+    {
+      "filename": "real_layout_year_pivot_metric_rows_all_yoy_growth.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+    },
+    {
+      "filename": "real_layout_year_pivot_metric_rows_all_margin.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "0707070707070707070707070707070707070707070707070707070707070707"
     }
   ],
   "skipped": [],

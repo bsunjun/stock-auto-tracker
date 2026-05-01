@@ -1414,13 +1414,33 @@ _YEAR_PIVOT_STRICT_REVISION_LABELS: tuple[str, ...] = (
 
 # Margin / YoY / percentage row markers — when the year-pivot table's metric
 # rows are denominated as percentages or growth rates, no absolute
-# revision pair is extractable; those texts get 'has_metric_headers_no_old_new'.
+# revision pair is extractable; those texts get 'has_metric_headers_no_old_new'
+# at the file-level gate, then PR #33 row-level helpers refine the bucket.
 _YEAR_PIVOT_MARGIN_YOY_MARKERS: tuple[str, ...] = (
     "(%)", "(margin)", "(Margin)", "(MARGIN)",
     "(YoY)", "(yoy)", "(YOY)",
     "(QoQ)", "(qoq)",
     "(%, YoY)", "(%, yoy)",
     "OPM(%)", "opm(%)", "GPM(%)",
+)
+
+# PR #33: row-level marker dictionaries used to classify each metric label
+# row in a year-pivot table into yoy / margin / absolute. Order of checks
+# (in `_classify_metric_row_marker`) is yoy → margin so a row tagged
+# `(%, YoY)` resolves to yoy (it carries both `(%)` and YoY semantics).
+# `이익률` and `OPM` etc. resolve to margin even when also marked `(%)`.
+_YEAR_PIVOT_ROW_YOY_MARKERS: tuple[str, ...] = (
+    "(YoY)", "(yoy)", "(YOY)",
+    "(QoQ)", "(qoq)",
+    "(%, YoY)", "(%, yoy)",
+    "성장률", "증가율", "증감율", "증감률",
+    " growth", "Growth", "GROWTH",
+)
+_YEAR_PIVOT_ROW_MARGIN_MARKERS: tuple[str, ...] = (
+    "(margin)", "(Margin)", "(MARGIN)",
+    "OPM(%)", "opm(%)", "GPM(%)", "NPM(%)",
+    "이익률", "원가율",
+    "(%)",  # bare "(%)" is treated as margin AFTER the yoy check above
 )
 
 # How many lines before/after a year-pivot anchor count as 'near' for
@@ -1449,6 +1469,98 @@ def _year_pivot_has_margin_yoy_marker(text: str) -> bool:
     if not isinstance(text, str):
         return False
     return any(mk in text for mk in _YEAR_PIVOT_MARGIN_YOY_MARKERS)
+
+
+def _classify_metric_row_marker(line: str) -> str | None:
+    """PR #33 — classify a single metric-label row as 'yoy' / 'margin' /
+    'absolute', or None if the line does not start with a recognized
+    metric label.
+
+    Detection order:
+      1. line must start with one of `_METRIC_LABEL_PREFIXES` (after lstrip)
+      2. yoy markers (`_YEAR_PIVOT_ROW_YOY_MARKERS`) — checked first so a
+         row tagged `(%, YoY)` resolves to 'yoy'
+      3. margin markers (`_YEAR_PIVOT_ROW_MARGIN_MARKERS`) — including
+         `(%)` as a bare margin tag and `이익률 / 원가율` substrings
+      4. otherwise the row is 'absolute' (canonical KRW value row)
+    """
+    if not isinstance(line, str):
+        return None
+    s = line.lstrip()
+    if not s:
+        return None
+    is_metric_row = False
+    for label in _METRIC_LABEL_PREFIXES:
+        if s.startswith(label):
+            is_metric_row = True
+            break
+    if not is_metric_row:
+        return None
+    if any(mk in s for mk in _YEAR_PIVOT_ROW_YOY_MARKERS):
+        return "yoy"
+    if any(mk in s for mk in _YEAR_PIVOT_ROW_MARGIN_MARKERS):
+        return "margin"
+    return "absolute"
+
+
+def _aggregate_year_pivot_metric_row_kinds(text: str) -> dict[str, int]:
+    """PR #33 — return {'yoy': n, 'margin': n, 'absolute': n} for every
+    metric-label row found in `text`. Lines without a recognized metric
+    label do NOT contribute to any bucket."""
+    counts = {"yoy": 0, "margin": 0, "absolute": 0}
+    if not isinstance(text, str):
+        return counts
+    for line in text.splitlines():
+        kind = _classify_metric_row_marker(line)
+        if kind is None:
+            continue
+        counts[kind] += 1
+    return counts
+
+
+def classify_year_pivot_metric_header_subgap(text: str) -> str:
+    """PR #33 — refine `year_pivot_has_metric_headers_no_old_new` (PR #31).
+
+    Returns one of (in priority order):
+      * 'year_pivot_metric_rows_all_yoy_growth' — every metric row in the
+        text is a yoy / growth-rate row (no absolute, no margin)
+      * 'year_pivot_metric_rows_all_margin' — every metric row is a margin
+        / 이익률 row (no absolute, no yoy)
+      * 'year_pivot_metric_rows_mixed_units' — some metric rows are
+        absolute and others are yoy and/or margin, OR the file mixes yoy
+        and margin
+      * 'year_pivot_has_metric_headers_no_old_new' — fallback when no
+        metric label rows can be located (still surfaces the parent
+        category from PR #31 so callers see a stable label)
+
+    Reserved sub-categories (DOCUMENTED in the gap_reason vocabulary
+    but NOT actively triggered by this classifier — kept for future
+    smoke evidence so we can ship them with their own real-PDF
+    fixture):
+      * 'year_pivot_metric_headers_no_revision_value' — all rows are
+        absolute and no revision label / margin / yoy marker is
+        present anywhere. The PR #18 synthetic fixture
+        (`real_layout_variant_ambiguous_year_pivot.txt`) WOULD match
+        this shape; PR #33 keeps it routed to the legacy
+        `ambiguous_year_pivot` label to preserve fixture
+        byte-identity.
+      * 'year_pivot_unhandled_broker_template' — catch-all for
+        templates that the deterministic classifier cannot subdivide.
+        Adding this branch must wait for a real-PDF smoke that
+        clearly does not fit any of the above buckets.
+    """
+    counts = _aggregate_year_pivot_metric_row_kinds(text)
+    yoy = counts["yoy"]
+    margin = counts["margin"]
+    absolute = counts["absolute"]
+    total = yoy + margin + absolute
+    if total == 0:
+        return "year_pivot_has_metric_headers_no_old_new"
+    if yoy > 0 and margin == 0 and absolute == 0:
+        return "year_pivot_metric_rows_all_yoy_growth"
+    if margin > 0 and yoy == 0 and absolute == 0:
+        return "year_pivot_metric_rows_all_margin"
+    return "year_pivot_metric_rows_mixed_units"
 
 
 def _year_pivot_label_near_pivot(text: str) -> bool:
@@ -1528,7 +1640,11 @@ def classify_year_pivot_gap(text: str) -> str | None:
         return "year_pivot_revision_labels_too_far"
 
     if _year_pivot_has_margin_yoy_marker(text):
-        return "year_pivot_has_metric_headers_no_old_new"
+        # PR #33: refine via row-level classifier. The sub-classifier
+        # falls back to 'year_pivot_has_metric_headers_no_old_new' on
+        # zero-metric-rows cases so the parent label remains a stable
+        # surface.
+        return classify_year_pivot_metric_header_subgap(text)
 
     return None
 # --- end helpers ----------------------------------------------------------

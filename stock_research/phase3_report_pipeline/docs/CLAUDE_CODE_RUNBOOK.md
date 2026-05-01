@@ -405,11 +405,27 @@ PR #15 hard caps:
   있으나 column-pair 형태로 묶이지 않은 경우 (e.g. 본문 prose 내 단발성
   언급). 명시적 old/new label-numeric 연결이 없으므로 conservative
   parser 가 metric 을 emit 하지 않는다.
-- **`year_pivot_has_metric_headers_no_old_new`** (PR #31) — year-pivot +
-  legacy keyword + 행에 `(%)`, `(margin)`, `(YoY)`, `(QoQ)`, `OPM(%)`,
-  `GPM(%)` 등 % / 성장률 marker 가 있고 strict revision label 은 없는
-  경우. 표면적으로는 metric label rows 가 보이지만 column 자체가
-  margin/yoy 비율이라 absolute revision pair 추출 불가.
+- **`year_pivot_has_metric_headers_no_old_new`** (PR #31; PR #33 에서
+  fallback 으로 강등) — year-pivot + legacy keyword + 행에 `(%)`,
+  `(margin)`, `(YoY)`, `(QoQ)`, `OPM(%)`, `GPM(%)` 등 % / 성장률
+  marker 가 있고 strict revision label 은 없는 경우. PR #33 부터는
+  primary 라벨 자리를 row-level 분류기에 양보하고, 분류기가 metric
+  label row 를 0개 발견했을 때만 fallback 으로 발화한다.
+- **`year_pivot_metric_rows_all_yoy_growth`** (PR #33) — 위 부모 카테고리
+  진입 후 row-level 분류기가 검출한 모든 metric label row 가 yoy/
+  성장률 marker 를 가진 경우. yoy marker 셋: `(YoY) / (yoy) / (YOY) /
+  (QoQ) / (qoq) / (%, YoY) / (%, yoy) / 성장률 / 증가율 / 증감률 /
+  growth`. 이 row 들은 절대값 revision pair 가 정의상 없으므로
+  structured row 를 emit 하지 않는다 (false-positive 방지).
+- **`year_pivot_metric_rows_all_margin`** (PR #33) — 모든 metric label
+  row 가 margin / 이익률 marker 를 가진 경우. margin marker 셋:
+  `(margin) / (Margin) / (MARGIN) / OPM(%) / GPM(%) / NPM(%) / 이익률 /
+  원가율 / (%)`. 마찬가지로 절대값 revision pair 추출 대상 아님.
+- **`year_pivot_metric_rows_mixed_units`** (PR #33) — metric label row
+  들이 절대값 (`매출액 892 1,065 ...`) + margin (`영업이익률(%)`) +
+  yoy (`EPS 성장률(YoY)`) 같은 형태로 단위가 섞인 경우. 실제 broker
+  report 의 가장 흔한 패턴이며 conservative 파서가 row 별 단위 차이를
+  결합해 revision pair 를 합성하지 않는다.
 - **`duplicate_column_flat_rejected`** (PR #27) — variant column-window
   scanner 가 한 metric row 에서 byte-identical 두 numeric token (old
   == new as strings) 을 보았으나 같은 line 에 명시적 flat context
@@ -429,7 +445,10 @@ precedence (위에서 아래로, 먼저 만족하는 항목이 win):
 `classify_year_pivot_gap` (PR #31; `year_pivot_initiation_no_revision` /
 `year_pivot_positional_revision_candidate` /
 `year_pivot_revision_labels_too_far` /
-`year_pivot_has_metric_headers_no_old_new`) →
+`year_pivot_metric_rows_all_yoy_growth` (PR #33) /
+`year_pivot_metric_rows_all_margin` (PR #33) /
+`year_pivot_metric_rows_mixed_units` (PR #33) /
+`year_pivot_has_metric_headers_no_old_new` (PR #33 fallback)) →
 `ambiguous_year_pivot` → `no_revision_anchor`. 단, variant scan 안에서
 growth-rate 와 dup-flat reject 가 동시에 일어나면
 `variant_rejected_growth_rate` 가 우선 (보다 구체적 시그널). PR #31
@@ -544,19 +563,57 @@ PR #31: year-pivot gap taxonomy refinement:
    pair label (e.g. `기존(26E)` / `변경(26E)` 페어가 같은 헤더 라인에)
    가 있어야만 기존 PR #18 variant scanner 가 metric 을 추출하며, 그
    외에는 sub-category gap_reason 만 audit 로 남는다.
-6. **fixture 5 개** (`stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/texts/`):
+6. **fixture 7 개** (`stock_research/phase3_report_pipeline/examples/estimate_table_fixtures/texts/`):
    - `real_layout_year_pivot_forecast_only_no_revision.txt`
      → `year_pivot_forecast_only_no_revision`
    - `real_layout_year_pivot_labeled_existing_changed.txt`
      → `parsed_metric_pair` (operating_profit primary, direction=up)
    - `real_layout_year_pivot_metric_headers_no_old_new.txt`
-     → `year_pivot_has_metric_headers_no_old_new`
+     → `year_pivot_metric_rows_mixed_units` *(PR #33; was
+     `year_pivot_has_metric_headers_no_old_new` in PR #31 — fixture
+     text unchanged, gap_reason refined by row-level classifier)*
    - `real_layout_year_pivot_positional_candidate_rejected.txt`
      → `year_pivot_positional_revision_candidate`
    - `real_layout_year_pivot_margin_yoy_rejected.txt`
-     → `year_pivot_has_metric_headers_no_old_new`
+     → `year_pivot_metric_rows_mixed_units` *(PR #33; was
+     `year_pivot_has_metric_headers_no_old_new` in PR #31)*
+   - `real_layout_year_pivot_metric_rows_all_yoy_growth.txt`
+     *(PR #33 new)* → `year_pivot_metric_rows_all_yoy_growth`
+   - `real_layout_year_pivot_metric_rows_all_margin.txt`
+     *(PR #33 new)* → `year_pivot_metric_rows_all_margin`
 7. **inventory** `examples/estimate_table_fixtures/inventory.year_pivot_taxonomy.json`
-   (5 entries; SAMPLECO synthetic; 모든 sha 는 deterministic placeholder).
+   (5 → **7** entries; SAMPLECO synthetic; 모든 sha 는 deterministic
+   placeholder).
+
+PR #33: year-pivot metric-header sub-taxonomy:
+1. **`year_pivot_has_metric_headers_no_old_new` 분해 (PR #31)**:
+   row-level 분류기가 metric label row 별 marker 단위를 검사해 4개
+   하위 카테고리로 분리. (a) `year_pivot_metric_rows_all_yoy_growth`
+   — 모든 metric row 가 yoy 단위 (b)
+   `year_pivot_metric_rows_all_margin` — 모든 metric row 가 margin
+   단위 (c) `year_pivot_metric_rows_mixed_units` — 단위 혼재 (d) 기존
+   `year_pivot_has_metric_headers_no_old_new` — metric label row 가 0 인
+   fallback.
+2. **신규 helper (3 + 1)**:
+   - `_classify_metric_row_marker(line) -> 'yoy' | 'margin' | 'absolute' | None`
+   - `_aggregate_year_pivot_metric_row_kinds(text) -> dict`
+   - `classify_year_pivot_metric_header_subgap(text) -> str`
+   - 신규 marker tuple `_YEAR_PIVOT_ROW_YOY_MARKERS`,
+     `_YEAR_PIVOT_ROW_MARGIN_MARKERS` (yoy 우선 검사 → `(%, YoY)` 같은
+     overlap 케이스가 yoy 로 안전하게 분류된다).
+3. **conservative 보장**:
+   - row-level 분류기는 metric label row (line.startswith(label) for
+     label in `_METRIC_LABEL_PREFIXES`) 만 고려.
+   - 절대값 + margin / yoy mix 일 때 절대값과 margin/yoy 행을 결합해
+     revision pair 를 합성하지 않는다.
+   - structured row 추출은 PR #18 variant scanner 와 PR #31
+     labeled_existing_changed 경로에 그대로 위임.
+4. **reserved (문서만)**: `year_pivot_metric_headers_no_revision_value`,
+   `year_pivot_unhandled_broker_template` — 실제 PDF smoke 에서 명확한
+   trigger 가 보일 때 별도 PR 로 활성화.
+5. **fixture 2 개 추가**: `real_layout_year_pivot_metric_rows_all_yoy_growth.txt`,
+   `real_layout_year_pivot_metric_rows_all_margin.txt` (SAMPLECO synthetic).
+   `inventory.year_pivot_taxonomy.json` 5 → 7 entries.
 
 CLI 사용 예시 (operator-host real-PDF batch smoke):
 ```
