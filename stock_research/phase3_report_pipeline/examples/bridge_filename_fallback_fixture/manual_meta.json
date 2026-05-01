@@ -1,0 +1,68 @@
+[
+  {
+    "case": "pr22_empty_ticker_bracket_filename_dd",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 120000,
+    "new_target": 190000,
+    "horizon": "12M",
+    "filename": "20260430_[대덕전자] 클 대.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr22_empty_ticker_bracket_filename_nota",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 25000,
+    "new_target": 30000,
+    "horizon": "12M",
+    "filename": "20260430_[노타] AI 모델 경량화.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr22_empty_ticker_unresolved_machinarox",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "20260430_[마키나락스] IPO.pdf",
+    "extraction_method": "filename_only"
+  },
+  {
+    "case": "pr22_krx_passthrough_with_unrelated_filename",
+    "ticker": "KRX:353200",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 120000,
+    "new_target": 190000,
+    "horizon": "12M",
+    "filename": "20260430_[전혀다른회사] 일반 코멘트.pdf",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr22_canonical_only_no_filename",
+    "ticker": "대덕전자",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": 120000,
+    "new_target": 190000,
+    "horizon": "12M",
+    "filename": "",
+    "extraction_method": "manual"
+  },
+  {
+    "case": "pr22_empty_ticker_no_bracket_filename",
+    "ticker": "",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "20260430_삼성전자_브래킷없음.pdf",
+    "extraction_method": "filename_only"
+  }
+]

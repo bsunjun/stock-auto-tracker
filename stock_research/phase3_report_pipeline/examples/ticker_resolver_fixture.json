@@ -117,6 +117,48 @@
       "filename": "20260430_삼성전자_브래킷없음.pdf",
       "expected": null,
       "_note": "the resolver does not infer names from non-bracketed filename text; require '[...]' or a value"
+    },
+    {
+      "case": "pr22_empty_ticker_bracket_filename_dd",
+      "value": "",
+      "filename": "20260430_[대덕전자] 클 대.pdf",
+      "expected": "KRX:353200",
+      "_note": "PR #22 hotfix: bridge previously gated this case behind `t and ...` so an empty ticker never reached the resolver. The resolver itself always supported bracket-filename fallback; this case re-asserts the contract for bridge integration."
+    },
+    {
+      "case": "pr22_empty_ticker_bracket_filename_nota",
+      "value": "",
+      "filename": "20260430_[노타] AI 모델 경량화.pdf",
+      "expected": "KRX:486990",
+      "_note": "PR #22 hotfix: same as above, second must-include ticker."
+    },
+    {
+      "case": "pr22_empty_ticker_unresolved_machinarox",
+      "value": "",
+      "filename": "20260430_[마키나락스] IPO.pdf",
+      "expected": null,
+      "_note": "PR #22 hotfix: pre-IPO companies still return None even with the gate relaxed; bridge will mark ticker_unmapped, build --strict will reject."
+    },
+    {
+      "case": "pr22_krx_passthrough_with_unrelated_filename",
+      "value": "KRX:353200",
+      "filename": "20260430_[전혀다른회사] 일반 코멘트.pdf",
+      "expected": "KRX:353200",
+      "_note": "PR #22 hotfix: KRX:NNNNNN passthrough must NOT be overridden by a filename-bracket lookup. The resolver short-circuits on the value before consulting filename."
+    },
+    {
+      "case": "pr22_canonical_only_no_filename",
+      "value": "대덕전자",
+      "filename": "",
+      "expected": "KRX:353200",
+      "_note": "PR #22 hotfix: filename=None/empty must not regress the value-only canonical path."
+    },
+    {
+      "case": "pr22_empty_ticker_no_bracket_filename",
+      "value": "",
+      "filename": "20260430_삼성전자_브래킷없음.pdf",
+      "expected": null,
+      "_note": "PR #22 hotfix: empty ticker AND no '[...]' bracket → still unresolved (resolver never infers from non-bracketed text)."
     }
   ]
 }

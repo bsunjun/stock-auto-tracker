@@ -140,10 +140,16 @@ def project_record(m: dict, by_sha: dict, by_name: dict, scan: list[dict], ticke
         if not rec.get("filename"):
             rec["filename"] = scan_rec.get("filename", "")
 
+    # PR #22 hotfix: drop the `t and` clause so a record with an empty ticker
+    # but a filename like '20260430_[대덕전자] ...' still reaches the resolver
+    # and picks up KRX:353200 via the bracket-filename fallback. KRX:NNNNNN
+    # values stay untouched (is_krx short-circuits the call). On miss, ticker
+    # is left as-is and `missing_fields` records 'ticker_unmapped' below — we
+    # never invent a code.
     t = rec.get("ticker", "") or ""
-    if isinstance(t, str) and t and not is_krx(t):
+    if not is_krx(t):
         hit = ticker_resolver.resolve(
-            t,
+            t if isinstance(t, str) else "",
             filename=rec.get("filename") or "",
             ticker_map=ticker_map,
         )
