@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 + PR #30 + PR #31 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 + PR #29 + PR #30 + PR #31 + PR #33 + PR #34 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -344,14 +344,35 @@ refused; rolling --apply never invoked). `selected[].pdf_path` pointing
 inside the repo is refused at entry level so PDF bytes never enter the
 worktree.
 
+**PR #33 splits `year_pivot_has_metric_headers_no_old_new`** into 3
+row-level sub-categories (`year_pivot_metric_rows_all_yoy_growth`,
+`year_pivot_metric_rows_all_margin`, `year_pivot_metric_rows_mixed_units`)
+plus the original PR #31 label as fallback. The classifier inspects only
+metric label rows that begin with `_METRIC_LABEL_PREFIXES`; absolute /
+margin / yoy rows are NEVER combined into a fabricated revision pair.
+
+**PR #34 splits the legacy `no_metric_pair` bucket** into 4
+window-shape sub-categories
+(`no_metric_pair_target_price_only_window`,
+`no_metric_pair_anchor_outside_pivot`,
+`no_metric_pair_split_window_too_long`,
+`no_metric_pair_unhandled_broker_template`). The classifier inspects
+ONLY line-shape counters inside the revision window opened by PR #17
+(`수정 후` / `수정 전`) or PR #18 (paired-column `기존/변경` etc.); it
+never extracts a numeric pair, never combines forecast year columns,
+never promotes margin / yoy / 목표주가 rows to primary. The legacy
+`no_metric_pair` label is retained as a defensive fallback only.
+
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18
 also adds an audit-only `gap_reason` field on each breakdown record so the
 operator can read why a particular PDF didn't yield a structured row;
 PR #19 added two more values to that vocabulary
 (`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`)
-and PR #20 added one more (`variant_rejected_growth_rate`). No OCR / Vision
-/ API fallback added.
+and PR #20 added one more (`variant_rejected_growth_rate`). PR #26 / #27
+/ #28 / #31 / #33 / #34 each layer additional gap_reason refinements
+without changing structured-row recall. No OCR / Vision / API fallback
+added.
 
 ## What this PR does NOT do
 

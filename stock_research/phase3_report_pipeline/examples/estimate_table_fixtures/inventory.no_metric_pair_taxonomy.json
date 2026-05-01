@@ -1,0 +1,42 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #34 no_metric_pair window-shape sub-taxonomy. Four anonymized synthetic fixtures exercise the classifier (a) target-price-only window (window contains 목표주가 mention but no metric label rows) → no_metric_pair_target_price_only_window, (b) split-window-too-long (revision marker and metric label rows >10 lines apart inside a >30-line window) → no_metric_pair_split_window_too_long, (c) anchor-outside-pivot (revision marker and year-pivot table separated by >25 lines) → no_metric_pair_anchor_outside_pivot, (d) unhandled-broker-template fallback (window has metric labels close to revision marker but no extractable numeric pair) → no_metric_pair_unhandled_broker_template. Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 4,
+  "selected_count": 4,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_no_metric_pair_target_price_only_window.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "1818181818181818181818181818181818181818181818181818181818181818"
+    },
+    {
+      "filename": "real_layout_no_metric_pair_split_window_too_long.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "2929292929292929292929292929292929292929292929292929292929292929"
+    },
+    {
+      "filename": "real_layout_no_metric_pair_anchor_outside_pivot.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a"
+    },
+    {
+      "filename": "real_layout_no_metric_pair_unhandled_broker_template.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

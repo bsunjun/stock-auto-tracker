@@ -1650,6 +1650,177 @@ def classify_year_pivot_gap(text: str) -> str | None:
 # --- end helpers ----------------------------------------------------------
 
 
+# --- PR #34: no_metric_pair window-shape sub-taxonomy ---------------------
+#
+# The PR #33 50-PDF wider smoke surfaced 17/50 PDFs at gap_reason=
+# 'no_metric_pair'. That single bucket fires whenever
+# `find_estimate_revision_table_window` (PR #17 path; 수정 후 / 수정 전
+# anchor) OR `find_variant_estimate_table_window` (PR #18 path; 기존/변경,
+# 변경 전/후, 직전/현재 paired column header) returned a window AND no
+# metric pair was extracted. PR #34 splits this bucket conservatively
+# along window-shape markers ONLY — never inferring an old/new pair from
+# forecast-only year columns and never promoting margin/YoY/% rows to
+# primary.
+#
+# Sub-categories surfaced (in classifier priority order):
+#   1. `no_metric_pair_target_price_only_window` — window contains 목표주가
+#      mention(s) but NO metric label rows. The target-price audit may
+#      still record a numeric pair on a separate text-level scan, but the
+#      strict gate keeps target_price out of primary by design.
+#   2. `no_metric_pair_anchor_outside_pivot` — every year-pivot header
+#      line in the text (`_YEAR_HEADER_TOKEN_RE` match count ≥ 3) is
+#      farther than `_NO_METRIC_PAIR_PIVOT_OUTSIDE_THRESHOLD` lines
+#      OUTSIDE the revision window. The revision marker and the
+#      year-pivot table are in different sections / pages.
+#   3. `no_metric_pair_split_window_too_long` — window length exceeds
+#      `_NO_METRIC_PAIR_SPLIT_WINDOW_THRESHOLD` lines AND nearest
+#      revision-marker-to-metric-label line distance exceeds
+#      `_NO_METRIC_PAIR_SPLIT_DISTANCE_THRESHOLD`. Suggests the window
+#      crossed multiple tables or trailing prose.
+#   4. `no_metric_pair_unhandled_broker_template` — strict catch-all that
+#      replaces the legacy `no_metric_pair` label whenever the more
+#      specific signals do not fire. Reserved for future analysis on a
+#      per-broker basis.
+#
+# Conservative invariants preserved:
+#   * The classifier NEVER fabricates an old/new pair.
+#   * It only sees the WINDOW that PR #17 / PR #18 already opened — no
+#     fresh anchor detection.
+#   * 목표주가 lines are counted for category 1, never promoted to primary.
+#   * No existing fixture inventory currently produces `no_metric_pair`,
+#     so PR #12-#33 byte-identical regression survives unchanged.
+#   * PR #18 synthetic fixture (`real_layout_variant_ambiguous_year_pivot.txt`)
+#     never reaches the no_metric_pair branch (neither
+#     `find_estimate_revision_table_window` nor
+#     `find_variant_estimate_table_window` triggers on its text), so its
+#     `ambiguous_year_pivot` label stays.
+
+_NO_METRIC_PAIR_SPLIT_WINDOW_THRESHOLD = 30   # lines in window
+_NO_METRIC_PAIR_SPLIT_DISTANCE_THRESHOLD = 10  # lines between rev marker and metric label
+_NO_METRIC_PAIR_PIVOT_OUTSIDE_THRESHOLD = 25  # lines from window edge
+
+
+def _count_metric_label_rows_in_window(text: str, start: int, end: int) -> int:
+    """Count lines in [start, end] (inclusive) that begin (after lstrip)
+    with one of `_METRIC_LABEL_PREFIXES`. Only the canonical metric label
+    family is counted — 매출액 / 영업이익 / 순이익 / EPS et al."""
+    if not isinstance(text, str):
+        return 0
+    n = 0
+    for i, line in enumerate(text.splitlines()):
+        if i < start or i > end:
+            continue
+        s = line.lstrip()
+        if any(s.startswith(label) for label in _METRIC_LABEL_PREFIXES):
+            n += 1
+    return n
+
+
+def _count_target_price_lines_in_window(text: str, start: int, end: int) -> int:
+    """Count lines in [start, end] (inclusive) that contain '목표주가'."""
+    if not isinstance(text, str):
+        return 0
+    n = 0
+    for i, line in enumerate(text.splitlines()):
+        if i < start or i > end:
+            continue
+        if "목표주가" in line:
+            n += 1
+    return n
+
+
+def _detect_pivot_outside_window(text: str, start: int, end: int) -> bool:
+    """True iff at least one year-pivot header line (3+ year tokens) is
+    present in the text AND every such line lies more than
+    `_NO_METRIC_PAIR_PIVOT_OUTSIDE_THRESHOLD` lines OUTSIDE the
+    [start, end] window."""
+    if not isinstance(text, str):
+        return False
+    lines = text.splitlines()
+    pivot_lines = [i for i, l in enumerate(lines)
+                   if len(_YEAR_HEADER_TOKEN_RE.findall(l)) >= 3]
+    if not pivot_lines:
+        return False
+    th = _NO_METRIC_PAIR_PIVOT_OUTSIDE_THRESHOLD
+    return all((p < start - th or p > end + th) for p in pivot_lines)
+
+
+def _detect_split_window_too_long(text: str, start: int, end: int) -> bool:
+    """True iff window length > `_NO_METRIC_PAIR_SPLIT_WINDOW_THRESHOLD`
+    AND the nearest line distance between a revision-marker line and a
+    metric-label line exceeds `_NO_METRIC_PAIR_SPLIT_DISTANCE_THRESHOLD`.
+
+    Revision-marker lines are detected via
+    `_AFTER_LABELS + _BEFORE_LABELS` (PR #17 path).  When neither label
+    appears in the window (variant-scanner path), window start is used
+    as a marker proxy so the distance check still has a reference."""
+    if not isinstance(text, str):
+        return False
+    if (end - start + 1) <= _NO_METRIC_PAIR_SPLIT_WINDOW_THRESHOLD:
+        return False
+    win_lines = text.splitlines()[start:end + 1]
+    rev_rel: list[int] = [
+        i for i, l in enumerate(win_lines)
+        if any(lab in l for lab in _AFTER_LABELS + _BEFORE_LABELS)
+    ]
+    if not rev_rel:
+        rev_rel = [0]  # variant scanner path — window start is the proxy
+    metric_rel: list[int] = [
+        i for i, l in enumerate(win_lines)
+        if any(l.lstrip().startswith(label) for label in _METRIC_LABEL_PREFIXES)
+    ]
+    if not metric_rel:
+        return False
+    min_dist = min(abs(r - m) for r in rev_rel for m in metric_rel)
+    return min_dist > _NO_METRIC_PAIR_SPLIT_DISTANCE_THRESHOLD
+
+
+def classify_no_metric_pair_window_subgap(text: str) -> str | None:
+    """PR #34 — refine the legacy `no_metric_pair` bucket via window-shape
+    markers.  Returns one of:
+
+      * 'no_metric_pair_target_price_only_window'
+      * 'no_metric_pair_anchor_outside_pivot'
+      * 'no_metric_pair_split_window_too_long'
+      * 'no_metric_pair_unhandled_broker_template'  (catch-all)
+      * None — defensive fallback when no revision window is found
+        (the caller already gated on this; should never fire in
+        practice).
+
+    The classifier does NOT extract any metric pair, target_price pair,
+    direction, or numeric value.  It only inspects line-shape counters
+    inside the window that PR #17 / PR #18 already opened."""
+    if not isinstance(text, str) or not text:
+        return None
+    rev_window = find_estimate_revision_table_window(text)
+    variant_window = find_variant_estimate_table_window(text)
+    if rev_window is not None:
+        start, end = rev_window
+    elif variant_window is not None:
+        start, end, _kind = variant_window
+    else:
+        return None
+
+    metric_count = _count_metric_label_rows_in_window(text, start, end)
+    tp_count = _count_target_price_lines_in_window(text, start, end)
+
+    # 1. target-price-only window — most specific
+    if tp_count > 0 and metric_count == 0:
+        return "no_metric_pair_target_price_only_window"
+
+    # 2. anchor-outside-pivot — every year-pivot header is far from window
+    if _detect_pivot_outside_window(text, start, end):
+        return "no_metric_pair_anchor_outside_pivot"
+
+    # 3. split-window-too-long — wide window AND labels far from rev marker
+    if _detect_split_window_too_long(text, start, end):
+        return "no_metric_pair_split_window_too_long"
+
+    # 4. fallback — strictly more specific than the legacy `no_metric_pair`
+    return "no_metric_pair_unhandled_broker_template"
+# --- end PR #34 helpers ---------------------------------------------------
+
+
 def parse_args(argv: List[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -1941,7 +2112,12 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         elif (find_estimate_revision_table_window(text) is not None
               or variant_kind_seen is not None):
             # We saw a revision-shaped window but couldn't pair old/new.
-            gap_reason = "no_metric_pair"
+            # PR #34: refine via window-shape sub-classifier (target-price-
+            # only window / anchor-outside-pivot / split-window-too-long /
+            # unhandled-broker-template).  Defensive fallback to the
+            # legacy `no_metric_pair` when the classifier returns None.
+            sub = classify_no_metric_pair_window_subgap(text)
+            gap_reason = sub if sub else "no_metric_pair"
         elif side_gap_hint:
             # PR #19: side-anchor pattern present but rejected for being far
             # from a recognized header, OR header found but no eligible row

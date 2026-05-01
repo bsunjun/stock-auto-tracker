@@ -362,7 +362,26 @@ PR #15 hard caps:
 `gap_reason` (PR #18 + PR #19 + PR #20) 가능한 값:
 - `parsed_metric_pair` — primary metric 추출 성공
 - `no_revision_anchor` — 어떤 revision marker 도 발견 못 함
-- `no_metric_pair` — anchor 는 발견됐으나 old/new pair 추출 실패
+- `no_metric_pair` — anchor 는 발견됐으나 old/new pair 추출 실패. PR #34
+  부터는 window-shape 분류기가 4 개 sub-category 로 세분화하므로 실제
+  발화는 defensive fallback 일 때만 발생.
+- **`no_metric_pair_target_price_only_window`** (PR #34) — revision
+  window 안에 `목표주가` mention 만 있고 매출액 / 영업이익 / 순이익 /
+  EPS metric label row 가 0 인 경우. target_price audit 은 별도
+  `target_price_secondary.json` 이 처리하며 strict 게이트는 primary
+  로 절대 승격하지 않는다.
+- **`no_metric_pair_anchor_outside_pivot`** (PR #34) — text 안의 모든
+  year-pivot header 라인이 revision window 가장자리에서 25 줄 이상
+  떨어진 경우. revision marker 와 forecast 표가 서로 다른 page /
+  section 에 있다는 신호.
+- **`no_metric_pair_split_window_too_long`** (PR #34) — revision window
+  길이가 30 줄 초과 AND revision-marker line 과 가장 가까운 metric-
+  label line 사이 거리가 10 줄 초과인 경우. 본문이 두 개의 표를
+  걸쳤거나 prose 가 길게 끼어 있는 신호.
+- **`no_metric_pair_unhandled_broker_template`** (PR #34) — 위 3 sub-
+  category trigger 에 걸리지 않은 catch-all. 기존 `no_metric_pair`
+  보다 더 구체적인 fallback 이며, 향후 broker template 별 분석을 위해
+  유지된다.
 - `ambiguous_year_pivot` — forecast-only 표 (e.g. `2024A 2025A 2026E 2027F`)
 - `target_price_only` — metric 없이 목표주가만 발견
 - `empty_text` — pdfplumber 가 빈 text 반환
@@ -438,7 +457,12 @@ PR #15 hard caps:
 precedence (위에서 아래로, 먼저 만족하는 항목이 win):
 `parsed_metric_pair` → `empty_text` → `target_price_only` →
 `variant_rejected_growth_rate` (PR #20) → `duplicate_column_flat_rejected`
-(PR #27) → `no_metric_pair` → `side_anchor_no_near_header` /
+(PR #27) → `no_metric_pair` (PR #34: replaced by 4 sub-categories
+`no_metric_pair_target_price_only_window` /
+`no_metric_pair_anchor_outside_pivot` /
+`no_metric_pair_split_window_too_long` /
+`no_metric_pair_unhandled_broker_template`; legacy label kept as
+defensive fallback) → `side_anchor_no_near_header` /
 `side_anchor_header_found_no_metric_pair` (PR #19) →
 `natural_language_revision_ambiguous` (PR #26) →
 `year_pivot_forecast_only_no_revision` (PR #26 detector, PR #31 rename) →
