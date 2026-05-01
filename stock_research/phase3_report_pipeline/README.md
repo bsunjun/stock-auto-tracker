@@ -25,6 +25,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #18: 추가 broker-template 변형 (기존/변경, 변경 전/후, 직전/현재, side-anchor) + gap_reason audit
 │   │                                     #   PR #19: side-anchor 정확도 개선 — header proximity (~15 lines) 내에서만 scan
 │   │                                     #   PR #20: variant column-window 정확도 개선 — window 40→15줄, 목표주가 stop, value-shape filter (sales/op/ni 양쪽 abs<100 → growth-rate 으로 reject; eps 면제)
+│   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
@@ -33,8 +34,12 @@ phase3_report_pipeline/
 │   ├── estimate_revision_rows.rolling_fixture.json # PR #8 strict-estimate fixture
 │   ├── pipeline_runner_fixture/          # PR #9 dry-run runner fixture (bridge/structured/extra/expected/README)
 │   ├── estimate_table_fixtures/          # PR #12 + PR #17 + PR #18 + PR #19 + PR #20 — synthetic Korean text fixtures (arrow-pair + real 표 layout + variant + side-anchor precision + variant-window precision)
-│   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시
+│   ├── ticker_map.example.csv            # 한글 종목명 → KRX 코드 매핑 예시 (PR #4 legacy 2-col schema; PR #21 후에도 backward-compat 유지)
+│   ├── ticker_resolver_fixture.json      # PR #21 — resolver 케이스 (filename → ticker / unresolved) 18건
+│   ├── run_ticker_resolver_fixture.py    # PR #21 — 위 fixture를 ticker_resolver 모듈에 돌려보는 smoke runner
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
+├── resources/
+│   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)
 ├── docs/
 │   ├── CLAUDE_CODE_RUNBOOK.md            # 단계별 실행 가이드
 │   ├── PIPELINE_SCHEMA.md                # 데이터 흐름·스키마 매핑
@@ -42,7 +47,8 @@ phase3_report_pipeline/
 │   ├── REALDATA_SAMPLE_RUN.md            # operator-host 절차 (PR #11 sample, PR #14 1–3 PDF smoke)
 │   ├── REAL_PDF_SMOKE_RESULT_TEMPLATE.md # PR #14 — 1–3 PDF smoke 결과 paste-back 스키마 (commit 금지)
 │   ├── CLOUD_DRIVE_PDF_FETCH_PROBE.md    # PR #15 — cloud-session Drive fetch capability probe (≤ 1 PDF)
-│   └── CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md  # PR #15 — probe 결과 paste-back 스키마 (commit 금지)
+│   ├── CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md  # PR #15 — probe 결과 paste-back 스키마 (commit 금지)
+│   └── TICKER_MAP_TODO.md                # PR #21 — ticker_map governance + 보류 종목 트래킹
 └── config/
     └── phase3_report_pipeline.example.json
 ```
@@ -63,7 +69,7 @@ phase3_report_pipeline/
 1. `scan_wisereport_company.py` → `output/<date>/scan_company.json` (read-only 인덱스)
 2. (선택) `vision_ocr_pdf.py` → 페이지별 본문 텍스트 (사용자 명시 승인 후)
 3. 사람/외부 파서가 `manual_meta.json` 생성 (형식: `examples/parsed_meta.example.json` 참고)
-3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4, OCR/Vision 미호출)
+3a. `bridge_scan_to_parsed_meta.py` → scan + manual + ticker_map → `parsed_meta.json` (PR #4 + PR #21, OCR/Vision 미호출). PR #21 부터 `ticker_resolver` 모듈을 사용하여 `(주)/㈜/주식회사/괄호-숫자` 정규화, 별칭(aliases) 매칭, `[...]` 파일명 브래킷 추출까지 일관 처리. ticker_map은 rich schema(`company_name_kr,ticker,aliases,market,notes`, `resources/ticker_map.csv`) 또는 legacy 2-col(`name_kr,ticker`, `examples/ticker_map.example.csv`) 모두 자동 인식.
 3b. (선택, 비용 게이트 후) `vision_ocr_pdf.py --extract-mode estimate --apply` → `structured_extraction.json` (PR #5)
 3b'. (선택, no-cost) `extract_report_estimate_table.py` → deterministic-first parser (PR #12 + PR #13 + PR #16 + PR #17 + PR #18 + PR #19 + PR #20). primary metric 우선순위: `operating_profit > net_income > sales > eps`. 목표주가는 `secondary_reference` 로만 기록되며 primary estimate row 로 emit 되지 않는다. PR #12 는 `--text` / `--inventory` arrow-pair 경로, PR #13 가 `--pdf` (pdfplumber), PR #16 이 `--pdf-engine {auto,pdfplumber,pypdf}` 자동 fallback, PR #17 이 "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" 표 layout 파서, PR #18 이 추가 broker-template 변형 (기존/변경, 변경 전/변경 후, 직전/현재 column header + `<metric>(<year>) <new> <old> ▲|▼|-` side-anchor) + audit 필드 `gap_reason`, PR #19 가 side-anchor scan 을 revision-header proximity (~15 lines) 안으로 제한 + `side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair` gap_reason, **PR #20 이 variant column-window scan 도 동일하게 좁혀** (40→15줄, 목표주가 stop) growth-rate / YoY 행을 metric pair 로 잘못 잡지 않도록 value-shape filter (sales/op/ni 양쪽 abs<100 → growth-rate 으로 reject; eps 면제) + 새 gap_reason `variant_rejected_growth_rate` 추가. 전체 gap_reason vocabulary: `parsed_metric_pair` / `no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` / `target_price_only` / `empty_text` / `side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair` / `variant_rejected_growth_rate`. 모두 deterministic-only, OCR/Vision/API 없음. 실제 WiseReport batch 는 여전히 operator host 에서 제한 실행하며 결과는 repo 에 커밋하지 않는다.
 3c. `merge_meta.py` → bridge + structured_extraction → 우선순위(manual > structured > filename_only) 적용된 merged `parsed_meta.json` (PR #5; missing_fields 남으면 `complete=false`)
@@ -83,6 +89,28 @@ phase3_report_pipeline/
 - **Vision OCR는 비용**이 발생한다. 기본 페이지 한도 5, API key는 env에서만 읽음.
 - **promote / `output/latest/` 갱신 / Super Pack 재생성은 별도 승인 후 수동 실행**한다. 자동화·에이전트는 사용자 입력 없이 수행하지 말 것.
 - 원본 PDF는 절대 이동/복사/삭제하지 않는다.
+
+## Ticker map governance (PR #21)
+
+- **상장사만**. IPO 후보, 비상장, 상폐 종목은 ticker_map에 들어가지 않는다.
+  보류는 [`docs/TICKER_MAP_TODO.md`](docs/TICKER_MAP_TODO.md) 에 기록한다.
+- **KRX 코드가 확실한 경우만** 추가한다. 검색만으로 채워 넣지 않는다.
+  KRX listing portal (`kind.krx.co.kr`) / DART corp registry 둘 중 하나
+  이상 primary source 로 cross-check.
+- ticker는 `KRX:NNNNNN` 형식 강제, market은 `KOSPI / KOSDAQ / KONEX` 셋
+  중 하나만 허용. duplicate company_name_kr / duplicate ticker / alias
+  collision 은 verifier 가 fail.
+- aliases 는 보조 매칭 용도이며 우선주(예: 삼성전자우 005935)는 별도
+  ticker 이므로 alias 로 등록하지 않는다.
+- ticker_map 은 매매 신호가 아니다. Phase 3 전체에서
+  `direct_trade_signal=false` 가 유지된다.
+- 검증 절차:
+  ```
+  python3 stock_research/phase3_report_pipeline/scripts/ticker_resolver.py \
+      --verify \
+      --ticker-map stock_research/phase3_report_pipeline/resources/ticker_map.csv
+  python3 stock_research/phase3_report_pipeline/examples/run_ticker_resolver_fixture.py
+  ```
 
 ## What this pack does NOT do
 

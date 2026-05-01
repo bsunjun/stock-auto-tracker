@@ -1,0 +1,122 @@
+{
+  "schema": "phase3:ticker_resolver_fixture:v1",
+  "_note": "PR #21 resolver fixture. Each entry exercises one resolver path. resolver behavior is verified by examples/run_ticker_resolver_fixture.py against resources/ticker_map.csv.",
+  "ticker_map_path": "stock_research/phase3_report_pipeline/resources/ticker_map.csv",
+  "cases": [
+    {
+      "case": "exact_canonical",
+      "value": "대덕전자",
+      "filename": "",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "exact_canonical_pr21_must_include_nota",
+      "value": "노타",
+      "filename": "",
+      "expected": "KRX:486990"
+    },
+    {
+      "case": "alias_english_full_name",
+      "value": "Samsung Electronics",
+      "filename": "",
+      "expected": "KRX:005930"
+    },
+    {
+      "case": "alias_korean_rename_old_form",
+      "value": "두산중공업",
+      "filename": "",
+      "expected": "KRX:034020",
+      "_note": "renamed to 두산에너빌리티; alias preserved so legacy filenames still resolve"
+    },
+    {
+      "case": "alias_korean_rename_hd_prefix",
+      "value": "현대중공업",
+      "filename": "",
+      "expected": "KRX:329180",
+      "_note": "renamed to HD현대중공업; alias preserved"
+    },
+    {
+      "case": "krx_passthrough",
+      "value": "KRX:000660",
+      "filename": "",
+      "expected": "KRX:000660"
+    },
+    {
+      "case": "bracket_filename_only",
+      "value": "",
+      "filename": "20260430_[대덕전자] 1Q26 클 대.pdf",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "bracket_filename_only_nota",
+      "value": "",
+      "filename": "20260430_[노타] AI 모델 경량화.pdf",
+      "expected": "KRX:486990"
+    },
+    {
+      "case": "normalization_jusik_hweisa_prefix",
+      "value": "주식회사 대덕전자",
+      "filename": "",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "normalization_jue_paren_prefix",
+      "value": "(주)대덕전자",
+      "filename": "",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "normalization_kkojan_suffix",
+      "value": "대덕전자㈜",
+      "filename": "",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "normalization_trailing_paren_with_digits",
+      "value": "대덕전자(353200)",
+      "filename": "",
+      "expected": "KRX:353200"
+    },
+    {
+      "case": "value_miss_then_filename_hit",
+      "value": "삼성전자우",
+      "filename": "20260430_[삼성전자] 디바이스경험 1Q26 부진.pdf",
+      "expected": "KRX:005930",
+      "_note": "preferred-share label '삼성전자우' is intentionally NOT in the map; filename bracket recovers the canonical 005930"
+    },
+    {
+      "case": "unresolved_pre_ipo_machinarox",
+      "value": "마키나락스",
+      "filename": "20260430_[마키나락스] IPO 코멘트.pdf",
+      "expected": null,
+      "_note": "PR #21 governance: pre-IPO companies are never in ticker_map; resolver returns None → bridge marks ticker_unmapped"
+    },
+    {
+      "case": "unresolved_unlisted_daehanjoseon",
+      "value": "대한조선",
+      "filename": "20260430_[대한조선] 실적 수주.pdf",
+      "expected": null,
+      "_note": "private shipbuilder, not listed; preserves the existing parsed_meta.example.json miss case"
+    },
+    {
+      "case": "unresolved_synthetic_sample",
+      "value": "샘플전자",
+      "filename": "20260430_[샘플전자] 테스트.pdf",
+      "expected": null,
+      "_note": "synthetic placeholder used in estimate_table_fixtures; intentionally NOT in the real ticker_map"
+    },
+    {
+      "case": "unresolved_empty_inputs",
+      "value": "",
+      "filename": "",
+      "expected": null
+    },
+    {
+      "case": "unresolved_filename_no_brackets",
+      "value": "",
+      "filename": "20260430_삼성전자_브래킷없음.pdf",
+      "expected": null,
+      "_note": "the resolver does not infer names from non-bracketed filename text; require '[...]' or a value"
+    }
+  ]
+}
