@@ -1,0 +1,7 @@
+date,ticker,name,sector,source,confidence,trading_universe,candidate_status,estimate_revision_link,estimate_revision_status,veto_candidate,pb_ready,pb_scout,pb_trigger,notes
+2026-05-04,KRX:098460,고영,반도체/장비,WiseReport,High,true,MONDAY_SEED,true,data_insufficient,false,false,false,false,AI 모멘텀 확산 수혜. 추정치 변경표 PDF 미확인.
+2026-05-04,KRX:486990,노타,AI/소프트웨어,WiseReport,High,true,MONDAY_SEED,true,data_insufficient,false,false,false,false,엣지디바이스 추론 시대 수혜. ticker 매핑 486990 사용. 추정치 변경표 PDF 미확인.
+2026-05-04,KRX:460860,동국제강,철강,WiseReport,High,true,MONDAY_SEED,false,not_applicable,false,false,false,false,1Q OP 컨센 상회 + 제품가 인상. 목표주가 17200원 상향.
+2026-05-04,KRX:170900,동아에스티,제약/바이오,WiseReport,High,true,MONDAY_SEED,true,data_insufficient,false,false,false,false,1Q 흑자전환 + AACR 파이프라인. 추정치 변경표 PDF 미확인.
+2026-05-04,KRX:376300,디어유,엔터테인먼트,WiseReport,High,true,MONDAY_SEED,true,data_insufficient,false,false,false,false,밸류에이션 매력 부각. 추정치 변경표 PDF 미확인.
+2026-05-04,KRX:089860,롯데렌탈,운수장비/렌탈,WiseReport,High,true,MONDAY_SEED,true,data_insufficient,false,false,false,false,이익 체력 검증. 추정치 변경표 PDF 미확인.
