@@ -1374,10 +1374,22 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
                      help="Path to a pre-extracted text file (no PDF parsing needed).")
     src.add_argument("--inventory", default=None,
                      help="Path to a sample_inventory.json (PR #11 shape). "
-                          "Each selected[] entry is processed; per-PDF text "
-                          "is looked up under --text-dir by filename stem.")
+                          "Per-entry source resolution priority (PR #30): "
+                          "selected[].local_pdf_path / selected[].pdf_path → "
+                          "--pdf-dir/<filename> → --text-dir/<stem>.txt. The "
+                          "first present source wins. PR #12-#29 synthetic "
+                          "fixtures (--text-dir only) keep their byte-identical "
+                          "behavior.")
     src.add_argument("--text-dir", default=None,
-                     help="Directory holding <stem>.txt files when using --inventory.")
+                     help="Directory holding <stem>.txt files when using --inventory "
+                          "(synthetic fixture mode).")
+    src.add_argument("--pdf-dir", default=None,
+                     help="(PR #30) Directory holding real PDF files referenced by "
+                          "the inventory's selected[].filename. PDFs are extracted "
+                          "via --pdf-engine (auto/pdfplumber/pypdf); no OCR/Vision "
+                          "fallback. Files missing from --pdf-dir are recorded as "
+                          "missing in parser_batch_summary.json without aborting "
+                          "the batch.")
 
     p.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"),
                    help=f"Target date {DATE_FMT_HELP} (default: today)")
@@ -1794,15 +1806,21 @@ def _build_parser_batch_summary(
     structured: list[dict],
     breakdown: list[dict],
     secondary: list[dict],
+    source_audit: list[dict] | None = None,
 ) -> dict:
     """Aggregate per-input outputs into a single JSON suitable for an
-    operator-host batch smoke report (PR #29).
+    operator-host batch smoke report (PR #29 + PR #30).
 
     The summary covers counts (no per-row content beyond filenames) and
     a forbidden_actions_confirmed block that materializes the parser's
     runtime invariants. No PDF body / extracted text / numeric values
     leak into the summary — fields like `files_with_structured_rows`
     list filenames only.
+
+    PR #30 adds `source_mode_counts`, `files_with_pdf_parse_errors`,
+    `files_with_missing_pdf` (additive — older callers passing only the
+    first three positional args still get a valid summary; the new
+    fields collapse to {} / [] in that case).
     """
     pdf_count = len(breakdown)
     by_fn: dict[str, dict] = {r.get("filename", ""): r for r in breakdown}
@@ -1849,6 +1867,35 @@ def _build_parser_batch_summary(
     failed_pdf_count = len(files_with_empty_text)
     parsed_pdf_count = pdf_count - failed_pdf_count
 
+    # PR #30 source-mode aggregation. `source_audit` is filename + mode +
+    # error_reason per yielded record. Backward compat: when callers
+    # don't pass it (e.g. older fixture-runner code), source_mode_counts
+    # falls back to a synthesized "text_fixture" count derived from the
+    # breakdown's pdf_engine field (None → text_fixture).
+    source_mode_counts: dict[str, int] = {}
+    files_with_pdf_parse_errors: list[str] = []
+    files_with_missing_pdf: list[str] = []
+    if source_audit:
+        for r in source_audit:
+            mode = r.get("source_mode") or "(none)"
+            source_mode_counts[mode] = source_mode_counts.get(mode, 0) + 1
+            if mode == "error":
+                fn = r.get("filename", "")
+                if fn:
+                    files_with_pdf_parse_errors.append(fn)
+            elif mode == "missing":
+                fn = r.get("filename", "")
+                if fn:
+                    files_with_missing_pdf.append(fn)
+        files_with_pdf_parse_errors = sorted(set(files_with_pdf_parse_errors))
+        files_with_missing_pdf = sorted(set(files_with_missing_pdf))
+    else:
+        # Fallback: synthesize from breakdown engine. None engine means
+        # the entry came through synthetic text-fixture path.
+        for r in breakdown:
+            mode = "pdf_file" if r.get("pdf_engine") else "text_fixture"
+            source_mode_counts[mode] = source_mode_counts.get(mode, 0) + 1
+
     return {
         "schema": PARSER_BATCH_SUMMARY_SCHEMA,
         "pdf_count": pdf_count,
@@ -1867,6 +1914,9 @@ def _build_parser_batch_summary(
         "files_with_target_price_only": files_with_target_price_only,
         "files_with_empty_text": files_with_empty_text,
         "files_with_parser_errors": files_with_parser_errors,
+        "source_mode_counts": source_mode_counts,
+        "files_with_pdf_parse_errors": files_with_pdf_parse_errors,
+        "files_with_missing_pdf": files_with_missing_pdf,
         "extraction_method": EXTRACTION_METHOD,
         "forbidden_actions_confirmed": {
             # Parser is deterministic-only by design (PR #12 contract);
@@ -1971,8 +2021,27 @@ def _read_pdf_text(path: Path, engines: list[str]) -> tuple[str, str | None, lis
 
 
 def _iter_inputs(args: argparse.Namespace):
-    """Yield (text, source_pdf_sha256, filename) tuples from the chosen
-    input mode. Honors --max-pdfs."""
+    """Yield (text, source_pdf_sha256, filename, pdf_engine, source_mode,
+    error_reason) records from the chosen input mode. Honors --max-pdfs.
+
+    PR #30 broadens the `--inventory` path. Per-entry source resolution
+    priority is:
+      1. selected[].local_pdf_path or selected[].pdf_path (an absolute or
+         resolvable path; refused if inside the repo so PDF bytes never
+         leak into a worktree under --apply).
+      2. --pdf-dir / <filename>  (when --pdf-dir is passed; resolved
+         relative to that directory).
+      3. --text-dir / <stem>.txt (synthetic-fixture mode; PR #12-#29
+         continue to take this path with byte-identical structured /
+         breakdown / target_price_secondary outputs).
+
+    `source_mode` is one of:
+      "text_fixture" | "pdf_file" | "missing" | "error" | "empty"
+    `pdf_engine` is None for text_fixture, "pdfplumber" / "pypdf" for
+    pdf_file, None for missing/error/empty.
+    `error_reason` is None when source_mode in {"text_fixture",
+    "pdf_file", "empty"} and a short string for "missing" / "error".
+    """
     import hashlib
     import json as _json
 
@@ -1992,19 +2061,74 @@ def _iter_inputs(args: argparse.Namespace):
             print("error: inventory has no `selected[]` list", file=sys.stderr)
             return
         text_dir = Path(args.text_dir).expanduser().resolve() if args.text_dir else None
+        pdf_dir = Path(args.pdf_dir).expanduser().resolve() if args.pdf_dir else None
+        pdf_engines = _engines_to_try(args.pdf_engine) if pdf_dir else None
         for entry in selected:
             if count >= args.max_pdfs:
                 break
             sha = entry.get("source_pdf_sha256", "")
             fn = entry.get("filename", "")
-            text = ""
+
+            # PR #30 source resolution
+            local_pdf = entry.get("local_pdf_path") or entry.get("pdf_path")
+            pdf_path: Path | None = None
+            if local_pdf:
+                cand = Path(local_pdf).expanduser().resolve()
+                if _is_inside_repo(cand):
+                    # Defense: never read PDFs from inside the repo so
+                    # accidental commits can't seed bytes here.
+                    print(f"error: inventory entry pdf_path inside repo refused: {cand}",
+                          file=sys.stderr)
+                    yield "", sha, fn, None, "error", f"pdf_path inside repo: {cand}"
+                    count += 1
+                    continue
+                pdf_path = cand if cand.is_file() else None
+                if pdf_path is None:
+                    yield "", sha, fn, None, "missing", f"pdf_path not found: {cand}"
+                    count += 1
+                    continue
+            elif pdf_dir is not None and fn:
+                cand = (pdf_dir / fn).resolve()
+                pdf_path = cand if cand.is_file() else None
+                if pdf_path is None:
+                    yield "", sha, fn, None, "missing", "pdf-dir/<filename> not found"
+                    count += 1
+                    continue
+
+            if pdf_path is not None:
+                # Real-PDF mode
+                text, used, log = _read_pdf_text(pdf_path, pdf_engines or _engines_to_try(args.pdf_engine))
+                for line in log:
+                    print(f"[pdf engine] {pdf_path.name}: {line}", file=sys.stderr)
+                if used is None:
+                    yield "", sha or hashlib.sha256(pdf_path.read_bytes()).hexdigest(), fn, \
+                          None, "error", "pdf engines exhausted"
+                    count += 1
+                    continue
+                # source_pdf_sha256 = sha of PDF bytes (not extracted text).
+                sha_actual = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+                source_mode = "pdf_file" if text else "empty"
+                yield text, sha_actual, fn, used, source_mode, \
+                      None if text else "pdf parsed but text was empty"
+                count += 1
+                continue
+
+            # Synthetic-text fallback (PR #12-#29 path)
             if text_dir:
-                # try <stem>.txt
                 stem = Path(fn).stem
                 tp = text_dir / f"{stem}.txt"
                 if tp.is_file():
                     text = tp.read_text(encoding="utf-8", errors="replace")
-            yield text, sha, fn
+                    yield text, sha, fn, None, "text_fixture", None
+                    count += 1
+                    continue
+                # text-dir set but file not found
+                yield "", sha, fn, None, "missing", "text-dir/<stem>.txt not found"
+                count += 1
+                continue
+
+            # Neither pdf-dir nor text-dir produced a source.
+            yield "", sha, fn, None, "missing", "no --pdf-dir / --text-dir / pdf_path source"
             count += 1
         return
 
@@ -2018,7 +2142,7 @@ def _iter_inputs(args: argparse.Namespace):
         text = tp.read_text(encoding="utf-8", errors="replace")
         sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
         fn = tp.name
-        yield text, sha, fn
+        yield text, sha, fn, None, "text_fixture", None
         return
 
     if args.pdf:
@@ -2066,7 +2190,8 @@ def _iter_inputs(args: argparse.Namespace):
         # Stash the engine on a per-call attribute so the main consumer
         # can thread it into parse_text_to_rows.
         args._chosen_engine = used
-        yield text, sha, pp.name
+        yield text, sha, pp.name, used, "pdf_file" if text else "empty", \
+              None if text else "pdf parsed but text was empty"
         return
 
 
@@ -2165,13 +2290,18 @@ def main(argv: List[str] | None = None) -> int:
     parsed_count = 0
     target_price_only_count = 0
     malformed_count = 0
+    # PR #30: per-record audit ledger for the new parser_batch_summary
+    # source_mode_counts / files_with_pdf_parse_errors / files_with_missing_pdf
+    # fields. The list is small (filename + flag); never carries body text.
+    source_audit: list[dict] = []
 
-    for text, sha, fn in _iter_inputs(args):
+    for text, sha, fn, engine, source_mode, error_reason in _iter_inputs(args):
         parsed_count += 1
-        # When --pdf was used, _iter_inputs stashed the chosen engine on
-        # args._chosen_engine; for --text and --inventory paths it stays
-        # unset and pdf_engine remains None.
-        engine = getattr(args, "_chosen_engine", None) if args.pdf else None
+        source_audit.append({
+            "filename": fn,
+            "source_mode": source_mode,
+            "error_reason": error_reason,
+        })
         parsed = parse_text_to_rows(text, source_pdf_sha256=sha,
                                     filename=fn, date=args.date,
                                     pdf_engine=engine)
@@ -2244,7 +2374,8 @@ def main(argv: List[str] | None = None) -> int:
     # PR #29: aggregated batch summary. Always written under --apply; the
     # existing 3 outputs stay byte-identical to PR #12-#28 fixture baselines
     # (regression suites diff exactly those 3 files).
-    summary = _build_parser_batch_summary(structured, breakdown, secondary)
+    summary = _build_parser_batch_summary(structured, breakdown, secondary,
+                                          source_audit=source_audit)
     sm_path = workdir / "parser_batch_summary.json"
     sm_path.write_text(_json.dumps(summary, ensure_ascii=False, indent=2),
                        encoding="utf-8")

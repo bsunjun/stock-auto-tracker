@@ -486,6 +486,46 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #30 (real-PDF inventory batch path, MERGED)** — promotes
+  the per-PDF Python loop used in the PR #29 operator-host smoke
+  into a first-class parser feature. New CLI: `--pdf-dir <DIR>`.
+  Per-entry source resolution priority is
+  `selected[].local_pdf_path / pdf_path → --pdf-dir/<filename> →
+  --text-dir/<stem>.txt`; PR #12-#29 synthetic-text fixtures
+  preserve byte-identical structured / breakdown /
+  target_price_secondary outputs (verified 24/24 files across
+  PR #12-#28 inventories + PR #29 batch_smoke fixture). Missing
+  files under `--pdf-dir` are recorded as `source_mode='missing'`
+  in the batch summary and surface in
+  `files_with_missing_pdf` — the batch never aborts. PDF parse
+  failures (both pdfplumber and pypdf exhaust) surface as
+  `source_mode='error'` and `files_with_pdf_parse_errors`.
+  `selected[].pdf_path` pointing inside the repo is refused at
+  entry level so PDF bytes never enter the worktree.
+  `parser_batch_summary.json` schema extended additively with
+  `source_mode_counts`, `files_with_pdf_parse_errors`,
+  `files_with_missing_pdf`. Chain runner gains `--pdf-dir`
+  passthrough; cap (`--max-pdfs > 50`) and workdir-in-repo guards
+  unchanged. PR #30 is **batch plumbing only** — no new template
+  recognition, no SK증권 / 삼성물산 column-positional template,
+  no parser rule changes beyond the source-resolution gate.
+
+  Operator-host real-PDF batch smoke recipe (PR #30 official path):
+  ```
+  python3 stock_research/phase3_report_pipeline/examples/run_inventory_batch_smoke.py \\
+      --inventory <real_inventory.json> \\
+      --pdf-dir   /tmp/phase3_batch_pdfs \\
+      --pdf-engine auto \\
+      --workdir   /tmp/phase3_batch_smoke \\
+      --max-pdfs  20 \\
+      --manual-meta <manual_meta.json> \\
+      --ticker-map  stock_research/phase3_report_pipeline/resources/ticker_map.csv \\
+      --chain-bridge --chain-merge --chain-build
+  ```
+  Paste-back: ONLY parser_batch_summary.json +
+  inventory_batch_smoke_summary.json counters; never PDF body /
+  extracted text / full sha256.
+
 - **PR #29 (inventory batch path for estimate parser smoke, MERGED)** —
   raises the parser's `HARD_MAX_PDFS` from 10 to 50 and adds a
   fourth `--apply` output `parser_batch_summary.json`
