@@ -537,41 +537,130 @@ def _resolve_old_new_with_indicator(a: str, b: str, indicator: str | None) -> tu
     return (b, a)
 
 
-def parse_side_anchor_revision_rows(text: str) -> tuple[dict[str, dict], str]:
-    """Scan every line for the '<metric>(<year>) <a> <b> [▲|▼]' side-anchor
-    pattern that real WiseReport PDFs use when pdfplumber folds the right-hand
-    revision panel into body lines. Returns (metrics, horizon).
+# PR #19: side-anchor scanning is restricted to lines near a recognized
+# revision-table header. Header pairs are the same conventions PR #18's
+# variant column-window detection uses, plus the PR #17 (수정 후/전) labels.
+# A header is matched when BOTH labels of any pair appear in the same line,
+# OR when a hint phrase like '추정치 변경' appears.
+_SIDE_ANCHOR_HEADER_PAIRS: tuple[tuple[str, ...], ...] = (
+    ("직전", "현재"),       # variant: previous_current  (real WiseReport convention)
+    ("기존", "변경"),       # variant: existing_changed
+    ("변경 전", "변경 후"),  # variant: change_before_after
+    ("변경전", "변경후"),    # space-stripped form
+    ("수정 전", "수정 후"),  # PR #17 column layout
+    ("수정전", "수정후"),
+)
+_SIDE_ANCHOR_HEADER_HINTS: tuple[str, ...] = (
+    "추정치 변경",
+    "추정 변경",
+    "추정치변경",
+    "추정변경",
+)
+SIDE_ANCHOR_WINDOW_LINES = 15  # how many lines after a header to scan
 
-    First side-anchor occurrence per metric wins. The horizon returned is the
-    earliest forward-year token attached to the highest-priority metric, after
-    PRIMARY_METRIC_PRIORITY ordering.
+
+def find_side_anchor_header_windows(text: str) -> list[tuple[int, int]]:
+    """Return [(start, end)] inclusive line ranges where a revision header
+    is detected. A header is either:
+
+      * a line containing BOTH labels of one of _SIDE_ANCHOR_HEADER_PAIRS, or
+      * a line containing one of _SIDE_ANCHOR_HEADER_HINTS.
+
+    Each returned range is (header_idx, header_idx + SIDE_ANCHOR_WINDOW_LINES).
+    Ranges may overlap when multiple headers appear close together; the
+    caller deduplicates per-metric.
     """
     if not isinstance(text, str):
-        return {}, ""
+        return []
+    lines = text.splitlines()
+    windows: list[tuple[int, int]] = []
+    for i, line in enumerate(lines):
+        is_header = False
+        for old_lab, new_lab in _SIDE_ANCHOR_HEADER_PAIRS:
+            if old_lab in line and new_lab in line:
+                is_header = True
+                break
+        if not is_header:
+            for hint in _SIDE_ANCHOR_HEADER_HINTS:
+                if hint in line:
+                    is_header = True
+                    break
+        if is_header:
+            windows.append((i, min(len(lines) - 1, i + SIDE_ANCHOR_WINDOW_LINES)))
+    return windows
+
+
+def parse_side_anchor_revision_rows(text: str) -> tuple[dict[str, dict], str, str]:
+    """Scan for '<metric>(<year>) <a> <b> ▲|▼|-' side-anchor metric rows
+    ONLY within a header-proximity window (PR #19 precision fix).
+
+    Returns (metrics, horizon, gap_hint). gap_hint is one of:
+      * ""                                          — neutral (success or no
+                                                       side-anchor pattern at all)
+      * "side_anchor_no_near_header"                — side-anchor pattern is
+                                                       present somewhere in the
+                                                       text but no recognized
+                                                       header is within
+                                                       SIDE_ANCHOR_WINDOW_LINES.
+                                                       This is the canonical
+                                                       reject reason for
+                                                       growth-rate / YoY rows
+                                                       that match the regex by
+                                                       accident.
+      * "side_anchor_header_found_no_metric_pair"   — at least one header
+                                                       window opened but no
+                                                       eligible metric row was
+                                                       inside any of them.
+
+    Header detection: see find_side_anchor_header_windows. The indicator
+    (▲/▼/-) on the side-anchor pattern is still REQUIRED via
+    _SIDE_ANCHOR_METRIC_RE (PR #18 contract).
+    """
+    if not isinstance(text, str):
+        return {}, "", ""
+
+    has_pattern = bool(_SIDE_ANCHOR_METRIC_RE.search(text))
+    windows = find_side_anchor_header_windows(text)
+
+    if not windows:
+        # Pattern present but no nearby header → reject all matches.
+        if has_pattern:
+            return {}, "", "side_anchor_no_near_header"
+        return {}, "", ""
+
+    lines = text.splitlines()
     metrics: dict[str, dict] = {}
     metric_horizons: dict[str, str] = {}
-    for line in text.splitlines():
-        for m in _SIDE_ANCHOR_METRIC_RE.finditer(line):
-            label = m.group("metric")
-            metric_name = METRIC_ALIASES.get(label) or METRIC_ALIASES.get(label.lower())
-            if metric_name is None or metric_name in metrics:
-                continue
-            old_new = _resolve_old_new_with_indicator(
-                m.group("a"), m.group("b"), m.group("dir")
-            )
-            if old_new is None:
-                continue
-            old, new = old_new
-            metrics[metric_name] = {"old": old, "new": new}
-            metric_horizons[metric_name] = _normalize_horizon(m.group("horizon"))
+    for w_start, w_end in windows:
+        for i in range(w_start, w_end + 1):
+            if i >= len(lines):
+                break
+            line = lines[i]
+            for m in _SIDE_ANCHOR_METRIC_RE.finditer(line):
+                label = m.group("metric")
+                metric_name = METRIC_ALIASES.get(label) or METRIC_ALIASES.get(label.lower())
+                if metric_name is None or metric_name in metrics:
+                    continue
+                old_new = _resolve_old_new_with_indicator(
+                    m.group("a"), m.group("b"), m.group("dir")
+                )
+                if old_new is None:
+                    continue
+                old, new = old_new
+                metrics[metric_name] = {"old": old, "new": new}
+                metric_horizons[metric_name] = _normalize_horizon(m.group("horizon"))
 
-    # Pick a representative horizon from the highest-priority metric.
     horizon = ""
     for m in PRIMARY_METRIC_PRIORITY:
         if m in metric_horizons:
             horizon = metric_horizons[m]
             break
-    return metrics, horizon
+
+    if metrics:
+        return metrics, horizon, ""
+
+    # Header(s) present but no eligible metric row inside any window.
+    return {}, "", "side_anchor_header_found_no_metric_pair"
 
 
 def parse_target_price_side_anchor(text: str) -> dict | None:
@@ -858,14 +947,18 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
                 metrics[m] = vals
         variant_horizon = v_horizon
 
-    # PR #18: side-anchor row form (e.g. real WiseReport: '영업이익(26E) 251 201 ▲').
-    side_metrics, side_horizon = parse_side_anchor_revision_rows(text)
+    # PR #18 + PR #19: side-anchor row form, restricted to lines near a
+    # recognized revision header. side_gap_hint is non-empty only when the
+    # side-anchor branch wants to influence gap_reason classification.
+    side_metrics, side_horizon, side_gap_hint = parse_side_anchor_revision_rows(text)
     for m, vals in side_metrics.items():
         if m not in metrics:
             metrics[m] = vals
 
     # PR #18: side-anchor target price (e.g. '목표주가 190,000 120,000 ▲'); only
-    # fills target_price if the existing arrow-form scan didn't.
+    # fills target_price if the existing arrow-form scan didn't. Target-price
+    # side-anchor is NOT header-restricted because it never feeds a primary
+    # row — it only ever lands in target_price_secondary (audit-only).
     if target_price is None:
         tp_side = parse_target_price_side_anchor(text)
         if tp_side is not None:
@@ -884,7 +977,7 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         horizon = side_horizon
     # else: keep parse_horizon-derived horizon
 
-    # PR #18: gap_reason classification — additive audit field on breakdown.
+    # PR #18 + PR #19: gap_reason classification — additive audit field.
     gap_reason: str
     if not text or not text.strip():
         gap_reason = "empty_text"
@@ -899,6 +992,11 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
               or variant_kind_seen is not None):
             # We saw a revision-shaped window but couldn't pair old/new.
             gap_reason = "no_metric_pair"
+        elif side_gap_hint:
+            # PR #19: side-anchor pattern present but rejected for being far
+            # from a recognized header, OR header found but no eligible row
+            # inside the proximity window.
+            gap_reason = side_gap_hint
         elif parse_year_pivot_revision_rows(text):
             # Forecast-only table without paired before/after data.
             gap_reason = "ambiguous_year_pivot"

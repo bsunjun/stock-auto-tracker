@@ -315,13 +315,18 @@ PR #15 hard caps:
 > arrow-pair 경로가 우선이며, PR #17 / PR #18 layout 은 그것이 못 잡은
 > metric 만 보완한다.
 
-`gap_reason` (PR #18) 가능한 값:
+`gap_reason` (PR #18 + PR #19) 가능한 값:
 - `parsed_metric_pair` — primary metric 추출 성공
 - `no_revision_anchor` — 어떤 revision marker 도 발견 못 함
 - `no_metric_pair` — anchor 는 발견됐으나 old/new pair 추출 실패
 - `ambiguous_year_pivot` — forecast-only 표 (e.g. `2024A 2025A 2026E 2027F`)
 - `target_price_only` — metric 없이 목표주가만 발견
 - `empty_text` — pdfplumber 가 빈 text 반환
+- **`side_anchor_no_near_header`** (PR #19) — side-anchor 패턴이 본문에 있으나
+  recognized 헤더 (직전/현재, 기존/변경, 변경 전/후, 수정 전/후, 추정치 변경)
+  근처 (~15줄) 가 아니어서 거부됨. growth-rate / YoY 행 false positive 방지.
+- **`side_anchor_header_found_no_metric_pair`** (PR #19) — 헤더는 발견했지만
+  proximity window 내에 metric side-anchor row 가 없음.
 
 핵심 원칙:
 - **primary signal 은 `sales` / `operating_profit` / `net_income` / `eps` 추정치 변경**

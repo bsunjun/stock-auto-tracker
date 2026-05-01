@@ -1,0 +1,38 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_near_header.pdf",
+    "source_pdf_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+    "extraction_method": "manual",
+    "_fixture_note": "Header (직전/현재) within proximity of metric side-anchor rows. PR #19 parser fills metrics → primary=operating_profit, direction=up, horizon=2026E. After merge: complete=true, build --strict accepts."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_far_growth_row.pdf",
+    "source_pdf_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+    "extraction_method": "manual",
+    "_fixture_note": "Side-anchor pattern (영업이익(26E) 1.9 -6.2 ▼) but no recognized revision header anywhere. PR #19 REJECTS the row → metrics empty → gap_reason='side_anchor_no_near_header'. build --strict rejects."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_side_anchor_header_no_metric.pdf",
+    "source_pdf_sha256": "abababababababababababababababababababababababababababababababab",
+    "extraction_method": "manual",
+    "_fixture_note": "Header hint phrase '추정치 변경' present but no metric side-anchor row in proximity window. metrics empty → gap_reason='side_anchor_header_found_no_metric_pair'. build --strict rejects."
+  }
+]
