@@ -159,6 +159,53 @@
       "filename": "20260430_삼성전자_브래킷없음.pdf",
       "expected": null,
       "_note": "PR #22 hotfix: empty ticker AND no '[...]' bracket → still unresolved (resolver never infers from non-bracketed text)."
+    },
+    {
+      "case": "pr25_empty_ticker_bracket_doosan_fuelcell",
+      "value": "",
+      "filename": "20260430_[두산퓨얼셀] 미래 성장에 대한 기대치.pdf",
+      "expected": "KRX:336260",
+      "_note": "PR #25: 5-PDF cloud smoke previously left this unresolved; expansion adds it."
+    },
+    {
+      "case": "pr25_empty_ticker_bracket_seah_besteel_holdings",
+      "value": "",
+      "filename": "20260430_[세아베스틸지주] 본업 실적 개선 기대.pdf",
+      "expected": "KRX:001430",
+      "_note": "PR #25: holding-co rename (former 세아베스틸); the legacy 세아베스틸 alias still resolves to the same code."
+    },
+    {
+      "case": "pr25_canonical_doosan_fuelcell",
+      "value": "두산퓨얼셀",
+      "filename": "",
+      "expected": "KRX:336260"
+    },
+    {
+      "case": "pr25_canonical_seah_besteel_holdings",
+      "value": "세아베스틸지주",
+      "filename": "",
+      "expected": "KRX:001430"
+    },
+    {
+      "case": "pr25_alias_seah_besteel_legacy",
+      "value": "세아베스틸",
+      "filename": "",
+      "expected": "KRX:001430",
+      "_note": "PR #25: alias for the historical operating-co name → resolves to the holding-co code 001430."
+    },
+    {
+      "case": "pr25_alias_hyundai_energy_solutions_legacy",
+      "value": "현대에너지솔루션",
+      "filename": "",
+      "expected": "KRX:322000",
+      "_note": "PR #25: pre-rename form maps to HD현대에너지솔루션."
+    },
+    {
+      "case": "pr25_unresolved_pre_listing_sample",
+      "value": "",
+      "filename": "20260430_[비상장샘플] 상장 전 데모.pdf",
+      "expected": null,
+      "_note": "PR #25: pre-listing / synthetic placeholder must NEVER resolve — governance keeps unlisted entities out of ticker_map."
     }
   ]
 }

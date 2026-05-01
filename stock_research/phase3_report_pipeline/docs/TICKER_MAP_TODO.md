@@ -59,10 +59,29 @@ KRX code in the "code" column once verified.
 
 | company_name_kr | proposed code | market | notes |
 | --- | --- | --- | --- |
-| _(none at PR #21 merge time)_ | | | |
+| 한화비전 | KRX:013570 (?) | KOSPI | Surfaced in 2026-04-30 search results; code not independently confirmed at PR #25 merge time. |
+| 저스템 | (?) | KOSDAQ | Recent IPO; KRX code requires confirmation against KIND. |
 
 Add to this table whenever you encounter a Korean company name in a
 WiseReport PDF that the resolver returns `None` for AND the company
 appears to be listed but you cannot cite the code immediately. The
 companion bridge `missing_fields=['ticker_unmapped']` already records
 these at runtime; this file is the human-curated complement.
+
+Resolved in PR #25 (added to ticker_map.csv after primary-source check)
+----------------------------------------------------------------------
+Captured here for audit; these no longer need TODO entries.
+
+- 두산 KRX:000150 (KOSPI)
+- 두산퓨얼셀 KRX:336260 (KOSPI; 2019 split from 두산)
+- 두산테스나 KRX:131970 (KOSDAQ; renamed from 테스나 after 2022 acquisition)
+- 하이브 KRX:352820 (KOSPI; 2020 IPO)
+- 세아베스틸지주 KRX:001430 (KOSPI; renamed from 세아베스틸 in 2022 holdco restructure)
+- HD현대에너지솔루션 KRX:322000 (KOSPI; renamed from 현대에너지솔루션)
+- HL만도 KRX:204320 (KOSPI; renamed from 만도 in 2022 Halla restructure)
+- 한미사이언스 KRX:008930 (KOSPI; Hanmi pharma holding)
+- SK아이이테크놀로지 KRX:361610 (KOSPI; 2021 IPO)
+- 대한유화 KRX:006650 (KOSPI)
+- 에코프로 KRX:086520 (KOSDAQ; parent of 에코프로비엠)
+- 에코프로비엠 KRX:247540 (KOSDAQ)
+- 에이비엘바이오 KRX:298380 (KOSDAQ)

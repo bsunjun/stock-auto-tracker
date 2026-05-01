@@ -44,12 +44,14 @@ def expected_for(case: str) -> tuple[str, frozenset[str]]:
     other fields go missing for unrelated reasons.
     """
     table = {
-        "pr22_empty_ticker_bracket_filename_dd":         ("KRX:353200", frozenset()),
-        "pr22_empty_ticker_bracket_filename_nota":       ("KRX:486990", frozenset()),
-        "pr22_empty_ticker_unresolved_machinarox":       ("",           frozenset({"ticker"})),
-        "pr22_krx_passthrough_with_unrelated_filename":  ("KRX:353200", frozenset()),
-        "pr22_canonical_only_no_filename":               ("KRX:353200", frozenset()),
-        "pr22_empty_ticker_no_bracket_filename":         ("",           frozenset({"ticker"})),
+        "pr22_empty_ticker_bracket_filename_dd":              ("KRX:353200", frozenset()),
+        "pr22_empty_ticker_bracket_filename_nota":            ("KRX:486990", frozenset()),
+        "pr22_empty_ticker_unresolved_machinarox":            ("",           frozenset({"ticker"})),
+        "pr22_krx_passthrough_with_unrelated_filename":       ("KRX:353200", frozenset()),
+        "pr22_canonical_only_no_filename":                    ("KRX:353200", frozenset()),
+        "pr22_empty_ticker_no_bracket_filename":              ("",           frozenset({"ticker"})),
+        "pr25_empty_ticker_bracket_doosan_fuelcell":          ("KRX:336260", frozenset()),
+        "pr25_empty_ticker_bracket_seah_besteel_holdings":    ("KRX:001430", frozenset()),
     }
     return table[case]
 
