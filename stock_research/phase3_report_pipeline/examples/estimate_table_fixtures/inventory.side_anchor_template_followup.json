@@ -1,0 +1,42 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #28 side-anchor template follow-up. Four anonymized synthetic fixtures: (a) multi-line KV form (metric and year on one line, old/new labels on next lines) — admitted; (b) values-then-metric / unlabeled — rejected; (c) target-price-only — secondary only, no primary; (d) margin-(%) row — rejected by margin/% guard.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 4,
+  "selected_count": 4,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_side_anchor_multiline_metric_then_values.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "8080808080808080808080808080808080808080808080808080808080808080"
+    },
+    {
+      "filename": "real_layout_side_anchor_values_then_metric_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "9090909090909090909090909090909090909090909090909090909090909090"
+    },
+    {
+      "filename": "real_layout_side_anchor_target_price_only_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    },
+    {
+      "filename": "real_layout_side_anchor_margin_row_rejected.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

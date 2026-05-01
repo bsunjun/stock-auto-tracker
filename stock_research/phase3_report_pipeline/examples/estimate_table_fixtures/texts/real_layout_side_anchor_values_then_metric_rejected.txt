@@ -1,0 +1,14 @@
+Sample Securities
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+[추정치 변경 요약]
+값이 metric label 보다 위에 있고 old/new label 도 결여된 broker
+template. PR #28 helper 는 metric-only 줄 다음 lookahead window 에서
+labeled pair 를 찾기 때문에 이 케이스는 결코 commit 하지 않는다.
+
+201 251
+영업이익(26E)
+
+본문은 forecast 정리 목적이며 명시적 old/new label 이 없는 숫자쌍은
+structured row 로 emit 되지 않는다 (false positive 방지).

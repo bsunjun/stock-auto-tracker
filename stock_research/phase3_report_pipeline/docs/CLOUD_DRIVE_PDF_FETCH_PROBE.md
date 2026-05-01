@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 + PR #26 + PR #27 + PR #28 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -279,6 +279,30 @@ post-PR-#22 5-PDF cloud smoke this drops LG전자 from the structured rows
 (its `change_before_after` window had `매출액 23,733 23,733` and
 `영업이익 1,673.6 1,673.6` rows that the parser previously emitted as
 flat); structured_rows_total goes from 2 to 1, no false positives.
+
+**PR #28 adds three side-anchor template guards** triggered by the
+post-PR-#27 5-PDF cloud smoke residuals (삼성물산 / 두산퓨얼셀):
+1. **Multi-line KV form** — picks up
+   `<metric>\n2026E 기존 X 변경 Y` and
+   `<metric>(26E)\n기존 X\n변경 Y`. The metric-anchor line MUST be
+   metric-only (no numbers, no extra text) so a normal data row can
+   never trigger this entry point.
+2. **Reversed-inline KV** — `<metric>(year): 변경 Y / 기존 X` (new-
+   label first). Fall-through: the existing PR #26 forward-order regex
+   runs first; reversed runs second; first match wins.
+3. **Row-level margin / yoy / (%) reject** — any inline KV match whose
+   row line carries one of `영업이익률 / 이익률 / 변동률 / 성장률 /
+   yoy / qoq / margin / growth / yield / (%)` is silently rejected.
+   The multi-line helper applies the same reject across its window.
+
+The 5-PDF cohort is unchanged from PR #27 — the residual gaps on
+삼성물산 (`side_anchor_header_found_no_metric_pair`) and 두산퓨얼셀
+(`ambiguous_year_pivot`) are NOT addressable by these helpers because
+their PDFs use SK증권's multi-column-positional template (3+ header
+lines above the data row) and a narrative-only revision style
+respectively. Both are deferred to operator-host parsing or a future
+template-aware extraction pass. PR #28 conservatively does NOT fire on
+either.
 
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18
