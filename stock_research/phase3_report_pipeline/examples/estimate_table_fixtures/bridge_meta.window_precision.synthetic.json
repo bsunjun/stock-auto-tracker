@@ -1,0 +1,50 @@
+[
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_valid_revision_values.pdf",
+    "source_pdf_sha256": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+    "extraction_method": "manual",
+    "_fixture_note": "Real revision panel (현재/직전 with 매출액=1500/1400, 영업이익=251/201, 지배순이익=203/160, 목표주가=190,000/120,000). PR #20 variant scan accepts all three metric rows → primary=operating_profit, direction=up, horizon=2026E. 목표주가 stop fires AFTER metrics are committed. build --strict accepts."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_growth_rate_false_positive.pdf",
+    "source_pdf_sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant header (YoY % 현재/직전) followed by growth-rate rows (영업이익 1.9 -6.2 ▼ etc.). PR #20 value-shape filter rejects all three (sales/op/ni both abs<100) → metrics empty → gap_reason='variant_rejected_growth_rate'. This is the canonical reproduction of the 대덕전자 cloud-smoke false positive that PR #20 fixes."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_eps_small_value_allowed.pdf",
+    "source_pdf_sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant header (현재/직전) with EPS-only row (EPS(26E) 50 45 ▲). EPS is exempt from PR #20 value-shape filter (원 단위 EPS can legitimately be small) → metrics={eps}, primary=eps, direction=up, gap_reason='parsed_metric_pair'. 목표주가 stop fires after the EPS row is committed."
+  },
+  {
+    "ticker": "KRX:000999",
+    "broker": "Sample Securities",
+    "report_date": "2026-04-30",
+    "old_target": null,
+    "new_target": null,
+    "horizon": "",
+    "filename": "real_layout_variant_window_stop_after_target_price.pdf",
+    "source_pdf_sha256": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+    "extraction_method": "manual",
+    "_fixture_note": "Variant header (현재/직전) followed immediately by 목표주가, then commentary, then growth-rate rows. PR #20 stop condition fires at the 목표주가 line BEFORE any metric is scanned → metrics empty, gap_hint='' (no rejected_growth flag). target-price side-anchor parses 190,000/120,000. gap_reason='target_price_only'. build --strict rejects (target-price is never primary)."
+  }
+]

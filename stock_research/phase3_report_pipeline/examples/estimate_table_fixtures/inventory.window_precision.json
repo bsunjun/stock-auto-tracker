@@ -1,0 +1,42 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #20 — anonymized variant column-window precision fixtures. valid_revision_values must produce a primary structured row (op up). growth_rate_false_positive MUST NOT produce a primary row and gap_reason MUST be 'variant_rejected_growth_rate'. eps_small_value_allowed must produce a primary eps row (eps is exempt from PR #20 value-shape filter). window_stop_after_target_price must produce 0 structured rows with gap_reason='target_price_only' (variant scan stops at the 목표주가 line, growth rows past it are not seen).",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 4,
+  "selected_count": 4,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "real_layout_variant_valid_revision_values.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0"
+    },
+    {
+      "filename": "real_layout_variant_growth_rate_false_positive.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+    },
+    {
+      "filename": "real_layout_variant_eps_small_value_allowed.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+    },
+    {
+      "filename": "real_layout_variant_window_stop_after_target_price.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

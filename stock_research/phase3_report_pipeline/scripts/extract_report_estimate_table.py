@@ -681,11 +681,50 @@ def parse_target_price_side_anchor(text: str) -> dict | None:
     return None
 
 
+# PR #20: tighten variant column-window scan to suppress growth-rate /
+# YoY rows that share the '<metric> <num> <num>' shape but live many
+# lines below an earlier 직전/현재-style header. Prior to PR #20 the
+# variant scan walked 40 lines past the header; on the real 대덕전자
+# PDF that picked up an unrelated growth-rate row '영업이익 1.9 -6.2'
+# as if it were the revision pair. The window is now capped at 15 lines
+# (matches SIDE_ANCHOR_WINDOW_LINES from PR #19) AND each candidate row
+# goes through value-shape validation (`_is_likely_growth_rate`).
+VARIANT_WINDOW_LINES = 15
+
+
+def _is_likely_growth_rate(metric: str, old_raw: str, new_raw: str) -> bool:
+    """Return True when (old, new) on `metric` looks like a growth-rate /
+    YoY row rather than an absolute revision pair.
+
+    Heuristic:
+      * EPS is exempt — EPS in 원 unit can legitimately be small (and the
+        revision panel's EPS values can be in the tens or hundreds).
+      * For sales / operating_profit / net_income, both abs values < 100
+        is treated as a growth-rate row. Real revision values for these
+        metrics on a Korean broker report are denominated in 십억원
+        (billion KRW); values in that range almost never sit below 100,
+        whereas YoY % rows routinely do (e.g. '1.9 -6.2').
+
+    A False return means "looks like a real revision pair, keep it".
+    """
+    if metric == "eps":
+        return False
+    o = parse_numeric(old_raw)
+    n = parse_numeric(new_raw)
+    if o is None or n is None:
+        return False
+    return abs(o) < 100 and abs(n) < 100
+
+
 def find_variant_estimate_table_window(text: str) -> tuple[int, int, str] | None:
     """Locate a column-revision window that uses 기존/변경, 변경 전/후, or
     직전/현재 instead of PR #17's 수정 후/전. Returns (start, end, kind) or
     None. Used as a fallback to PR #17's locator on broker templates with
     different label conventions.
+
+    PR #20: window length tightened from 40 to VARIANT_WINDOW_LINES (15)
+    so growth-rate / YoY rows that follow the actual revision panel are
+    no longer captured.
     """
     if not isinstance(text, str):
         return None
@@ -705,13 +744,13 @@ def find_variant_estimate_table_window(text: str) -> tuple[int, int, str] | None
             break
     if header_idx is None:
         return None
-    win_end = min(len(lines) - 1, header_idx + 40)
+    win_end = min(len(lines) - 1, header_idx + VARIANT_WINDOW_LINES)
     return header_idx, win_end, matched_kind
 
 
 def parse_before_after_variant_rows(
     text: str, *, start: int, end: int, variant_kind: str
-) -> tuple[dict[str, dict], str]:
+) -> tuple[dict[str, dict], str, str]:
     """Walk a variant column-window (e.g. 기존/변경) and parse metric rows.
 
     Strategy: for each row that begins with a known metric label, look for
@@ -720,15 +759,32 @@ def parse_before_after_variant_rows(
     forward year) BUT the column-meaning depends on header order, which
     varies by variant.
 
+    PR #20 returns a 3-tuple (metrics, horizon, gap_hint). gap_hint is:
+      * ""                              — neutral (parsed cleanly OR no
+                                           candidate rows at all).
+      * "variant_rejected_growth_rate"  — at least one candidate metric
+                                           row was rejected by value-shape
+                                           validation AND no surviving
+                                           metric ended up in `metrics`.
+                                           This is the canonical reject
+                                           reason for a growth-rate row
+                                           that the older 40-line scan
+                                           used to mis-capture.
+
+    Stop conditions inside the window:
+      * a 목표주가 line — terminates the metric-row scan; the target-price
+        block is never part of the revision panel and any subsequent rows
+        belong to a different table.
+
     Conservative: when we cannot confidently identify which column is 'old'
-    vs 'new' (e.g. column count mismatch), return ({}, '') so caller falls
-    through to gap_reason logic.
+    vs 'new' (e.g. column count mismatch), return ({}, '', '') so caller
+    falls through to gap_reason logic.
     """
     if not isinstance(text, str):
-        return {}, ""
+        return {}, "", ""
     lines = text.splitlines()[start:end + 1]
     if not lines:
-        return {}, ""
+        return {}, "", ""
 
     # Determine which side of the header carries 'new' vs 'old' for this variant.
     # By design _VARIANT_LABEL_PAIRS lists (old_labels, new_labels), so we
@@ -740,7 +796,7 @@ def parse_before_after_variant_rows(
     old_pos = min((header.find(lab) for lab in old_labs if lab in header), default=-1)
     new_pos = min((header.find(lab) for lab in new_labs if lab in header), default=-1)
     if old_pos < 0 or new_pos < 0:
-        return {}, ""
+        return {}, "", ""
     new_first = new_pos < old_pos  # if 'new' appears before 'old' in header
 
     # Horizon: prefer YYYYE in header line, else default to "" (caller will
@@ -749,10 +805,14 @@ def parse_before_after_variant_rows(
     horizon = sel[0] if sel else ""
 
     metrics: dict[str, dict] = {}
+    rejected_growth = False
     for line in lines[1:]:
         s = line.strip()
         if not s:
             continue
+        # PR #20 stop condition: 목표주가 block ends the revision panel.
+        if "목표주가" in s:
+            break
         matched_label = None
         for label in _METRIC_LABEL_PREFIXES:
             if s.startswith(label):
@@ -775,9 +835,19 @@ def parse_before_after_variant_rows(
         if parse_numeric(old_val) is None or parse_numeric(new_val) is None:
             continue
         metric_name = METRIC_ALIASES[matched_label]
+        # PR #20: value-shape validation. A row that survives the regex
+        # but whose values look like a growth-rate (sales/op/ni both
+        # abs<100; eps exempt) is recorded as rejected and dropped.
+        if _is_likely_growth_rate(metric_name, old_val, new_val):
+            rejected_growth = True
+            continue
         if metric_name not in metrics:
             metrics[metric_name] = {"old": old_val, "new": new_val}
-    return metrics, horizon
+
+    gap_hint = ""
+    if not metrics and rejected_growth:
+        gap_hint = "variant_rejected_growth_rate"
+    return metrics, horizon, gap_hint
 
 
 def parse_year_pivot_revision_rows(text: str) -> bool:
@@ -930,22 +1000,25 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         if m not in metrics:
             metrics[m] = vals
 
-    # PR #18: variant column-window labels (기존/변경, 변경 전/후, 직전/현재).
-    # Additive — only fills missing metrics. Tracks whether any variant
-    # window was found, for gap_reason classification.
+    # PR #18 + PR #20: variant column-window labels (기존/변경, 변경 전/후,
+    # 직전/현재). Additive — only fills missing metrics. Tracks whether any
+    # variant window was found AND whether any candidate row was rejected
+    # by PR #20's value-shape filter, both feeding gap_reason classification.
     variant_kind_seen: str | None = None
     variant_window = find_variant_estimate_table_window(text)
     variant_horizon = ""
+    variant_gap_hint = ""
     if variant_window is not None:
         v_start, v_end, v_kind = variant_window
         variant_kind_seen = v_kind
-        v_metrics, v_horizon = parse_before_after_variant_rows(
+        v_metrics, v_horizon, v_gap_hint = parse_before_after_variant_rows(
             text, start=v_start, end=v_end, variant_kind=v_kind
         )
         for m, vals in v_metrics.items():
             if m not in metrics:
                 metrics[m] = vals
         variant_horizon = v_horizon
+        variant_gap_hint = v_gap_hint
 
     # PR #18 + PR #19: side-anchor row form, restricted to lines near a
     # recognized revision header. side_gap_hint is non-empty only when the
@@ -977,7 +1050,20 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         horizon = side_horizon
     # else: keep parse_horizon-derived horizon
 
-    # PR #18 + PR #19: gap_reason classification — additive audit field.
+    # PR #18 + PR #19 + PR #20: gap_reason classification — additive audit field.
+    # Precedence (top wins):
+    #   1. parsed_metric_pair   — at least one metric in `metrics`
+    #   2. empty_text           — no input text
+    #   3. target_price_only    — only 목표주가 parseable
+    #   4. variant_rejected_growth_rate (PR #20)
+    #                           — variant scan saw a candidate row but
+    #                             dropped it as a growth-rate / YoY
+    #   5. no_metric_pair       — revision-shaped window present but
+    #                             nothing actually paired
+    #   6. side_anchor_no_near_header /
+    #      side_anchor_header_found_no_metric_pair (PR #19)
+    #   7. ambiguous_year_pivot — multi-year forecast table without before/after
+    #   8. no_revision_anchor   — fallthrough
     gap_reason: str
     if not text or not text.strip():
         gap_reason = "empty_text"
@@ -988,6 +1074,11 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         if target_price is not None:
             # Target-price-only is a meaningful state (PR #12 contract).
             gap_reason = "target_price_only"
+        elif variant_gap_hint:
+            # PR #20: variant scan rejected at least one growth-rate row
+            # and produced no surviving metric. More specific than the
+            # generic 'no_metric_pair' that follows, so it wins.
+            gap_reason = variant_gap_hint
         elif (find_estimate_revision_table_window(text) is not None
               or variant_kind_seen is not None):
             # We saw a revision-shaped window but couldn't pair old/new.

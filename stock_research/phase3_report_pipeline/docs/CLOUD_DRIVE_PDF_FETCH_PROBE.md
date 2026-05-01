@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 + PR #19 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 + PR #20 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -235,13 +235,25 @@ Off-header side-anchor matches are rejected with
 `gap_reason='side_anchor_no_near_header'`. Target-price side-anchor remains
 unrestricted (audit-only; it never feeds a primary row).
 
+**PR #20 applies the same precision tightening to the variant column-window
+scanner.** The 직전/현재 (and 기존/변경, 변경 전/후) column-window now caps
+at 15 lines past its header (down from 40), terminates early when a
+`목표주가` line is encountered inside the window, and drops candidate rows
+whose `old`/`new` both have `abs<100` for `sales/operating_profit/net_income`
+(EPS exempt — 원 단위 EPS can legitimately be small). Rejected rows surface
+as `gap_reason='variant_rejected_growth_rate'`. This eliminates the cloud-
+smoke false positive observed on the 대덕전자 PDF (op `1.9 → -6.2`); the
+parser now correctly returns op `201 → 251` from the actual revision panel
+or `0 structured rows` for short comments without one.
+
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18
 also adds an audit-only `gap_reason` field on each breakdown record so the
 operator can read why a particular PDF didn't yield a structured row;
 PR #19 added two more values to that vocabulary
-(`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`).
-No OCR / Vision / API fallback added.
+(`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`)
+and PR #20 added one more (`variant_rejected_growth_rate`). No OCR / Vision
+/ API fallback added.
 
 ## What this PR does NOT do
 
