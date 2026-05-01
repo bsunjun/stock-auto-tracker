@@ -417,6 +417,17 @@ rm -rf "$PR14_WORKDIR"
   `no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` /
   `target_price_only` / `empty_text`. Still deterministic — no OCR.
   PR #12 + PR #17 regression byte-identical.
+- **PR #19 (side-anchor precision fix, MERGED)** — restricts the
+  side-anchor metric scanner to only match within ~15 lines of a
+  recognized revision header (직전/현재, 기존/변경, 변경 전/후,
+  수정 전/후, 추정치 변경, 추정 변경). Side-anchor patterns far from
+  any header are rejected with `gap_reason='side_anchor_no_near_header'`
+  to prevent growth-rate / YoY rows from producing false-positive
+  primary rows. Adds a new gap_reason
+  `side_anchor_header_found_no_metric_pair` for the case where a
+  header is found but no eligible metric row sits in its proximity
+  window. Target-price side-anchor remains unrestricted (audit-only,
+  never primary). PR #12/#17/#18 regression byte-identical.
 - **PR #14 (OCR cost gate)**: When PR #12+#13's deterministic parser
   fails on a real PDF, fall back to `vision_ocr_pdf.py --extract-mode
   estimate` per page-1 only (PR #5 already restricts payload to page 1)

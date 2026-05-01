@@ -219,7 +219,7 @@ counting as a probe failure. Record the reason in `next_action`.
 
 ---
 
-## Compatibility with PR #17 + PR #18 layout parsers
+## Compatibility with PR #17 + PR #18 + PR #19 layout parsers
 
 PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layout reader.
 **PR #18 extends this with additional broker-template variants**:
@@ -228,13 +228,20 @@ PR #17 added a "표3. 실적 전망 / 수정 후 / 수정 전 / 변동률" layou
 (▲/▼/-) is REQUIRED for the side-anchor pattern so growth-rate / YoY rows
 without indicators don't produce false positives.
 
+**PR #19 tightens the side-anchor scanner further** — matches are now
+restricted to lines within ~15 of a recognized revision header (the same
+header pairs PR #18 already detects, plus hint phrases like `추정치 변경`).
+Off-header side-anchor matches are rejected with
+`gap_reason='side_anchor_no_near_header'`. Target-price side-anchor remains
+unrestricted (audit-only; it never feeds a primary row).
+
 The probe runbook is unchanged — `--pdf-engine auto` (PR #16) still selects
 the extraction engine, and all layout parsers are wholly internal. PR #18
 also adds an audit-only `gap_reason` field on each breakdown record so the
-operator can read why a particular PDF didn't yield a structured row
-(`no_revision_anchor` / `no_metric_pair` / `ambiguous_year_pivot` /
-`target_price_only` / `empty_text` / `parsed_metric_pair`). No OCR / Vision
-/ API fallback added.
+operator can read why a particular PDF didn't yield a structured row;
+PR #19 added two more values to that vocabulary
+(`side_anchor_no_near_header` / `side_anchor_header_found_no_metric_pair`).
+No OCR / Vision / API fallback added.
 
 ## What this PR does NOT do
 

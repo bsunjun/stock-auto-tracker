@@ -17,12 +17,13 @@ phase3_report_pipeline/
 │   ├── run_estimate_revision_dryrun.py   # merge → build --strict → rolling --strict-estimate dry-run 묶음 (PR #9 / #10)
 │   ├── wisereport_sample_select.py       # PR #11 — 실제 Drive 에서 PDF 10개만 read-only 선택 + sha256/size/mtime 인벤토리
 │   │                                     #          (PDF 본문 파싱 아님 — broker/target/horizon 추출은 별도 PR)
-│   ├── extract_report_estimate_table.py  # PR #12/#13/#16/#17/#18 — deterministic-first PDF estimate table parser
+│   ├── extract_report_estimate_table.py  # PR #12/#13/#16/#17/#18/#19 — deterministic-first PDF estimate table parser
 │   │                                     #   PR #12: --text / --inventory + --text-dir (arrow-pair regex)
 │   │                                     #   PR #13: --pdf (단일 파일, pdfplumber lazy import, OCR/Vision 없음)
 │   │                                     #   PR #16: --pdf-engine {auto,pdfplumber,pypdf} (auto = pdfplumber→pypdf fallback)
 │   │                                     #   PR #17: 실 WiseReport "표3. 실적 전망 / 수정 후 / 수정 전" 표 파서 (arrow regex 보조)
 │   │                                     #   PR #18: 추가 broker-template 변형 (기존/변경, 변경 전/후, 직전/현재, side-anchor) + gap_reason audit
+│   │                                     #   PR #19: side-anchor 정확도 개선 — header proximity (~15 lines) 내에서만 scan
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
 ├── examples/
