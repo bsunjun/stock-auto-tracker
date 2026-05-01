@@ -35,7 +35,9 @@ phase3_report_pipeline/
 │   ├── PIPELINE_SCHEMA.md                # 데이터 흐름·스키마 매핑
 │   ├── MOBILE_CLAUDE_CODE_PROMPT.md      # 모바일 에이전트 시스템 프롬프트
 │   ├── REALDATA_SAMPLE_RUN.md            # operator-host 절차 (PR #11 sample, PR #14 1–3 PDF smoke)
-│   └── REAL_PDF_SMOKE_RESULT_TEMPLATE.md # PR #14 — 1–3 PDF smoke 결과 paste-back 스키마 (commit 금지)
+│   ├── REAL_PDF_SMOKE_RESULT_TEMPLATE.md # PR #14 — 1–3 PDF smoke 결과 paste-back 스키마 (commit 금지)
+│   ├── CLOUD_DRIVE_PDF_FETCH_PROBE.md    # PR #15 — cloud-session Drive fetch capability probe (≤ 1 PDF)
+│   └── CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md  # PR #15 — probe 결과 paste-back 스키마 (commit 금지)
 └── config/
     └── phase3_report_pipeline.example.json
 ```
@@ -66,6 +68,8 @@ phase3_report_pipeline/
 6. `promote_report_outputs.py --apply --confirm-promote` (이중 gate, 사용자 직접만)
 
 > Operator-host에서 실제 WiseReport PDF 1–3 개에 대해 PR #13 의 `--pdf` deterministic 경로를 처음 돌려보는 smoke 절차는 [`docs/REALDATA_SAMPLE_RUN.md`](docs/REALDATA_SAMPLE_RUN.md) 의 "PR #14 — Real-PDF pdfplumber smoke" 섹션 참조. 결과는 [`docs/REAL_PDF_SMOKE_RESULT_TEMPLATE.md`](docs/REAL_PDF_SMOKE_RESULT_TEMPLATE.md) 의 schema 만 PR comment / chat 으로 paste — 실 PDF / 추출 텍스트 / 출력 JSON 어느 것도 repo 에 커밋하지 않는다.
+>
+> Claude Code cloud 세션이 Drive 본문 fetch 가 가능한지 capability-discovery 만 하는 별도 probe 절차는 [`docs/CLOUD_DRIVE_PDF_FETCH_PROBE.md`](docs/CLOUD_DRIVE_PDF_FETCH_PROBE.md) (PR #15). 1 PDF 만, 결과는 [`docs/CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md`](docs/CLOUD_DRIVE_PDF_FETCH_PROBE_RESULT_TEMPLATE.md) schema 의 카운터만 paste-back.
 
 ## Safety Gates
 

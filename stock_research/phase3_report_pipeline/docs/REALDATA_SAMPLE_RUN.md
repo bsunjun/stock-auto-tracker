@@ -245,6 +245,13 @@ or as a primary target-price row.
 > file. The `.gitignore` patterns from PR #11 are a defense-in-depth
 > backstop.
 
+> Independently, if a Claude Code **cloud** session needs to find out
+> whether it can fetch a single PDF directly from Drive (instead of
+> relying on the operator's Mac), follow the
+> [`CLOUD_DRIVE_PDF_FETCH_PROBE.md`](CLOUD_DRIVE_PDF_FETCH_PROBE.md)
+> runbook (PR #15). It is capped at **`pdf_count == 1`** and is a
+> capability probe, not a sample run; PR #14 and PR #15 are independent.
+
 ### Where each part runs
 
 | Environment | What runs | Real PDFs processed |
