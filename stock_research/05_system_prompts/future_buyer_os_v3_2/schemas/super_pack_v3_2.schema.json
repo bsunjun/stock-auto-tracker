@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/super_pack_v3_2.schema.json",
+  "title": "SuperPackV3_2",
+  "description": "Future Buyer Momentum OS v3.2 의 통합 산출. 매매 신호 미발행.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "as_of_kst",
+    "layers",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "L1_macro_politics_technology_flow",
+        "L2_attention_flow",
+        "L3_theme_radar",
+        "L4_institutional_justification",
+        "L5_official_evidence",
+        "L6_actual_buyer_confirmation",
+        "L7_chart_timing",
+        "L8_official_risk_flags",
+        "L9_future_buyer_thesis",
+        "L10_pb_state_decision"
+      ],
+      "properties": {
+        "L1_macro_politics_technology_flow": {
+          "$ref": "macro_politics_technology_flow.schema.json"
+        },
+        "L2_attention_flow": {
+          "$ref": "attention_flow_pack.schema.json"
+        },
+        "L3_theme_radar": {
+          "$ref": "theme_radar_pack.schema.json"
+        },
+        "L4_institutional_justification": {
+          "$ref": "institutional_justification_pack.schema.json"
+        },
+        "L4_us_korea_readthrough": {
+          "$ref": "us_korea_readthrough_pack.schema.json"
+        },
+        "L5_official_evidence": {
+          "$ref": "official_evidence_pack.schema.json"
+        },
+        "L6_actual_buyer_confirmation": {
+          "$ref": "actual_buyer_confirmation_pack.schema.json"
+        },
+        "L7_chart_timing": {
+          "$ref": "chart_timing_pack.schema.json"
+        },
+        "L8_official_risk_flags": {
+          "$ref": "official_risk_flags_pack.schema.json"
+        },
+        "L9_future_buyer_thesis": {
+          "$ref": "future_buyer_thesis_pack.schema.json"
+        },
+        "L10_pb_state_decision": {
+          "$ref": "pb_state_decision_pack.schema.json"
+        }
+      }
+    },
+    "human_gate_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "human_gate_required": { "type": "boolean" },
+        "notes": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

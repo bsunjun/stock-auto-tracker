@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/pb_state_decision_pack.schema.json",
+  "title": "PBStateDecisionPack",
+  "description": "Layer 10 — PB 상태 결정. 매수 신호가 아니라 운영 라벨.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "decisions",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L10_pb_state_decision" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_id",
+          "ticker",
+          "pb_state",
+          "decision_reason",
+          "human_gate_required"
+        ],
+        "properties": {
+          "decision_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "pb_state": {
+            "type": "string",
+            "enum": ["WATCH_ONLY", "THEME_DISCOVERY", "PB_READY", "PB_SCOUT", "PB_TRIGGER"]
+          },
+          "decision_reason": { "type": "string", "minLength": 1 },
+          "promoted_from": {
+            "type": ["string", "null"],
+            "enum": [null, "WATCH_ONLY", "THEME_DISCOVERY", "PB_READY", "PB_SCOUT", "PB_TRIGGER"]
+          },
+          "demotion_triggered_by": {
+            "type": ["string", "null"],
+            "enum": [
+              null,
+              "telegram_only_guard",
+              "official_risk_flag",
+              "target_price_primary_attempt",
+              "missing_invalidation_condition",
+              "thesis_invalid",
+              "other"
+            ]
+          },
+          "human_gate_required": { "type": "boolean" },
+          "change_reason": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

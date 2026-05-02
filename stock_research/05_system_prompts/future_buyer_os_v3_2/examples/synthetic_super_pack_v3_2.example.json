@@ -1,0 +1,220 @@
+{
+  "_comment": "Synthetic illustrative example only. Tickers and values are fictional. NOT a real trade signal. direct_trade_signal=false strictly enforced.",
+  "schema_version": "v3.2",
+  "as_of_kst": "2026-05-03T11:30:00+09:00",
+  "edge_declared": "정책 기금 발표(L1) 대형 IT supplychain 의 한국 readthrough(L4) 가 외국인 누적 매수(L6)와 일치함",
+  "direct_trade_signal": false,
+  "trade_signal": null,
+  "layers": {
+    "L1_macro_politics_technology_flow": {
+      "schema_version": "v3.2",
+      "layer": "L1_macro_politics_technology_flow",
+      "as_of_kst": "2026-05-03T07:30:00+09:00",
+      "edge_declared": "정책 펀드 자금이 우선주/대형주에 우호적",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L1-001",
+          "category": "policy",
+          "summary": "대형 정책 펀드 N조원 추가 투입 발표",
+          "source_id": "synthetic-policy-001",
+          "source_name": "synthetic_source",
+          "buyer_type_impact": ["pension", "institution"],
+          "direction_hint": "risk_on"
+        }
+      ]
+    },
+    "L2_attention_flow": {
+      "schema_version": "v3.2",
+      "layer": "L2_attention_flow",
+      "as_of_kst": "2026-05-03T07:35:00+09:00",
+      "edge_declared": "메이저 신문이 정책 펀드 수혜 종목에 헤드라인 집중",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L2-001",
+          "ticker": "000000",
+          "theme_id": null,
+          "headline_summary": "synthetic headline summary about policy fund flagship name",
+          "source_id": "synthetic-news-001",
+          "source_name": "synthetic_paper",
+          "buyer_type_impact": ["retail_attention"],
+          "attention_velocity": "medium"
+        }
+      ]
+    },
+    "L3_theme_radar": {
+      "schema_version": "v3.2",
+      "layer": "L3_theme_radar",
+      "as_of_kst": "2026-05-03T08:05:00+09:00",
+      "edge_declared": "테마 단위 확산이 채널 3개 이상에서 sync",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "themes": [
+        {
+          "theme_id": "policy_fund_beneficiary",
+          "theme_label": "정책 펀드 수혜",
+          "channel_sync_count": 3,
+          "velocity_score": "medium",
+          "paid_only": false,
+          "pb_state_recommendation": "THEME_DISCOVERY",
+          "candidate_tickers": ["000000"]
+        }
+      ]
+    },
+    "L4_institutional_justification": {
+      "schema_version": "v3.2",
+      "layer": "L4_institutional_justification",
+      "as_of_kst": "2026-05-03T08:35:00+09:00",
+      "edge_declared": "복수 증권사가 가이던스 상향 근거를 명시",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L4-001",
+          "ticker": "000000",
+          "company_name": "Synthetic Co.",
+          "report_type": "company",
+          "broker": "synthetic_broker_A",
+          "report_date_kst": "2026-05-02",
+          "thesis_summary": "synthetic thesis: 가이던스 상향 + capex 사이클 진입",
+          "secondary_reference": {
+            "target_price": 12345.0,
+            "target_price_currency": "KRW",
+            "target_price_revision": "raised"
+          },
+          "buyer_type_impact": ["institution", "foreign"]
+        }
+      ]
+    },
+    "L5_official_evidence": {
+      "schema_version": "v3.2",
+      "layer": "L5_official_evidence",
+      "as_of_kst": "2026-05-03T08:40:00+09:00",
+      "edge_declared": "DART 가이던스 update 가 보고서 thesis 와 정합",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L5-001",
+          "ticker": "000000",
+          "evidence_kind": "guidance_update",
+          "rcept_no_or_id": "synthetic-rcept-001",
+          "filed_date_kst": "2026-05-02",
+          "summary": "synthetic guidance update summary",
+          "guidance_metric": "operating_profit",
+          "guidance_value": 1234,
+          "guidance_unit": "KRW_billion",
+          "mismatch_with_report": {
+            "has_mismatch": false,
+            "mismatch_reason": null
+          }
+        }
+      ]
+    },
+    "L6_actual_buyer_confirmation": {
+      "schema_version": "v3.2",
+      "layer": "L6_actual_buyer_confirmation",
+      "as_of_kst": "2026-05-03T09:35:00+09:00",
+      "edge_declared": "외국인 5일 net buy 누적 양호",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L6-001",
+          "ticker": "000000",
+          "window": "5d",
+          "flows": [
+            { "buyer_type": "foreign", "net_value": 12.3, "unit": "ratio_of_market_cap", "is_net_buy": true },
+            { "buyer_type": "institution", "net_value": 4.5, "unit": "ratio_of_market_cap", "is_net_buy": true }
+          ],
+          "notes": "synthetic snapshot only"
+        }
+      ]
+    },
+    "L7_chart_timing": {
+      "schema_version": "v3.2",
+      "layer": "L7_chart_timing",
+      "as_of_kst": "2026-05-03T09:40:00+09:00",
+      "edge_declared": "demand zone 재진입 + 단기 시간대 적합",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": [
+        {
+          "item_id": "L7-001",
+          "ticker": "000000",
+          "when_band": "short_term",
+          "supply_zone": { "zone_min": 13000, "zone_max": 13800, "zone_reason": "synthetic prior swing high cluster" },
+          "demand_zone": { "zone_min": 11500, "zone_max": 11900, "zone_reason": "synthetic prior accumulation base" },
+          "indicators_summary": [
+            { "name": "MA20", "state": "rising" }
+          ],
+          "secondary_reference": {
+            "target_price": 12345,
+            "target_price_currency": "KRW"
+          }
+        }
+      ]
+    },
+    "L8_official_risk_flags": {
+      "schema_version": "v3.2",
+      "layer": "L8_official_risk_flags",
+      "as_of_kst": "2026-05-03T10:35:00+09:00",
+      "edge_declared": "공식 risk flag 매치 없음",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "items": []
+    },
+    "L9_future_buyer_thesis": {
+      "schema_version": "v3.2",
+      "layer": "L9_future_buyer_thesis",
+      "as_of_kst": "2026-05-03T11:05:00+09:00",
+      "edge_declared": "policy fund + capex cycle thesis 가 외국인+기관에 정합",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "candidates": [
+        {
+          "candidate_id": "C-2026-05-03-001",
+          "ticker": "000000",
+          "theses": [
+            {
+              "thesis_id": "T-001",
+              "buyer_type": ["foreign", "institution"],
+              "why_they_buy": "guidance 상향 + capex 사이클 진입에 따른 portfolio rebalancing — L4+L5 근거",
+              "when_they_buy": "외국인 5일 net buy 누적 양호 + KOSPI 일중 약세에서도 양매수 유지",
+              "invalidation_condition": "외국인이 연속 3일 net sell 또는 일 거래대금 절반 이상 비중에서 분배 패턴",
+              "ranked": 1,
+              "supporting_layers": ["L1", "L4", "L5", "L6"]
+            }
+          ]
+        }
+      ]
+    },
+    "L10_pb_state_decision": {
+      "schema_version": "v3.2",
+      "layer": "L10_pb_state_decision",
+      "as_of_kst": "2026-05-03T11:25:00+09:00",
+      "edge_declared": "human gate 전 자동 실행 금지",
+      "direct_trade_signal": false,
+      "trade_signal": null,
+      "decisions": [
+        {
+          "decision_id": "D-2026-05-03-001",
+          "ticker": "000000",
+          "pb_state": "PB_SCOUT",
+          "decision_reason": "L4+L5+L1 일치, L6 외국인 net buy 확인, L7 demand zone 재진입",
+          "promoted_from": "PB_READY",
+          "demotion_triggered_by": null,
+          "human_gate_required": true,
+          "change_reason": null
+        }
+      ]
+    }
+  },
+  "human_gate_summary": {
+    "human_gate_required": true,
+    "notes": "synthetic only — no real trade action"
+  }
+}
