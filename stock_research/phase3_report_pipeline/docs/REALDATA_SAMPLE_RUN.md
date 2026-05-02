@@ -493,6 +493,35 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #36 (ticker_map 5th expansion / small-batch verified TODO,
+  IN REVIEW)** — bridge / ticker_map enhancement only; parser code
+  is untouched. PR #35 left 9 TICKER_MAP_TODO candidates pending
+  KIND/DART verification; PR #36 promotes only the **2 entries
+  with high-confidence KRX codes** into `resources/ticker_map.csv`:
+  `RFHIC → KRX:218410` (KOSDAQ; 2017 IPO) and `에치에프알 → KRX:230240`
+  (KOSDAQ; HFR — 5G xhaul equipment, alias `HFR`/`HFR Inc`). The
+  other 7 candidates (`한화비전`, `저스템`, `LIG디펜스앤에어로스페이스`,
+  `RF머트리얼즈`, `샘씨엔에스`, `세나테크놀로지`, `환인제약`) stay in
+  `docs/TICKER_MAP_TODO.md` with sharper governance notes; codes
+  remain "uncertain" until 2-source confirmation is cited.
+  `대한조선` continues to be governance-excluded as private /
+  non-KRX-listed. `ticker_resolver --verify`: PASS — 104 → **106
+  rows** / 122 → **125 aliases** / 226 → **231 lookup keys** / 84
+  KOSPI + 20 → 22 KOSDAQ. `ticker_resolver_fixture` 59 → **69**
+  PASS (+10: 4 PR #36 added-entry cases + 6 PR #36 still-pending
+  must-stay-`None` cases). `bridge_filename_fallback_fixture`
+  unchanged at 13/13. PR #12-#35 inventories byte-identical.
+  Templates md5 unchanged (`6090bfeb9242b17f0fdf653c792d82d7`).
+  Post-PR-#36 100-PDF official `--pdf-dir` runner re-smoke (50 +
+  50 chunks; same cohort): bridge.ticker_resolved **89 → 92**
+  (+3 = RFHIC ×2 + 에치에프알 ×1), ticker_unresolved 11 → 8 (now
+  exactly 7 TODO-pending + 1 governance-excluded `대한조선`),
+  build.ticker_not_krx reject 11 → 8, structured_rows_total /
+  build accepted unchanged at 15 / 9 (newly resolved tickers all
+  fall into year_pivot_metric_rows_mixed_units / no_metric_pair_*
+  parser buckets so they don't graduate to the structured row
+  layer); direct_trade_signal_all_false=True both chunks; all
+  forbidden actions = 0.
 - **PR #35 (ticker_map 4th expansion + bridge ticker hints, IN
   REVIEW)** — bridge / ticker_map enhancement only; parser code is
   untouched. Adds **15 KRX-listed canonical entries** to

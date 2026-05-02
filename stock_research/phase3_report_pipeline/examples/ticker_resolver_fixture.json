@@ -387,6 +387,76 @@
       "filename": "",
       "expected": null,
       "_note": "PR #35: 한화비전 still pending verification (TICKER_MAP_TODO); MUST stay unresolved until KIND/DART confirms code."
+    },
+    {
+      "case": "pr36_canonical_rfhic",
+      "value": "RFHIC",
+      "filename": "",
+      "expected": "KRX:218410",
+      "_note": "PR #36: RFHIC KOSDAQ 218410 (RF semiconductor designer; 2017 IPO)."
+    },
+    {
+      "case": "pr36_alias_rfhic_corp",
+      "value": "RFHIC Corp",
+      "filename": "",
+      "expected": "KRX:218410",
+      "_note": "PR #36: English alias for RFHIC."
+    },
+    {
+      "case": "pr36_canonical_hfr",
+      "value": "에치에프알",
+      "filename": "",
+      "expected": "KRX:230240",
+      "_note": "PR #36: 에치에프알 (HFR) KOSDAQ 230240 (5G xhaul equipment)."
+    },
+    {
+      "case": "pr36_alias_hfr_english",
+      "value": "HFR",
+      "filename": "",
+      "expected": "KRX:230240",
+      "_note": "PR #36: English short form alias for 에치에프알."
+    },
+    {
+      "case": "pr36_unresolved_rf_materials_pending",
+      "value": "RF머트리얼즈",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: RF머트리얼즈 stays in TICKER_MAP_TODO until KRX code confirmed; MUST stay unresolved."
+    },
+    {
+      "case": "pr36_unresolved_samss_pending",
+      "value": "샘씨엔에스",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: 샘씨엔에스 KRX code requires KIND confirmation; MUST stay unresolved."
+    },
+    {
+      "case": "pr36_unresolved_sena_tech_pending",
+      "value": "세나테크놀로지",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: 세나테크놀로지 KRX code requires KIND confirmation; MUST stay unresolved."
+    },
+    {
+      "case": "pr36_unresolved_justem_pending",
+      "value": "저스템",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: 저스템 (recent IPO) requires KIND confirmation; MUST stay unresolved."
+    },
+    {
+      "case": "pr36_unresolved_whan_in_pharm_pending",
+      "value": "환인제약",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: 환인제약 market (KOSPI vs KOSDAQ) requires re-confirmation; MUST stay unresolved."
+    },
+    {
+      "case": "pr36_unresolved_lig_defense_aero_pending",
+      "value": "LIG디펜스앤에어로스페이스",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #36: LIG디펜스앤에어로스페이스 (recent rename / spinoff) requires confirmation; MUST stay unresolved."
     }
   ]
 }

@@ -98,25 +98,31 @@ recorded as aliases so historical filings still resolve.
 | `KG모빌리티` | `KRX:003620` | KOSPI | `쌍용자동차`, `Ssangyong Motor`, `KG Mobility` (renamed 2023) |
 | `iM금융지주` | `KRX:139130` | KOSPI | `DGB금융지주`, `DGB Financial Group`, `iM Financial` (renamed 2024) |
 
-Pending verification (NOT added by PR #35)
-------------------------------------------
-The following surfaced in the PR #34 100-PDF smoke but their codes
-were not added in PR #35 either because the canonical company is a
-recent rename / split / new listing, or because the code could not be
-confirmed against an authoritative source at PR #35 merge time. Each
-should be re-verified against KIND/DART before any future addition.
+Recently added (PR #36 — 5th expansion, small-batch verification)
+-----------------------------------------------------------------
+- `RFHIC → KRX:218410` (KOSDAQ) — RF semiconductor designer; 2017
+  KOSDAQ IPO. Surfaced ×2 in the PR #34/#35 100-PDF cohort. Added
+  in PR #36 after KIND/KRX listing portal background-knowledge
+  cross-check.
+- `에치에프알 → KRX:230240` (KOSDAQ) — HFR; 5G xhaul / mobile
+  network equipment. Surfaced ×1. English short form `HFR` and
+  `HFR Inc` registered as aliases.
 
-| company_name_kr | proposed code | market | notes |
+Remaining pending verification (NOT added by PR #36)
+----------------------------------------------------
+The remaining 7 candidates need stronger 2-source confirmation
+before being moved into `resources/ticker_map.csv`. Each row
+captures the gap blocking addition.
+
+| company_name_kr | proposed code | market | reason for hold |
 | --- | --- | --- | --- |
-| 한화비전 | KRX:013570 (?) | KOSPI | Surfaced in 2026-04-30 search results; Hanwha Group surveillance carve-out. Code requires re-confirmation; KRX:013570 belongs to a different issuer (디와이파워) per PR #25 review. |
-| 저스템 | (?) | KOSDAQ | Recent IPO; KRX code requires confirmation against KIND. |
-| LIG디펜스앤에어로스페이스 | (?) | KOSPI (?) | Newer name surfaced in 2026-04-30 cohort; possible recent spinoff/rename. Not yet confirmed against KIND. |
-| RFHIC | (?) | KOSDAQ | Surfaced ×2 in PR #34 cohort. KOSDAQ-listed semiconductor RF company; code not yet confirmed at PR #35 merge time. |
-| RF머트리얼즈 | (?) | KOSDAQ | Surfaced ×2 in PR #34 cohort. Code not yet confirmed. |
-| 샘씨엔에스 | (?) | KOSDAQ (?) | Surfaced ×1; code not yet confirmed. |
-| 세나테크놀로지 | (?) | KOSDAQ (?) | Surfaced ×1; code not yet confirmed. |
-| 에치에프알 (HFR) | KRX:230240 (?) | KOSDAQ | Surfaced ×1; KOSDAQ-listed networking equipment company. Code requires KIND confirmation before adding. |
-| 환인제약 | KRX:016580 (?) | KOSPI/KOSDAQ (?) | Surfaced ×1; both code and exact market need re-verification before adding. |
+| 한화비전 | uncertain | KOSPI (?) | Hanwha Group surveillance carve-out; previous TODO note flagged `KRX:013570` as actually belonging to a different issuer (디와이파워). Hold until KIND-confirmed code is cited. |
+| 저스템 | uncertain | KOSDAQ (?) | Recent IPO; KRX code not independently confirmed. Hold for KIND lookup. |
+| LIG디펜스앤에어로스페이스 | uncertain | KOSPI (?) | Newer name surfaced in 2026-04-30 cohort; possibly a recent rename / spinoff distinct from `LIG넥스원 KRX:079550`. Hold for primary-source confirmation. |
+| RF머트리얼즈 | uncertain | KOSDAQ (?) | Surfaced ×2 in 100-PDF cohort. Code not yet confirmed; multiple similarly-named tickers in the RF-supply space create collision risk. Hold. |
+| 샘씨엔에스 | uncertain | KOSDAQ (?) | Surfaced ×1 in cohort. Specific ticker code requires KIND lookup. |
+| 세나테크놀로지 | uncertain | KOSDAQ (?) | Surfaced ×1. Specific ticker code requires KIND lookup. |
+| 환인제약 | uncertain | KOSPI / KOSDAQ (?) | Surfaced ×1. Both code and exact market need re-verification before adding. |
 
 Add to this table whenever you encounter a Korean company name in a
 WiseReport PDF that the resolver returns `None` for AND the company
