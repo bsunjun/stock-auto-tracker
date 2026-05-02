@@ -127,6 +127,20 @@ def _label_metric_class_compatible(label: object, canonical_metric: str) -> bool
     line), this returns True. Each commit site that DOES have a label
     supplies it explicitly so the invariant is checked exactly where it
     matters.
+
+    Known residual risk — label-lost path remains permissive by design.
+    Returning True on an empty/non-string `label` preserves recall for
+    the legitimate label-less OP / sales / NI rows produced by the
+    column-window scanner; rejecting them here would drop large blocks
+    of correctly-parsed pairs to prevent a bug class that has only been
+    observed when a label IS present. The invariant we still hold under
+    this design: WHEN an EPS-class label exists (substring `주당` in KO
+    or case-insensitive `eps` in Latin), the row can NEVER be promoted
+    to a non-eps canonical metric. Closing the label-lost gap is left
+    to a future PR that introduces label-recovery from header context;
+    until then the trade-off is intentional and audited by the runner's
+    9-pair MODULE_INVARIANT_DRIFT table (incl. an explicit empty-label
+    permissive row).
     """
     if not isinstance(label, str) or not label:
         return True
@@ -828,6 +842,18 @@ VARIANT_WINDOW_LINES = 15
 # numeric tokens, because the token-order alone cannot tell us which
 # horizon each token belongs to. A typical single-horizon revision row
 # carries at most 3 numbers (old, new, optional 변동률 / %change).
+#
+# Recall trade-off (intentional). A row with 4+ numeric tokens is much
+# more likely a multi-horizon table than a noisy single-horizon row, so
+# the threshold is biased toward false-positive prevention: PR #46
+# accepts a (small) recall loss on legitimate 4-token single-horizon
+# layouts in exchange for guaranteeing no cross-horizon pair leaks into
+# downstream metrics. Recovering those legitimate-but-rejected rows is
+# left to a future horizon-aware column-mapping PR (the recovery path),
+# which can disambiguate tokens by their horizon column index instead
+# of relying on token order alone. Until then any 4+ token row surfaces
+# `gap_hint='multi_horizon_variant_row_no_pair'` so the gap is visible
+# rather than silent.
 _VARIANT_MAX_NUMS_FOR_PAIR = 3
 
 

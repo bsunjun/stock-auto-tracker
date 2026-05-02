@@ -68,7 +68,27 @@ The bug_signature tags are stable strings:
     * VARIANT_GAP_HINT_MISSING        (parser dropped the row but didn't
                                         surface the new gap_hint)
     * MODULE_INVARIANT_DRIFT          (METRIC_ALIASES or
-                                        _label_metric_class_compatible drifted)
+                                        _label_metric_class_compatible drifted,
+                                        incl. the label-lost permissive
+                                        residual-risk row)
+
+Known residual risks (intentional in PR #46)
+--------------------------------------------
+1. label-lost path remains permissive by design.
+   `_label_metric_class_compatible` returns True on missing/empty/non-
+   string labels so the column-window scanner (which has no per-row
+   label) keeps recall on legitimate label-less OP / sales / NI rows.
+   The invariant we still hold: when a label IS present and EPS-class,
+   no non-eps promotion is allowed. The runner's MODULE_INVARIANTS
+   block pins this permissive behaviour with explicit
+   ("", None, 0, [], {}) → True checks so a future tightening cannot
+   silently land.
+
+2. 4+ numeric token row rejection trades a (small) recall loss for
+   guaranteed false-positive prevention. Legitimate 4-token single-
+   horizon layouts are intentionally refused; recovery is left to a
+   future horizon-aware column-mapping PR rather than a relaxed
+   threshold here.
 
 Forbidden-actions guarantees verified per emitted record:
   * direct_trade_signal == False
@@ -203,7 +223,15 @@ def test_module_invariants() -> None:
         ("주당당기순이익", "eps",              True),  # any "주당"-containing label
         ("매출액",        "sales",            True),
         ("영업이익",      "operating_profit", True),
-        ("",             "operating_profit", True),  # empty label is permissive
+        # Known residual risk: label-lost path remains permissive by
+        # design. PR #46 returns True on missing/empty/non-string labels
+        # so the column-window scanner (no per-row label) keeps recall
+        # on legitimate label-less OP / sales / NI rows. The invariant
+        # we still hold: when a label IS present and EPS-class, no
+        # non-eps promotion is allowed.
+        ("",             "operating_profit", True),   # empty label permissive
+        (None,           "operating_profit", True),   # non-string permissive
+        (123,            "eps",              True),   # non-string permissive
     ]
     for label, metric, expected in eps_class_pairs:
         actual = _label_metric_class_compatible(label, metric)
@@ -223,8 +251,33 @@ def test_module_invariants() -> None:
                                 "canonical metric.",
                 },
             )
-    print("PASS module invariants (G1: 주당순이익 alias + G2: 9-pair "
-          "label-class compatibility table)")
+    # G2-residual: explicit invariant that the label-lost path is
+    # permissive by design (recall preservation). If a future change
+    # tightens this branch to return False, every commit site relying
+    # on label-less rows will start dropping pairs silently — surface
+    # that as MODULE_INVARIANT_DRIFT here.
+    for empty_label in ("", None, 0, [], {}):
+        if _label_metric_class_compatible(empty_label, "operating_profit") is not True:
+            _fail(
+                "MODULE_INVARIANTS",
+                "G2-residual: label-lost path must remain permissive "
+                "(returns True) for recall preservation on label-less "
+                "rows from the column-window scanner.",
+                bug_signature="MODULE_INVARIANT_DRIFT",
+                extra={
+                    "label": repr(empty_label),
+                    "canonical_metric": "'operating_profit'",
+                    "fix_hint": "PR #46 documents this as a known residual "
+                                "risk: dropping label-lost rows would erase "
+                                "large blocks of correctly-parsed pairs to "
+                                "prevent a bug class only observed when a "
+                                "label IS present. Future label-recovery "
+                                "PR may close the gap.",
+                },
+            )
+    print("PASS module invariants (G1: 주당순이익 alias + G2: 12-pair "
+          "label-class compatibility table incl. label-lost permissive "
+          "residual)")
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +425,12 @@ def test_s2_same_column_old_values_not_pair() -> None:
                             "and the `len(nums) > _VARIANT_MAX_NUMS_FOR_PAIR` "
                             "early-continue branch in "
                             "parse_before_after_variant_rows().",
+                "recall_trade_off": "PR #46 prioritises false-positive "
+                                    "prevention over recall on 4+ token "
+                                    "rows. Legitimate 4-token single-"
+                                    "horizon layouts are recovered in a "
+                                    "future horizon-aware column-mapping "
+                                    "PR, not by relaxing this threshold.",
             },
         )
 
@@ -495,6 +554,11 @@ def test_s3_horizon_mismatch_no_pair() -> None:
                                             "gap_hint='multi_horizon_variant_"
                                             "row_no_pair'; metrics dict "
                                             "stays empty.",
+                        "recall_trade_off": "PR #46 prioritises false-"
+                                            "positive prevention over recall "
+                                            "on 4+ token rows; horizon-aware "
+                                            "column-mapping is the recovery "
+                                            "path, not a relaxed threshold.",
                     },
                 )
 
@@ -520,6 +584,11 @@ def test_s3_horizon_mismatch_no_pair() -> None:
                 "row_token_order": "[1Q26F_old, 2026F_old, 1Q26F_new, 2026F_new]",
                 "fix_hint": "All 3 metric rows in the fixture have 4 tokens "
                             "each; G3 should reject every one of them.",
+                "recall_trade_off": "PR #46 prioritises false-positive "
+                                    "prevention over recall on 4+ token "
+                                    "rows; horizon-aware column-mapping is "
+                                    "the recovery path, not a relaxed "
+                                    "threshold.",
             },
         )
 
