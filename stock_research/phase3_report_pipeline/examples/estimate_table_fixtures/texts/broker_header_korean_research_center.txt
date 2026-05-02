@@ -1,0 +1,6 @@
+미래에셋자산운용 리서치본부
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+이 fixture 는 한글 리서치본부 suffix 가 PR #37 second-pass 에 잡히는지 확인한다.
+metric 표는 첨부되지 않는다.

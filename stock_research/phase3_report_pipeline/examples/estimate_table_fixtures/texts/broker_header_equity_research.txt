@@ -1,0 +1,6 @@
+NH Investment Equity Research
+SAMPLECO (KRX:000999)
+2026.04.30 report
+
+This anonymized fixture verifies the PR #37 second-pass broker detection
+catches an English-suffix header line. No metric extraction occurs here.

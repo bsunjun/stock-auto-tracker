@@ -493,6 +493,33 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #37 (broker autodetect for real-PDF metadata, IN REVIEW)** —
+  parser broker-line detection extended via a conservative
+  second-pass that fires ONLY when the primary `_BROKER_SUFFIXES`
+  (`증권` / `금융투자` / `자산운용`) scan returned empty. New helper
+  `_detect_broker_header_research_suffix` looks for one of
+  `리서치센터` / `리서치본부` / `리서치 센터` / `리서치 본부` /
+  `Research Center` / `Equity Research` anchored to line-end inside
+  the document head region (first 15 non-empty lines), with
+  defensive line-shape filters: bracket `[` rejection, `목표주가`
+  rejection, line length > 80 char rejection, line digit count > 5
+  rejection. metric extraction logic / gap_reason taxonomy /
+  structured-row contract are entirely untouched — every PR #12-#36
+  fixture inventory produces byte-identical structured /
+  parsed_pdf_count / direct_trade_signal_true / gap_reason_counts.
+  5 new synthetic fixtures
+  (`broker_header_research_center.txt`,
+  `broker_header_equity_research.txt`,
+  `broker_header_korean_research_center.txt`,
+  `broker_false_positive_company_name.txt`,
+  `broker_false_positive_analyst_line.txt`) + new inventory
+  `inventory.broker_autodetect.json` (5 entries) verify the 3
+  positive header patterns AND the 2 negative anti-patterns
+  (company name / report title and analyst contact line) MUST NOT
+  be misclassified as broker. `ticker_resolver_fixture` 69/69 PASS
+  unchanged; `bridge_filename_fallback_fixture` 13/13 PASS
+  unchanged. Templates md5 unchanged
+  (`6090bfeb9242b17f0fdf653c792d82d7`).
 - **PR #36 (ticker_map 5th expansion / small-batch verified TODO,
   IN REVIEW)** — bridge / ticker_map enhancement only; parser code
   is untouched. PR #35 left 9 TICKER_MAP_TODO candidates pending
