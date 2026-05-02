@@ -1,0 +1,171 @@
+{
+  "schema": "phase3:wisereport_drive_inventory_fixture_expected:v1",
+  "_note": "PR #44 expected outcomes for the synthetic Drive folder fixtures. Each scenario maps a (company_folder_id, industry_folder_id) pair to expected counters and per-entry assertions. The runner (examples/run_wisereport_drive_inventory_fixture.py) executes build_wisereport_drive_inventory.py against each scenario with --listing-cache-dir pointed at examples/wisereport_drive_inventory_fixture/listing_cache, so no network calls are made. Synthetic folder + file IDs are clearly tagged 'FIXTURE_*_pr44' so they could never accidentally hit a real Drive folder.",
+  "scenarios": {
+    "happy_path": {
+      "company_folder_id": "FIXTURE_COMPANY_HAPPY_001A_pr44",
+      "industry_folder_id": "FIXTURE_INDUSTRY_HAPPY_001A_pr44",
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 2,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "selected_company_ticker_hints_sorted": ["샘플바이오", "샘플반도체", "샘플전자"],
+      "selected_industry_sector_hints_sorted": ["반도체", "자동차"]
+    },
+    "company_only": {
+      "company_folder_id": "FIXTURE_COMPANY_HAPPY_001A_pr44",
+      "industry_folder_id": null,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      }
+    },
+    "industry_only_alias_check": {
+      "company_folder_id": null,
+      "industry_folder_id": "FIXTURE_INDUSTRY_HAPPY_001A_pr44",
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 0,
+        "industry_pdf_count": 2,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 0,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "_note_industry_alias": "PR #40 invariant carried into PR #44: when only --industry-drive-folder-url is set, `selected[]` MUST be empty. Industry entries live in `selected_industry[]` only — the deterministic chain runner / parser therefore sees zero PDFs to process."
+    },
+    "duplicate_basename": {
+      "company_folder_id": "FIXTURE_COMPANY_DUP_001A_pr44",
+      "industry_folder_id": null,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 1,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "_note_dup": "Drive can list two files with identical basename in the same folder (Drive does not enforce unique names within a folder). Both are kept in selected_company[] (their drive_file_id distinguishes them); the duplicate_basename[] section flags the basename count > 1.",
+      "expected_duplicate_basenames_sorted": ["20260430_[샘플전자] 정상 파일.pdf"]
+    },
+    "malformed": {
+      "company_folder_id": "FIXTURE_COMPANY_MAL_001A_pr44",
+      "industry_folder_id": null,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 1,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 3,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 1,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "expected_malformed_filenames_sorted": [
+        "20260430_no_brackets_either.pdf",
+        "[no_yyyymmdd_prefix] 제목.pdf",
+        "no_bracket_segment.pdf"
+      ]
+    },
+    "non_pdf": {
+      "company_folder_id": "FIXTURE_COMPANY_NPDF_001A_pr44",
+      "industry_folder_id": null,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 1,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 2,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 1,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "expected_skipped_non_pdf_filenames_sorted": ["README.md", "notes.txt"]
+    },
+    "cap_test": {
+      "company_folder_id": "FIXTURE_COMPANY_CAP_001A_pr44",
+      "industry_folder_id": null,
+      "max_company_pdfs": 3,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 2,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true,
+        "downloaded_pdf_count": 0,
+        "failed_download_count": 0
+      },
+      "_note_cap": "5 PDFs in folder, --max-company-pdfs=3 → 3 selected, 2 dropped (capped_company_count=2). Deterministic ordering: 캡테스트1, 캡테스트2, 캡테스트3 by basename sort."
+    }
+  },
+  "global_invariants": [
+    "schema is exactly 'phase3:wisereport_drive_folder_inventory:v1'.",
+    "Every selected_company entry has direct_trade_signal=false and source='drive'.",
+    "Every selected_industry entry has direct_trade_signal=false and summary_queue=true and source='drive'.",
+    "Every selected_company entry has report_type='company' and folder_type='기업'.",
+    "Every selected_industry entry has report_type='industry' and folder_type='산업'.",
+    "summary.direct_trade_signal_true_count is always 0.",
+    "forbidden_actions_confirmed.* are all 0.",
+    "ticker_hint / sector_hint contains the bracketed text (no '[' or ']' chars).",
+    "Industry entries do NOT carry ticker_hint; company entries do NOT carry sector_hint or summary_queue.",
+    "PR #40 carryover: top-level `selected[]` exists and equals `selected_company[]` by per-index drive_file_id.",
+    "PR #40 carryover: `selected[]` shares NO drive_file_id with any entry in `selected_industry[]`."
+  ]
+}
