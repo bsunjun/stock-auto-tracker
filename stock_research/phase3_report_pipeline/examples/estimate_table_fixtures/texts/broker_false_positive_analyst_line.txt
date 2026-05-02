@@ -1,0 +1,6 @@
+애널리스트 김민수 / Tel 02-1234-5678 / Email foo@example.com
+SAMPLECO 분기 코멘트
+
+본 텍스트는 analyst contact 줄이 broker 로 오인되지 않도록 검증한다.
+digit 카운트 > 5 (전화번호) AND suffix 매칭 실패 — 두 가지 이유로 reject 되어야 한다.
+metric 변경 표는 첨부되지 않는다.

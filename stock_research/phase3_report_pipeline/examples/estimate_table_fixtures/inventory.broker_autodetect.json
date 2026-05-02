@@ -1,0 +1,47 @@
+{
+  "schema": "phase3:wisereport_sample_inventory:v1",
+  "_note": "PR #37 broker autodetect inventory. Five anonymized synthetic fixtures verify (a) Korean 리서치센터 suffix wins second-pass, (b) English Equity Research suffix wins second-pass, (c) Korean 리서치본부 suffix variant, (d) company-name / report-title line is NOT misclassified as broker, (e) analyst contact line is NOT misclassified as broker. Forbidden actions: zero PDFs/extracted texts/output JSON committed; values are illustrative.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_folder": "기업",
+  "max_pdfs": 10,
+  "hard_max": 10,
+  "total_seen": 5,
+  "selected_count": 5,
+  "skipped_count": 0,
+  "selected": [
+    {
+      "filename": "broker_header_research_center.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
+    },
+    {
+      "filename": "broker_header_equity_research.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9"
+    },
+    {
+      "filename": "broker_header_korean_research_center.pdf",
+      "ticker_hint": "SAMPLECO",
+      "source_pdf_sha256": "cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"
+    },
+    {
+      "filename": "broker_false_positive_company_name.pdf",
+      "ticker_hint": "",
+      "source_pdf_sha256": "dbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdb"
+    },
+    {
+      "filename": "broker_false_positive_analyst_line.pdf",
+      "ticker_hint": "",
+      "source_pdf_sha256": "ecececececececececececececececececececececececececececececececec"
+    }
+  ],
+  "skipped": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "repo_writes": 0,
+    "pdfs_copied": 0
+  }
+}

@@ -1,0 +1,6 @@
+[삼성전자] 1Q26 어닝 서프라이즈 코멘트
+보고서 작성 일자: 2026-04-30
+
+이 fixture 는 broker autodetect 가 회사명/리포트 제목 라인을 broker 로 오인하지
+않도록 한다. 어떤 _BROKER_SUFFIXES 도, _BROKER_PR37_HEADER_SUFFIXES 도 일치하지 않아야 한다.
+target_price 또는 metric 변경 표는 첨부되지 않는다.

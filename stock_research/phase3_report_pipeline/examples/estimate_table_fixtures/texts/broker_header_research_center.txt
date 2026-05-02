@@ -1,0 +1,5 @@
+삼성증권 리서치센터
+SAMPLECO (KRX:000999)
+2026.04.30 보고서
+
+본 코멘트는 metric 변경 표를 첨부하지 않으며 broker autodetect 만 검증한다.

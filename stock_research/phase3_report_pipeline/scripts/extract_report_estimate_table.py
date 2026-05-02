@@ -221,6 +221,77 @@ _ARROW_RE = re.compile(r"→|->")
 _NUMBER_TOKEN_RE = re.compile(r"[+-]?[\d,]+(?:\.\d+)?")
 _BROKER_SUFFIXES: tuple[str, ...] = ("증권", "금융투자", "자산운용")
 
+# PR #37: conservative second-pass broker autodetect. Fires only when the
+# primary `_BROKER_SUFFIXES` scan returns empty. Goal: reduce
+# `build.broker_empty` reject (48/100 in the PR #34 100-PDF wider smoke)
+# WITHOUT mis-classifying company names / sector headings / analyst-bio
+# lines / report titles as broker.
+#
+# Conservative invariants (false-positive prevention beats recall):
+#   * The primary suffix detection (`증권 / 금융투자 / 자산운용`) STILL wins.
+#     Second-pass fires only when primary returns empty; never overrides.
+#   * Match is anchored to the END of the line (suffix-style); a body
+#     sentence that mentions `리서치센터` mid-string never matches.
+#   * Search is restricted to the document HEAD region
+#     (`_BROKER_PR37_HEAD_LINES`). Real broker headers are within the
+#     first ~15 non-empty lines; body prose later in the report is
+#     deliberately ignored.
+#   * Defensive line-shape filters: `[`-bracket presence (likely a
+#     ticker/section bracket like `[삼성전자]`), `목표주가` presence
+#     (header-table marker), excessive line length (likely body
+#     paragraph), and digit-heavy lines (likely numeric data row) all
+#     short-circuit to skip.
+#   * No new gap_reason. No new public field on the parsed dict.
+#     Behaviour is purely additive on the broker string.
+_BROKER_PR37_HEADER_SUFFIXES: tuple[str, ...] = (
+    "리서치센터", "리서치본부",
+    "리서치 센터", "리서치 본부",
+    "Research Center", "Equity Research",
+)
+_BROKER_PR37_HEAD_LINES = 15
+_BROKER_PR37_MAX_LINE_LEN = 80
+_BROKER_PR37_MAX_DIGITS = 5
+
+
+def _detect_broker_header_research_suffix(text: str) -> str:
+    """PR #37 — conservative second-pass broker autodetect.
+
+    Returns the first non-empty line in the document head region
+    (`_BROKER_PR37_HEAD_LINES`) that ends with one of
+    `_BROKER_PR37_HEADER_SUFFIXES` AND survives the defensive line-shape
+    filters. Returns "" on miss.
+
+    The caller wires this in as a fallback ONLY when the primary
+    `_BROKER_SUFFIXES` scan returns empty, so behaviour on every existing
+    PR #12-#36 fixture (whose broker line ends with `증권 / 금융투자 /
+    자산운용`, OR has no broker at all and lacks any of the new suffixes)
+    is byte-identical."""
+    if not isinstance(text, str) or not text:
+        return ""
+    n_seen = 0
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        n_seen += 1
+        if n_seen > _BROKER_PR37_HEAD_LINES:
+            break
+        if len(s) > _BROKER_PR37_MAX_LINE_LEN:
+            continue
+        if "[" in s:
+            continue
+        if "목표주가" in s:
+            continue
+        if sum(1 for c in s if c.isdigit()) > _BROKER_PR37_MAX_DIGITS:
+            continue
+        s_lower = s.lower()
+        for suf in _BROKER_PR37_HEADER_SUFFIXES:
+            if s.endswith(suf):
+                return s
+            if suf.isascii() and s_lower.endswith(suf.lower()):
+                return s
+    return ""
+
 
 def _extract_old_new_pair(line: str) -> tuple[str | None, str | None]:
     """Find an 'old → new' (or 'old -> new') numeric pair in a single line.
@@ -1927,6 +1998,13 @@ def parse_text_to_rows(text: str, *, source_pdf_sha256: str, filename: str,
         if any(s.endswith(suf) for suf in _BROKER_SUFFIXES):
             broker = s
             break
+
+    # PR #37: conservative second-pass — only fires when the primary scan
+    # above returned empty, never overrides. Adds research-center / equity
+    # research suffix patterns from the document head region with strict
+    # line-shape filters (see `_detect_broker_header_research_suffix`).
+    if not broker:
+        broker = _detect_broker_header_research_suffix(text)
 
     # Ticker hint: from filename's first '[...]' block if present.
     ticker_hint = ""
