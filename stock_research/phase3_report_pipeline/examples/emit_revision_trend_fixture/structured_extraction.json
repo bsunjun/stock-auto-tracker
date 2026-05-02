@@ -1,0 +1,42 @@
+[
+  {
+    "_fixture_note": "Provides metric for case high_conviction_op_up_15pct.",
+    "source_pdf_sha256": "aaaa00000001aaaa00000001aaaa00000001aaaa00000001aaaa00000001aaaa",
+    "metric": "operating_profit"
+  },
+  {
+    "_fixture_note": "Provides metric for case high_conviction_eps_up_8pct.",
+    "source_pdf_sha256": "aaaa00000002aaaa00000002aaaa00000002aaaa00000002aaaa00000002aaaa",
+    "metric": "eps"
+  },
+  {
+    "_fixture_note": "Provides metric for case marginal_review_up_2pct_below_threshold.",
+    "source_pdf_sha256": "aaaa00000003aaaa00000003aaaa00000003aaaa00000003aaaa00000003aaaa",
+    "metric": "sales"
+  },
+  {
+    "_fixture_note": "Provides metric for case marginal_review_flat.",
+    "source_pdf_sha256": "aaaa00000004aaaa00000004aaaa00000004aaaa00000004aaaa00000004aaaa",
+    "metric": "net_income"
+  },
+  {
+    "_fixture_note": "Provides metric for case downside_guard_excluded_down.",
+    "source_pdf_sha256": "aaaa00000005aaaa00000005aaaa00000005aaaa00000005aaaa00000005aaaa",
+    "metric": "operating_profit"
+  },
+  {
+    "_fixture_note": "target_price metric for case data_insufficient_target_price_only — must be classified as data_insufficient + is_target_price_only=true (NEVER high_conviction).",
+    "source_pdf_sha256": "aaaa00000006aaaa00000006aaaa00000006aaaa00000006aaaa00000006aaaa",
+    "metric": "target_price"
+  },
+  {
+    "_fixture_note": "Provides metric for case data_insufficient_horizon_empty (horizon-empty triggers data_insufficient regardless of metric).",
+    "source_pdf_sha256": "aaaa00000008aaaa00000008aaaa00000008aaaa00000008aaaa00000008aaaa",
+    "metric": "operating_profit"
+  },
+  {
+    "_fixture_note": "Provides metric for case marginal_review_old_target_zero (operating_profit primary; old=0 makes delta undefined).",
+    "source_pdf_sha256": "aaaa00000009aaaa00000009aaaa00000009aaaa00000009aaaa00000009aaaa",
+    "metric": "operating_profit"
+  }
+]
