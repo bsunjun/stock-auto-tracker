@@ -1,0 +1,17 @@
+SampleCo Securities
+SAMPLECO_EPS_NOT_OP (KRX:000999)
+2026.04.30 보고서
+
+SAMPLECO_EPS_NOT_OP — synthetic fixture for PR #46 (Targeted Validation
+Pack v3 finding). Mirrors the 에코프로비엠 IBK report shape where the
+revision row is EPS, NOT operating profit. The values 217 → 604 fall
+into a magnitude band that could plausibly be misread as an OP value
+in 십억원 by a downstream stage; the parser must classify this row
+under canonical metric `eps`, never `operating_profit`.
+
+[표3. 실적 전망 2026E (단위: 원, EPS는 주당)]
+
+                     변경 전          변경 후
+EPS (원)                217              604
+
+목표주가 80,000원 → 95,000원 (상향)

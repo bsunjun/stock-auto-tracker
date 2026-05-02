@@ -1,0 +1,22 @@
+SampleCo Securities
+SAMPLECO_HORIZON_MISMATCH_NO_PAIR (KRX:000997)
+2026.04.30 보고서
+
+SAMPLECO_HORIZON_MISMATCH_NO_PAIR — synthetic fixture for PR #46.
+Two-horizon variant table where 1Q26F values and 2026F values must
+NEVER be paired across horizons. With per-row token shape
+[1Q26F_old, 2026F_old, 1Q26F_new, 2026F_new], a naive picker that
+emits `(nums[0], nums[1])` would produce a (1Q26F_old → 2026F_old)
+pair — same column, different horizon. PR #46 refuses any such
+pairing (4-token-or-more variant rows rejected; gap_hint surfaces
+'multi_horizon_variant_row_no_pair').
+
+[표3. 실적 추정 (단위: 십억원)]
+
+                  변경 전              변경 후
+                1Q26F  2026F        1Q26F  2026F
+매출액            300   2,800         320   2,950
+영업이익            8     180          12     205
+지배순이익          5     150           8     170
+
+목표주가 60,000원 → 65,000원 (상향)
