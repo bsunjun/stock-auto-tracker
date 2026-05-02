@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/schemas/screened_candidate_pack.schema.json",
+  "title": "PBKR Screened Candidate Pack v1",
+  "description": "Output of scripts/screen_candidates.py. Lists rows that survived the hard exclude and pass at least passing_threshold soft filters. This is a candidate review pack, NOT a trade-signal pack.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "asof_date",
+    "universe_size",
+    "hard_exclude_count",
+    "passing_threshold",
+    "candidates",
+    "direct_trade_signal"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "screened_candidate_pack_v1"
+    },
+    "asof_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "universe_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hard_exclude_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passing_threshold": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "direct_trade_signal": {
+      "type": "boolean",
+      "const": false
+    },
+    "trade_signal": {
+      "type": "null"
+    },
+    "filter_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ticker",
+          "pass_count",
+          "screen_score",
+          "passed_filters",
+          "features"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sector": { "type": ["string", "null"] },
+          "pass_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "screen_score": {
+            "type": "number"
+          },
+          "passed_filters": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "failed_filters": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "reasons": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "features": {
+            "type": "object",
+            "description": "Snapshot of the feature row for downstream human review.",
+            "additionalProperties": true
+          },
+          "human_review_required": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
