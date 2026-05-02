@@ -248,6 +248,145 @@
       "filename": "20260430_[LX인터내셔널] 분기 1천억원대 이익 체력 회복.pdf",
       "expected": "KRX:001120",
       "_note": "PR #32: empty ticker + filename bracket fallback resolves LX인터내셔널 → KRX:001120 (PR #22 fallback path)."
+    },
+    {
+      "case": "pr35_canonical_hyundai_eng",
+      "value": "현대건설",
+      "filename": "",
+      "expected": "KRX:000720"
+    },
+    {
+      "case": "pr35_canonical_daewoo_eng",
+      "value": "대우건설",
+      "filename": "",
+      "expected": "KRX:047040"
+    },
+    {
+      "case": "pr35_canonical_hanwha_solutions",
+      "value": "한화솔루션",
+      "filename": "",
+      "expected": "KRX:009830"
+    },
+    {
+      "case": "pr35_alias_hanwha_chemical_legacy",
+      "value": "한화케미칼",
+      "filename": "",
+      "expected": "KRX:009830",
+      "_note": "PR #35: legacy name 한화케미칼 → 한화솔루션 KRX:009830."
+    },
+    {
+      "case": "pr35_canonical_hankook_tire_tech",
+      "value": "한국타이어앤테크놀로지",
+      "filename": "",
+      "expected": "KRX:161390"
+    },
+    {
+      "case": "pr35_alias_hankook_tire_legacy",
+      "value": "한국타이어",
+      "filename": "",
+      "expected": "KRX:161390",
+      "_note": "PR #35: 2019 rename 한국타이어 → 한국타이어앤테크놀로지 KRX:161390 (operating co)."
+    },
+    {
+      "case": "pr35_canonical_lotte_fine_chemical",
+      "value": "롯데정밀화학",
+      "filename": "",
+      "expected": "KRX:004000"
+    },
+    {
+      "case": "pr35_alias_samsung_fine_chemical_legacy",
+      "value": "삼성정밀화학",
+      "filename": "",
+      "expected": "KRX:004000",
+      "_note": "PR #35: 2016 rename 삼성정밀화학 → 롯데정밀화학 KRX:004000."
+    },
+    {
+      "case": "pr35_canonical_lotte_rental",
+      "value": "롯데렌탈",
+      "filename": "",
+      "expected": "KRX:089860"
+    },
+    {
+      "case": "pr35_canonical_lotte_himart",
+      "value": "롯데하이마트",
+      "filename": "",
+      "expected": "KRX:071840"
+    },
+    {
+      "case": "pr35_canonical_cheil_worldwide",
+      "value": "제일기획",
+      "filename": "",
+      "expected": "KRX:030000"
+    },
+    {
+      "case": "pr35_canonical_nexen_tire",
+      "value": "넥센타이어",
+      "filename": "",
+      "expected": "KRX:002350"
+    },
+    {
+      "case": "pr35_canonical_kumho_tire",
+      "value": "금호타이어",
+      "filename": "",
+      "expected": "KRX:073240"
+    },
+    {
+      "case": "pr35_canonical_taihan_cable",
+      "value": "대한전선",
+      "filename": "",
+      "expected": "KRX:001440"
+    },
+    {
+      "case": "pr35_canonical_intellian_tech",
+      "value": "인텔리안테크",
+      "filename": "",
+      "expected": "KRX:189300"
+    },
+    {
+      "case": "pr35_canonical_hk_innon",
+      "value": "HK이노엔",
+      "filename": "",
+      "expected": "KRX:195940"
+    },
+    {
+      "case": "pr35_canonical_kg_mobility",
+      "value": "KG모빌리티",
+      "filename": "",
+      "expected": "KRX:003620"
+    },
+    {
+      "case": "pr35_alias_ssangyong_motor_legacy",
+      "value": "쌍용자동차",
+      "filename": "",
+      "expected": "KRX:003620",
+      "_note": "PR #35: 2023 rename 쌍용자동차 → KG모빌리티 KRX:003620."
+    },
+    {
+      "case": "pr35_canonical_im_financial",
+      "value": "iM금융지주",
+      "filename": "",
+      "expected": "KRX:139130"
+    },
+    {
+      "case": "pr35_alias_dgb_financial_legacy",
+      "value": "DGB금융지주",
+      "filename": "",
+      "expected": "KRX:139130",
+      "_note": "PR #35: 2024 rename DGB금융지주 → iM금융지주 KRX:139130."
+    },
+    {
+      "case": "pr35_unresolved_daehan_shipyard_governance",
+      "value": "대한조선",
+      "filename": "20260430_[대한조선] 순수 이익.pdf",
+      "expected": null,
+      "_note": "PR #35: 대한조선 explicitly governance-excluded (private/non-KRX). Even with filename bracket fallback, MUST stay unresolved."
+    },
+    {
+      "case": "pr35_unresolved_hanwha_vision_pending",
+      "value": "한화비전",
+      "filename": "",
+      "expected": null,
+      "_note": "PR #35: 한화비전 still pending verification (TICKER_MAP_TODO); MUST stay unresolved until KIND/DART confirms code."
     }
   ]
 }
