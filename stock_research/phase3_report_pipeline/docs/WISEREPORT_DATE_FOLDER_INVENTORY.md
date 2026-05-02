@@ -66,8 +66,11 @@ python3 scripts/build_wisereport_inventory.py \
     "skipped_non_pdf_count": int,
     "capped_company_count": int,
     "capped_industry_count": int,
-    "direct_trade_signal_true_count": 0
+    "direct_trade_signal_true_count": 0,
+    "selected_alias_count": int,
+    "selected_alias_matches_company": true
   },
+  "selected": [ /* PR #40: byte-equal mirror of selected_company[] */ ],
   "selected_company": [
     {
       "report_date": "2026-04-30",
@@ -128,7 +131,7 @@ extension).
 | `20260430_no_brackets_either.pdf` | `malformed[]` reason=`no_bracket_segment` |
 | 기타 회귀 실패 | `malformed[]` reason=`regex_match_failed` |
 
-## Invariants (PR #39 가드)
+## Invariants (PR #39 + PR #40 가드)
 
 - `--out` repo 안 + `--apply` → exit 2.
 - `--max-*-pdfs > 50` → exit 2 (HARD_MAX 침범).
@@ -138,6 +141,12 @@ extension).
 - sha256 prefix 12 hex 만 노출 (PDF body fingerprint 누출 방지).
 - `selected_industry[]` 는 절대 parser / bridge / merge / build / emit 으로
   흘러가지 않는다 (스키마상 `summary_queue=true` 로만 표시).
+- **PR #40 alias 보장**:
+  * top-level `selected[]` 는 `selected_company[]` 와 byte-equal (per-index sha 동일).
+  * `summary.selected_alias_count == len(selected) == len(selected_company)`.
+  * `summary.selected_alias_matches_company == true`.
+  * `selected[]` 는 `selected_industry[]` 의 sha 를 단 하나도 포함하지 않는다 (industry isolation 유지).
+  * fixture self-test (`run_wisereport_inventory_fixture.py`) 의 chain-runner integration smoke 가 회사+산업 혼합 inventory 를 chain runner 에 흘려서 회사 entry 만 parser 에 들어가는지 end-to-end 검증.
 
 ## 호환 흐름
 

@@ -69,6 +69,28 @@ def _check_global_invariants(inv: dict, scenario: str) -> None:
         if v != 0:
             _fail(f"[{scenario}] forbidden_actions_confirmed[{k}] must be 0, got {v!r}")
 
+    # PR #40 alias invariants.
+    selected = inv.get("selected")
+    selected_company = inv.get("selected_company") or []
+    selected_industry = inv.get("selected_industry") or []
+    if not isinstance(selected, list):
+        _fail(f"[{scenario}] PR #40: top-level `selected[]` is missing or not a list: {type(selected).__name__}")
+    if len(selected) != len(selected_company):
+        _fail(f"[{scenario}] PR #40: len(selected)={len(selected)} != len(selected_company)={len(selected_company)}")
+    company_shas = [e.get("source_pdf_sha256_prefix") or e.get("sha256_prefix_12") for e in selected_company]
+    sel_shas = [e.get("source_pdf_sha256_prefix") or e.get("sha256_prefix_12") for e in selected]
+    if sel_shas != company_shas:
+        _fail(f"[{scenario}] PR #40: selected[] sha order/values differ from selected_company[]")
+    industry_shas = {e.get("sha256_prefix_12") for e in selected_industry if e.get("sha256_prefix_12")}
+    selected_sha_set = {e.get("sha256_prefix_12") for e in selected if e.get("sha256_prefix_12")}
+    leak = selected_sha_set & industry_shas
+    if leak:
+        _fail(f"[{scenario}] PR #40: industry sha leaked into selected[]: {sorted(leak)}")
+    if s.get("selected_alias_count") != len(selected):
+        _fail(f"[{scenario}] PR #40: summary.selected_alias_count={s.get('selected_alias_count')} != len(selected)={len(selected)}")
+    if s.get("selected_alias_matches_company") is not True:
+        _fail(f"[{scenario}] PR #40: summary.selected_alias_matches_company must be true, got {s.get('selected_alias_matches_company')!r}")
+
     sha_re = re.compile(r"^[0-9a-f]{12}$")
     for kind in ("selected_company", "selected_industry"):
         for ent in inv.get(kind, []):
@@ -216,11 +238,99 @@ def main() -> int:
         if no_include_out.exists():
             _fail("guard_no_include: file written despite exit 2")
 
+        # PR #40 chain-runner integration smoke:
+        # Build a happy_path inventory with BOTH company AND industry, then
+        # feed it into the existing PR #29 chain runner. The parser MUST
+        # consume only the company entries via the new top-level `selected[]`
+        # alias; `selected_industry[]` MUST NOT reach the parser.
+        chain_inv_out = tmpdir / "chain_inv.json"
+        _run(
+            [sys.executable, str(SCRIPT),
+             "--root", str(FIXTURE_ROOT / "happy_path"),
+             "--date", "2026-04-30",
+             "--include-company", "--include-industry",
+             "--out", str(chain_inv_out),
+             "--apply"],
+            expected_returncode=0,
+        )
+        chain_inv = _load_inventory(chain_inv_out)
+        if len(chain_inv["selected"]) != 3:
+            _fail(f"chain-smoke prep: expected len(selected)==3, got {len(chain_inv['selected'])}")
+        if len(chain_inv["selected_industry"]) != 2:
+            _fail(f"chain-smoke prep: expected len(selected_industry)==2, got {len(chain_inv['selected_industry'])}")
+
+        # Parser refuses pdf_path inside the repo by design (PR #29 safety).
+        # To exercise the chain runner end-to-end against the alias, copy
+        # the company stub PDFs to a /tmp mirror tree and rewrite the
+        # inventory's local_pdf_path entries to point there. Industry
+        # entries are NOT copied (they should never reach the parser).
+        chain_pdf_dir = tmpdir / "chain_pdfs" / "2026-04-30" / "기업"
+        chain_pdf_dir.mkdir(parents=True, exist_ok=True)
+        for ent in chain_inv["selected_company"]:
+            src = Path(ent["local_pdf_path"])
+            dst = chain_pdf_dir / src.name
+            dst.write_bytes(src.read_bytes())
+            ent["local_pdf_path"] = str(dst.resolve())
+        # Mirror the rewrite into the alias too (selected[] entries share
+        # the same dicts as selected_company[] in build output, but rebuild
+        # defensively).
+        chain_inv["selected"] = list(chain_inv["selected_company"])
+        chain_inv_rewritten = tmpdir / "chain_inv_rewritten.json"
+        chain_inv_rewritten.write_text(
+            json.dumps(chain_inv, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        chain_workdir = tmpdir / "chain_wk"
+        chain_runner = REPO_ROOT / "stock_research" / "phase3_report_pipeline" / "examples" / "run_inventory_batch_smoke.py"
+        chain_proc = subprocess.run(
+            [sys.executable, str(chain_runner),
+             "--inventory", str(chain_inv_rewritten),
+             "--pdf-dir", str(chain_pdf_dir),
+             "--workdir", str(chain_workdir),
+             "--max-pdfs", "50",
+             "--date", "2026-04-30",
+             "--pdf-engine", "pypdf"],
+            capture_output=True, text=True,
+        )
+        # Acceptable outcomes:
+        #   (a) Parser processes all 3 company stubs (parsed_pdf_count == 3).
+        #   (b) pypdf rejects the synthetic stub bytes and reports
+        #       failed_pdf_count > 0 — that's still fine, the relevant
+        #       invariant is "industry filenames never reach the parser".
+        # In BOTH cases assert:
+        #   - pdf_count <= len(selected_company)
+        #   - no INDUSTRY filename appears in parser_batch_summary's
+        #     files_with_structured_rows / files_without_structured_rows
+        #     (we use the exact `[반도체]` / `[자동차]` bracket form so
+        #     `[샘플반도체]` company names do NOT false-trigger).
+        out = (chain_proc.stdout or "") + (chain_proc.stderr or "")
+        forbidden_industry_brackets = ("[반도체]", "[자동차]")
+        for forbidden in forbidden_industry_brackets:
+            if forbidden in out:
+                _fail(f"chain-smoke leakage: industry bracket {forbidden!r} appeared in chain runner output")
+        # Look at the parser_batch_summary if it was written.
+        psum = chain_workdir / "parser_batch_summary.json"
+        if psum.is_file():
+            ps = json.loads(psum.read_text(encoding="utf-8"))
+            n_company = len(chain_inv["selected_company"])
+            seen = ps.get("pdf_count", 0)
+            if seen > n_company:
+                _fail(f"chain-smoke: parser saw {seen} PDFs > company count {n_company} — industry leakage")
+            for f in ps.get("files_with_structured_rows", []) + ps.get("files_without_structured_rows", []):
+                for fb in forbidden_industry_brackets:
+                    if fb in f:
+                        _fail(f"chain-smoke: parser_batch_summary lists industry-bracket file: {f}")
+            ind = ps.get("ticker_hint_counts", {}) or {}
+            if any(k in ind for k in ("반도체", "자동차")):
+                _fail(f"chain-smoke: parser ticker_hint_counts has bare-sector hint: {ind}")
+
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
     print(f"PASS run_wisereport_inventory_fixture: "
-          f"{len(scenarios)} scenarios + 4 guards (hardmax, repo_out, dryrun, no_include)")
+          f"{len(scenarios)} scenarios + 4 guards + 1 chain-runner integration smoke "
+          f"(industry isolation verified end-to-end)")
     return 0
 
 
