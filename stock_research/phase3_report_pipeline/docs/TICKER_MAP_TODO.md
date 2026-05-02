@@ -72,6 +72,52 @@ Recently added (PR #32 — 3rd expansion)
   in the same smoke. Aliases added: `엘지이노텍`, `LG INNOTEK`,
   `LG Innotek`.
 
+Recently added (PR #35 — 4th expansion)
+---------------------------------------
+Surfaced as `ticker_unresolved` in the PR #34 100-PDF wider smoke
+(50 + 50 chunks; HARD_MAX_PDFS=50 preserved). Each row added below
+reflects a KRX-listed canonical name with the code re-confirmed
+against KRX listing portal / DART corp registry; legacy renames are
+recorded as aliases so historical filings still resolve.
+
+| company_name_kr | ticker | market | aliases / notes |
+| --- | --- | --- | --- |
+| `현대건설` | `KRX:000720` | KOSPI | `Hyundai E&C`, `Hyundai Engineering & Construction` |
+| `대우건설` | `KRX:047040` | KOSPI | `Daewoo E&C`, `Daewoo Engineering & Construction` |
+| `한화솔루션` | `KRX:009830` | KOSPI | `한화케미칼`, `Hanwha Solutions`, `Hanwha Chemical` (renamed 2020) |
+| `한국타이어앤테크놀로지` | `KRX:161390` | KOSPI | `한국타이어`, `Hankook Tire`, `Hankook Tire & Technology` (renamed 2019; holdco is `한국앤컴퍼니 KRX:000240`) |
+| `롯데정밀화학` | `KRX:004000` | KOSPI | `삼성정밀화학`, `Lotte Fine Chemical` (renamed 2016) |
+| `롯데렌탈` | `KRX:089860` | KOSPI | `Lotte Rental` (2021 IPO) |
+| `롯데하이마트` | `KRX:071840` | KOSPI | `Lotte Himart` |
+| `제일기획` | `KRX:030000` | KOSPI | `Cheil Worldwide` |
+| `넥센타이어` | `KRX:002350` | KOSPI | `Nexen Tire` |
+| `금호타이어` | `KRX:073240` | KOSPI | `Kumho Tire` |
+| `대한전선` | `KRX:001440` | KOSPI | `Taihan Cable & Solution` |
+| `인텔리안테크` | `KRX:189300` | KOSDAQ | `Intellian Technologies` |
+| `HK이노엔` | `KRX:195940` | KOSDAQ | `HK inno.N` (2021 IPO) |
+| `KG모빌리티` | `KRX:003620` | KOSPI | `쌍용자동차`, `Ssangyong Motor`, `KG Mobility` (renamed 2023) |
+| `iM금융지주` | `KRX:139130` | KOSPI | `DGB금융지주`, `DGB Financial Group`, `iM Financial` (renamed 2024) |
+
+Pending verification (NOT added by PR #35)
+------------------------------------------
+The following surfaced in the PR #34 100-PDF smoke but their codes
+were not added in PR #35 either because the canonical company is a
+recent rename / split / new listing, or because the code could not be
+confirmed against an authoritative source at PR #35 merge time. Each
+should be re-verified against KIND/DART before any future addition.
+
+| company_name_kr | proposed code | market | notes |
+| --- | --- | --- | --- |
+| 한화비전 | KRX:013570 (?) | KOSPI | Surfaced in 2026-04-30 search results; Hanwha Group surveillance carve-out. Code requires re-confirmation; KRX:013570 belongs to a different issuer (디와이파워) per PR #25 review. |
+| 저스템 | (?) | KOSDAQ | Recent IPO; KRX code requires confirmation against KIND. |
+| LIG디펜스앤에어로스페이스 | (?) | KOSPI (?) | Newer name surfaced in 2026-04-30 cohort; possible recent spinoff/rename. Not yet confirmed against KIND. |
+| RFHIC | (?) | KOSDAQ | Surfaced ×2 in PR #34 cohort. KOSDAQ-listed semiconductor RF company; code not yet confirmed at PR #35 merge time. |
+| RF머트리얼즈 | (?) | KOSDAQ | Surfaced ×2 in PR #34 cohort. Code not yet confirmed. |
+| 샘씨엔에스 | (?) | KOSDAQ (?) | Surfaced ×1; code not yet confirmed. |
+| 세나테크놀로지 | (?) | KOSDAQ (?) | Surfaced ×1; code not yet confirmed. |
+| 에치에프알 (HFR) | KRX:230240 (?) | KOSDAQ | Surfaced ×1; KOSDAQ-listed networking equipment company. Code requires KIND confirmation before adding. |
+| 환인제약 | KRX:016580 (?) | KOSPI/KOSDAQ (?) | Surfaced ×1; both code and exact market need re-verification before adding. |
+
 Add to this table whenever you encounter a Korean company name in a
 WiseReport PDF that the resolver returns `None` for AND the company
 appears to be listed but you cannot cite the code immediately. The

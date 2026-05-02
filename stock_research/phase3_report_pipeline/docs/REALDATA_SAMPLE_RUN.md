@@ -493,6 +493,40 @@ rm -rf "$PR14_WORKDIR"
   context-allowed, arrow-pair-legacy, and mixed cases. PR #12-#26
   regression byte-identical (PR #26 flat fixture's structured row
   unchanged; only its breakdown changes by intent).
+- **PR #35 (ticker_map 4th expansion + bridge ticker hints, IN
+  REVIEW)** — bridge / ticker_map enhancement only; parser code is
+  untouched. Adds **15 KRX-listed canonical entries** to
+  `resources/ticker_map.csv` (현대건설 KRX:000720, 대우건설
+  KRX:047040, 한화솔루션 KRX:009830, 한국타이어앤테크놀로지
+  KRX:161390, 롯데정밀화학 KRX:004000, 롯데렌탈 KRX:089860,
+  롯데하이마트 KRX:071840, 제일기획 KRX:030000, 넥센타이어
+  KRX:002350, 금호타이어 KRX:073240, 대한전선 KRX:001440,
+  인텔리안테크 KRX:189300, HK이노엔 KRX:195940, KG모빌리티
+  KRX:003620, iM금융지주 KRX:139130) plus relevant aliases
+  (`한화케미칼`, `한국타이어`, `삼성정밀화학`, `쌍용자동차`,
+  `DGB금융지주`) to capture historical filings under their
+  pre-rename names. Governance excluded entirely: `대한조선`
+  (private/non-KRX), and 8 candidates with codes still requiring
+  KIND/DART confirmation (`한화비전`, `LIG디펜스앤에어로스페이스`,
+  `RFHIC`, `RF머트리얼즈`, `샘씨엔에스`, `세나테크놀로지`,
+  `에치에프알`, `환인제약`, `저스템`) remain in
+  `docs/TICKER_MAP_TODO.md`. `ticker_resolver --verify`: PASS — 104
+  rows / 122 aliases / 226 lookup keys / 84 KOSPI + 20 KOSDAQ; 0
+  duplicate canonical / 0 duplicate ticker / 0 alias collision.
+  `ticker_resolver_fixture` 37 → **59** PASS (+22 cases including
+  alias re-resolution and the 2 governance-excluded must-stay-
+  unresolved cases); `bridge_filename_fallback_fixture` unchanged
+  at 13/13. PR #12-#34 parser inventories byte-identical (no parser
+  code changed). Templates md5 unchanged
+  (`6090bfeb9242b17f0fdf653c792d82d7`). Post-PR-#35 100-PDF
+  official `--pdf-dir` runner re-smoke (50 + 50 chunks; same
+  cohorts as PR #34 baseline): **bridge.ticker_resolved 57 → 89
+  (+32), ticker_unresolved 43 → 11 (only governance-excluded /
+  TODO-pending companies remain), build accepted 3 → 9 (+6; `up` 3
+  → 6, `down` 0 → 3), build.ticker_not_krx reject 43 → 11**.
+  parser counters unchanged: `structured_rows_total = 15`,
+  `direct_trade_signal_true_count = 0`, all 10
+  `gap_reason_counts` byte-identical to PR #34 baseline.
 - **PR #34 (no_metric_pair window-shape sub-taxonomy, IN REVIEW)** —
   refines the legacy `no_metric_pair` bucket (17 / 50 PDFs in the
   PR #33 wider 50-PDF official smoke) via a window-shape classifier
