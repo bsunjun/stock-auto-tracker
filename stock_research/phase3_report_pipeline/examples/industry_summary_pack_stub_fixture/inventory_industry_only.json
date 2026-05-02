@@ -1,0 +1,54 @@
+{
+  "schema": "phase3:wisereport_date_folder_inventory:v1",
+  "_note": "PR #41 fixture — industry-only inventory: selected_company[] / selected[] empty. The stub generator emits stubs for all selected_industry entries; selected_company_ignored_count == 0.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_company": false,
+  "include_industry": true,
+  "max_company_pdfs": 50,
+  "max_industry_pdfs": 50,
+  "summary": {
+    "company_pdf_count": 0,
+    "industry_pdf_count": 1,
+    "malformed_filename_count": 0,
+    "duplicate_basename_count": 0,
+    "skipped_non_pdf_count": 0,
+    "capped_company_count": 0,
+    "capped_industry_count": 0,
+    "direct_trade_signal_true_count": 0,
+    "selected_alias_count": 0,
+    "selected_alias_matches_company": true
+  },
+  "selected": [],
+  "selected_company": [],
+  "selected_industry": [
+    {
+      "report_date": "2026-04-30",
+      "report_type": "industry",
+      "filename": "20260430_[항공사] 시험대.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/산업/20260430_[항공사] 시험대.pdf",
+      "sector_hint": "항공사",
+      "title_hint": "시험대",
+      "folder_type": "산업",
+      "sha256_prefix_12": "cccc00000001",
+      "direct_trade_signal": false,
+      "summary_queue": true
+    }
+  ],
+  "malformed": [],
+  "skipped_non_pdf": [],
+  "duplicate_basename": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "drive_deletes": 0,
+    "repo_writes": 0,
+    "rolling_apply": 0,
+    "promote_or_super_pack": 0,
+    "direct_trade_signal_true": 0,
+    "target_price_as_primary": 0,
+    "pdf_body_text_committed": 0
+  },
+  "generated_at": "2026-05-02T06:30:00Z"
+}

@@ -1,0 +1,124 @@
+{
+  "schema": "phase3:wisereport_date_folder_inventory:v1",
+  "_note": "PR #41 fixture inventory: BOTH selected_company[] and selected_industry[] populated. The stub generator MUST process selected_industry[] only and explicitly count selected_company[] as ignored. selected[] alias mirrors selected_company[] (PR #40), so selected_alias_ignored_count == selected_company_ignored_count.",
+  "root": "<synthetic>",
+  "date": "2026-04-30",
+  "include_company": true,
+  "include_industry": true,
+  "max_company_pdfs": 50,
+  "max_industry_pdfs": 50,
+  "summary": {
+    "company_pdf_count": 2,
+    "industry_pdf_count": 3,
+    "malformed_filename_count": 0,
+    "duplicate_basename_count": 0,
+    "skipped_non_pdf_count": 0,
+    "capped_company_count": 0,
+    "capped_industry_count": 0,
+    "direct_trade_signal_true_count": 0,
+    "selected_alias_count": 2,
+    "selected_alias_matches_company": true
+  },
+  "selected": [
+    {
+      "report_date": "2026-04-30",
+      "report_type": "company",
+      "filename": "20260430_[샘플전자] 1Q26 어닝.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/기업/20260430_[샘플전자] 1Q26 어닝.pdf",
+      "ticker_hint": "샘플전자",
+      "title_hint": "1Q26 어닝",
+      "folder_type": "기업",
+      "sha256_prefix_12": "aaaa00000001",
+      "direct_trade_signal": false
+    },
+    {
+      "report_date": "2026-04-30",
+      "report_type": "company",
+      "filename": "20260430_[샘플반도체] 메모리 가격.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/기업/20260430_[샘플반도체] 메모리 가격.pdf",
+      "ticker_hint": "샘플반도체",
+      "title_hint": "메모리 가격",
+      "folder_type": "기업",
+      "sha256_prefix_12": "aaaa00000002",
+      "direct_trade_signal": false
+    }
+  ],
+  "selected_company": [
+    {
+      "report_date": "2026-04-30",
+      "report_type": "company",
+      "filename": "20260430_[샘플전자] 1Q26 어닝.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/기업/20260430_[샘플전자] 1Q26 어닝.pdf",
+      "ticker_hint": "샘플전자",
+      "title_hint": "1Q26 어닝",
+      "folder_type": "기업",
+      "sha256_prefix_12": "aaaa00000001",
+      "direct_trade_signal": false
+    },
+    {
+      "report_date": "2026-04-30",
+      "report_type": "company",
+      "filename": "20260430_[샘플반도체] 메모리 가격.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/기업/20260430_[샘플반도체] 메모리 가격.pdf",
+      "ticker_hint": "샘플반도체",
+      "title_hint": "메모리 가격",
+      "folder_type": "기업",
+      "sha256_prefix_12": "aaaa00000002",
+      "direct_trade_signal": false
+    }
+  ],
+  "selected_industry": [
+    {
+      "report_date": "2026-04-30",
+      "report_type": "industry",
+      "filename": "20260430_[반도체] 1Q 업황 점검.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/산업/20260430_[반도체] 1Q 업황 점검.pdf",
+      "sector_hint": "반도체",
+      "title_hint": "1Q 업황 점검",
+      "folder_type": "산업",
+      "sha256_prefix_12": "bbbb00000001",
+      "direct_trade_signal": false,
+      "summary_queue": true
+    },
+    {
+      "report_date": "2026-04-30",
+      "report_type": "industry",
+      "filename": "20260430_[자동차] 4월 판매 동향.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/산업/20260430_[자동차] 4월 판매 동향.pdf",
+      "sector_hint": "자동차",
+      "title_hint": "4월 판매 동향",
+      "folder_type": "산업",
+      "sha256_prefix_12": "bbbb00000002",
+      "direct_trade_signal": false,
+      "summary_queue": true
+    },
+    {
+      "report_date": "2026-04-30",
+      "report_type": "industry",
+      "filename": "20260430_[화학] 2차전지 Weekly.pdf",
+      "local_pdf_path": "/synthetic/2026-04-30/산업/20260430_[화학] 2차전지 Weekly.pdf",
+      "sector_hint": "화학",
+      "title_hint": "2차전지 Weekly",
+      "folder_type": "산업",
+      "sha256_prefix_12": "bbbb00000003",
+      "direct_trade_signal": false,
+      "summary_queue": true
+    }
+  ],
+  "malformed": [],
+  "skipped_non_pdf": [],
+  "duplicate_basename": [],
+  "forbidden_actions_confirmed": {
+    "ocr_or_vision_or_api_calls": 0,
+    "drive_writes": 0,
+    "drive_renames": 0,
+    "drive_deletes": 0,
+    "repo_writes": 0,
+    "rolling_apply": 0,
+    "promote_or_super_pack": 0,
+    "direct_trade_signal_true": 0,
+    "target_price_as_primary": 0,
+    "pdf_body_text_committed": 0
+  },
+  "generated_at": "2026-05-02T06:30:00Z"
+}

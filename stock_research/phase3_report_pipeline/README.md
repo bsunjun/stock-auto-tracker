@@ -39,6 +39,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #37: broker autodetect — parser broker metadata detection 보수적 second-pass. 기존 `_BROKER_SUFFIXES` (`증권` / `금융투자` / `자산운용`) primary 경로는 그대로 보존하고, primary 가 비었을 때만 새 helper `_detect_broker_header_research_suffix` 가 document head 영역 (첫 15 non-empty lines) 에서 한정된 suffix 집합 (`리서치센터` / `리서치본부` / `리서치 센터` / `리서치 본부` / `Research Center` / `Equity Research`) 을 line-end 에 anchor 해 매칭. 회사명 / 섹터 / 애널리스트 콘택트 / 표 헤더는 `[`/`목표주가` 포함, line length > 80, digit count > 5 라인-shape 필터로 reject. metric extraction logic 변경 없음 — gap_reason / structured_rows 는 byte-identical. 5 신규 synthetic fixture (3 positive + 2 negative).
 │   ├── emit_revision_trend.py            # PR #38 — `build_report_estimate_v132 --strict --apply` accepted rows → `REPORT_REVISION_TREND` / `REPORT_ESTIMATE_HIGH_TABLE_CANDIDATES` 운영 산출물 (CSV + JSON + summary). dry-run 기본 / `--apply` 만 파일 생성 / `--output-dir` repo 안 거부. 분류 5종 (`high_conviction` / `margin_expansion` / `marginal_review` / `downside_guard_excluded` / `data_insufficient`). primary metric 4종 (operating_profit / net_income / sales / eps); `target_price` 는 secondary_reference 전용 (절대 high_conviction 안 됨). direction=down → `downside_guard_excluded` (high_table 후보 영구 제외). delta_pct ≥ 5% AND direction=up AND primary metric AND old_target ≠ 0 일 때만 `high_conviction`. parser / bridge / merge / build / ticker_map / broker autodetect 코드 변경 0 — 다운스트림 emit-only 추가. 9-case fixture (`emit_revision_trend_fixture/`) + self-test runner (`run_emit_revision_trend_fixture.py`) — 5/5 분류 버킷 + target_price-only / horizon-empty / direction-down / old_target=0 invariants 모두 cover.
 │   ├── build_wisereport_inventory.py     # PR #39 + PR #40 — `<root>/<YYYY-MM-DD>/{기업,산업}` 스캐너. operator-host local mount 또는 mounted Drive 기반. `--include-company` 는 PR #29 chain runner 의 `--inventory` 입력으로 그대로 흘러갈 수 있는 형태로 emit (ticker_hint, sha256_prefix_12, local_pdf_path 등); `--include-industry` 는 `summary_queue=true` 로 표시되어 다운스트림 LLM-summary 파이프라인 후보로만 보관 (parser 에 들어가지 않음). dry-run 기본; `--apply` 만 `--out` 파일 생성. `--out` repo 안 + `--apply` → exit 2. `--max-company-pdfs` / `--max-industry-pdfs` 둘 다 HARD_MAX=50; 초과 시 exit 2. 모든 entry `direct_trade_signal=false`; summary `direct_trade_signal_true_count=0` 강제. malformed filename / non-PDF / per-folder cap / missing 산업 dir 분기 모두 fixture 로 cover. parser / bridge / merge / build / emit / ticker_map / broker autodetect 코드 변경 0. **PR #40**: top-level `selected[]` alias 추가 — `extract_report_estimate_table.py` (`selected[]` 를 읽음) 와 `run_inventory_batch_smoke.py --inventory` 가 별도 adapter 없이 inventory 를 바로 소비. `selected[]` 는 `selected_company[]` 와 byte-equal mirror 이며 `selected_industry[]` 는 절대 alias 에 들어가지 않음 (industry isolation invariant 유지; chain-runner integration smoke 가 fixture self-test 에 포함).
+│   ├── build_industry_summary_pack_stub.py # PR #41 — `selected_industry[]` 만 입력으로 받아 `pending_llm_summary` stub pack (JSON + Markdown + summary) 을 emit. 11개 분석 필드는 빈 placeholder; `missing_verification[]` 에 모두 등록. `selected_company[]` / `selected[]` alias 는 무시 (industry-only). PDF 본문 절대 안 읽음 — filename / sha256_prefix_12 / sector_hint 만. `direct_trade_signal=false` / `trade_signal=null` / `status=pending_llm_summary` 강제. 입력에 `direct_trade_signal=true` 가 한 건이라도 있으면 exit 3. dry-run default; `--apply` 만 파일 생성; `--out-dir` repo 안 + `--apply` → exit 2; `--max-stubs` HARD_MAX=50. parser / bridge / merge / build / emit / ticker_map / broker autodetect / `build_wisereport_inventory.py` 코드 변경 0. 4 fixture scenario + 4 guard + static-grep self-test (`run_industry_summary_pack_stub_fixture.py`).
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
@@ -56,6 +57,8 @@ phase3_report_pipeline/
 │   ├── emit_revision_trend_fixture/       # PR #38 — accepted_rows / structured_extraction / expected_classifications fixture set
 │   ├── run_wisereport_inventory_fixture.py # PR #39 — build_wisereport_inventory.py 5-scenario + 4-guard self-test runner
 │   ├── wisereport_inventory_fixture/      # PR #39 — happy_path / malformed / non_pdf / cap_test / empty_industry sub-trees + expected_summaries.json
+│   ├── run_industry_summary_pack_stub_fixture.py # PR #41 — industry stub generator self-test (4 scenarios + 4 guards + static-grep)
+│   ├── industry_summary_pack_stub_fixture/ # PR #41 — fixture inventories: company_and_industry / industry_only / company_only / with_signal_true
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── resources/
 │   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)
@@ -237,6 +240,82 @@ python3 stock_research/phase3_report_pipeline/examples/run_wisereport_inventory_
 ```
 
 5 scenarios (happy_path / malformed / non_pdf / cap_test / empty_industry) + 4 guards (HARDMAX violation / repo-out + apply / dry-run no-write / no-include) — PASS 시에만 exit 0.
+
+## PR #41 — Industry-report LLM summary stub (`build_industry_summary_pack_stub.py`)
+
+PR #39 / PR #40 inventory 의 `selected_industry[]` 만 입력으로 받아 LLM (Claude / Gemini / GPT) 이 직접 채울 수 있는 `pending_llm_summary` stub pack 을 emit 한다. 이 단계는 PDF 본문을 절대 읽지 않으며, parser / bridge / merge / build / emit / ticker_map / broker autodetect 어느 곳도 변경하지 않는다.
+
+### Dry-run
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_industry_summary_pack_stub.py \
+    --inventory /tmp/wisereport_inventory.json \
+    --out-dir   /tmp/industry_summary_pack
+# (dry-run; 파일 작성 없음. summary 만 stdout)
+```
+
+### Apply
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_industry_summary_pack_stub.py \
+    --inventory /tmp/wisereport_inventory.json \
+    --out-dir   /tmp/industry_summary_pack \
+    --date      2026-04-30 \
+    --apply
+# /tmp/industry_summary_pack/2026-04-30/ 아래에:
+#   industry_summary_pack_stub.json     — list of phase3:industry_summary_pack_stub:v1
+#   industry_summary_pack_stub.md       — markdown 렌더링 (LLM 페이스트인 용)
+#   industry_summary_pack_stub_summary.json
+```
+
+### Stub 한 건의 모양
+
+```json
+{
+  "schema": "phase3:industry_summary_pack_stub:v1",
+  "report_date": "2026-04-30",
+  "sector": "반도체",
+  "report_title": "1Q 업황 점검",
+  "source_file_basename": "20260430_[반도체] 1Q 업황 점검.pdf",
+  "sha256_prefix_12": "bbbb00000001",
+  "sub_sector": "",       "broker_hint": "",
+  "core_thesis": "",
+  "demand_signal": "", "supply_signal": "", "price_signal": "",
+  "policy_signal": "", "capex_signal": "",
+  "value_chain": [], "beneficiary_candidates": [], "risk_flags": [],
+  "earnings_revision_link_possible": null,
+  "source_confidence": null,
+  "missing_verification": [
+    "sub_sector","broker_hint","core_thesis",
+    "demand_signal","supply_signal","price_signal",
+    "policy_signal","capex_signal",
+    "value_chain","beneficiary_candidates","risk_flags"
+  ],
+  "status": "pending_llm_summary",
+  "direct_trade_signal": false,
+  "trade_signal": null
+}
+```
+
+LLM 이 채워야 하는 11개 분석 필드 + 2개 nullable 필드의 정의는 [`docs/INDUSTRY_REPORT_LLM_SUMMARY_TEMPLATE.md`](docs/INDUSTRY_REPORT_LLM_SUMMARY_TEMPLATE.md) 에, Gemini / Claude / GPT 별 핸드오프 프롬프트는 [`docs/INDUSTRY_REPORT_HANDOFF_PROMPTS.md`](docs/INDUSTRY_REPORT_HANDOFF_PROMPTS.md) 에 명시.
+
+### Invariant 가드
+
+- **industry-only**: `selected_company[]` / `selected[]` alias 는 무시. `summary.selected_company_ignored_count` / `summary.selected_alias_ignored_count` 가 ignored 카운트를 명시.
+- **trade-signal-free**: 모든 stub `direct_trade_signal=false` + `trade_signal=null` + `status=pending_llm_summary` 강제. 입력 industry entry 가 `direct_trade_signal=true` 면 exit 3 (defense-in-depth — `build_wisereport_inventory.py` 가 false 만 emit 하지만 손편집된 inventory 방어).
+- **PDF 본문 미접근**: `local_pdf_path` 를 절대 열지 않음 — filename / sha256_prefix_12 / sector_hint 메타만 사용.
+- **dry-run default**: `--apply` 명시 시에만 파일 생성. `rolling_append.py`, `latest`, `promote`, `Super Pack` 절대 호출하지 않음.
+- **`--out-dir` repo 안 거부**: `--apply` + repo 하위 → exit 2.
+- **`--max-stubs > 50` 거부**: HARD_MAX=50 (PR #39 per-folder cap 과 동일).
+- **inventory schema 강제**: `phase3:wisereport_date_folder_inventory:v1` 이 아닌 입력 → exit 2.
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack_stub_fixture.py
+```
+
+4 scenarios (company_and_industry / industry_only / company_only / with_signal_true) + 4 guards (repo-out + apply / max-stubs > 50 / dry-run no-write / wrong inventory schema) + static-grep (stub 생성기가 `selected_company[]` / `selected[]` alias 를 iterate 하지 않음). PASS 시에만 exit 0.
 
 ## What this pack does NOT do
 

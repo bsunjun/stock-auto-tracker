@@ -890,6 +890,56 @@ python3 stock_research/phase3_report_pipeline/examples/run_wisereport_inventory_
 
 5 scenarios + 4 guards. PASS 시에만 exit 0.
 
+## PR #41 — Industry-report LLM summary stub (`build_industry_summary_pack_stub.py`)
+
+PR #39/PR #40 inventory 의 `selected_industry[]` 를 LLM (Claude / Gemini / GPT) 이 채울 수 있는 `pending_llm_summary` stub pack 으로 변환. PDF 본문은 절대 읽지 않으며, parser / bridge / merge / build / emit / ticker_map / broker autodetect 코드는 그대로 유지된다.
+
+### Dry-run
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_industry_summary_pack_stub.py \
+    --inventory /tmp/wisereport_inventory.json \
+    --out-dir   /tmp/industry_summary_pack
+```
+
+### Apply
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_industry_summary_pack_stub.py \
+    --inventory /tmp/wisereport_inventory.json \
+    --out-dir   /tmp/industry_summary_pack \
+    --date      2026-04-30 \
+    --apply
+# /tmp/industry_summary_pack/2026-04-30/{
+#   industry_summary_pack_stub.json,
+#   industry_summary_pack_stub.md,
+#   industry_summary_pack_stub_summary.json
+# }
+```
+
+### LLM handoff
+
+- Schema reference: [`docs/INDUSTRY_REPORT_LLM_SUMMARY_TEMPLATE.md`](INDUSTRY_REPORT_LLM_SUMMARY_TEMPLATE.md)
+- 3-agent 프롬프트 (Gemini 트리아지 / Claude 정밀 독해 / GPT sector-rotation context): [`docs/INDUSTRY_REPORT_HANDOFF_PROMPTS.md`](INDUSTRY_REPORT_HANDOFF_PROMPTS.md)
+- 모든 프롬프트가 buy/sell/target-price 산출을 명시적으로 금지.
+
+### 가드
+
+- `--out-dir` repo 안 + `--apply` → exit 2
+- `--max-stubs > 50` → exit 2 (HARD_MAX)
+- inventory schema mismatch → exit 2
+- 입력에 `direct_trade_signal=true` industry entry → exit 3
+- dry-run default; `--apply` 만 파일 생성
+- 모든 stub `direct_trade_signal=false` + `trade_signal=null` + `status=pending_llm_summary` 강제
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack_stub_fixture.py
+```
+
+4 scenarios + 4 guards + static-grep. PASS 시에만 exit 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)
