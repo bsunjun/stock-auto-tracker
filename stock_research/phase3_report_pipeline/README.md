@@ -317,6 +317,10 @@ python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack
 
 4 scenarios (company_and_industry / industry_only / company_only / with_signal_true) + 4 guards (repo-out + apply / max-stubs > 50 / dry-run no-write / wrong inventory schema) + static-grep (stub 생성기가 `selected_company[]` / `selected[]` alias 를 iterate 하지 않음). PASS 시에만 exit 0.
 
+### PR #42 — Real-data smoke (counter-only)
+
+operator-host 또는 cloud session 에서 actual WiseReport 산업 cohort 에 대해 inventory + stub 생성 → 카운터만 보고하는 절차. PDF body 안 읽음, Drive write 없음, repo write 없음. 자세한 절차는 [`docs/INDUSTRY_SUMMARY_REAL_SMOKE_TEMPLATE.md`](docs/INDUSTRY_SUMMARY_REAL_SMOKE_TEMPLATE.md) 에, 매 실행 결과 append-only log 는 [`docs/INDUSTRY_SUMMARY_REAL_SMOKE_RESULT_LOG.md`](docs/INDUSTRY_SUMMARY_REAL_SMOKE_RESULT_LOG.md) 에. 2026-04-30 baseline (PR #42): 13 산업 PDF / 9 distinct sectors / 13 stubs / 모든 forbidden_actions_confirmed = 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 본문 파싱 로직 구현 (외부 파서가 담당; 본 패키지는 row projection만)

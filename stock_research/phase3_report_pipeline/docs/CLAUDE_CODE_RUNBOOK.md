@@ -940,6 +940,12 @@ python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack
 
 4 scenarios + 4 guards + static-grep. PASS 시에만 exit 0.
 
+### PR #42 — Real-data smoke (counter-only)
+
+`docs/INDUSTRY_SUMMARY_REAL_SMOKE_TEMPLATE.md` 에 operator-host (mounted Drive) / cloud session (`/tmp` 미러) 양 경로를 위한 절차가 있고, `docs/INDUSTRY_SUMMARY_REAL_SMOKE_RESULT_LOG.md` 에 매 실행 결과가 append-only 로 기록된다 (PDF 본문 / full sha256 / Drive content 절대 노출 안 됨; counter 와 forbidden-action audit 만).
+
+2026-04-30 baseline (PR #42): 13 산업 PDF / 9 distinct sectors / 13 stubs emitted / `direct_trade_signal_true_count = 0` / 모든 forbidden_actions_confirmed = 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)
