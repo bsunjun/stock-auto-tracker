@@ -1,0 +1,22 @@
+SampleCo Securities
+SAMPLECO_SAME_COLUMN_OLD_VALUES_NOT_PAIR (KRX:000998)
+2026.04.30 보고서
+
+SAMPLECO_SAME_COLUMN_OLD_VALUES_NOT_PAIR — synthetic fixture for PR
+#46. Mirrors the 한화솔루션 미래에셋 layout where a single metric row
+spreads across TWO horizon columns and TWO sides (변경 전 / 변경 후),
+producing 4 numeric tokens per row in the order
+[H1_변경전, H2_변경전, H1_변경후, H2_변경후]. The previous variant
+scanner naively grabbed `nums[0], nums[1]` and produced a single
+`(-5 → 1029)` pair — but those two tokens are BOTH 변경 전 values for
+two different horizons. PR #46 refuses the row outright (parser cannot
+tell which token belongs to which horizon column from token order
+alone) and surfaces gap_hint='multi_horizon_variant_row_no_pair'.
+
+[표3. 실적 추정 (단위: 십억원)]
+
+                  변경 전              변경 후
+                1Q26F  2026F        1Q26F  2026F
+영업이익          -5    1,029         93    1,251
+
+목표주가 50,000원 → 50,000원 (유지)

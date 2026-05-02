@@ -88,7 +88,69 @@ METRIC_ALIASES: dict[str, str] = {
     # eps
     "EPS": "eps",
     "eps": "eps",
+    # PR #46 — Targeted Validation Pack v3 finding: 에코프로비엠 IBK report
+    # carries `주당순이익` rows whose values can match an OP magnitude band.
+    # Adding `주당순이익` as an EPS alias plus the EPS-class label invariant
+    # below blocks any path where an EPS-labeled row could be mis-promoted
+    # to operating_profit by a downstream stage.
+    "주당순이익": "eps",
 }
+
+# PR #46: EPS-class label invariant. Any METRIC_ALIASES key that contains
+# `주당` OR (case-insensitively) `eps` MUST map to the canonical metric
+# `eps`. The fragment list also feeds the runtime
+# `_label_metric_class_compatible` guard so commit-time rows are rejected
+# if a stage somehow tries to file an EPS-class label under a non-eps slot.
+_EPS_LABEL_FRAGMENTS_KO: tuple[str, ...] = ("주당",)   # exact substring
+_EPS_LABEL_FRAGMENTS_LATIN: tuple[str, ...] = ("eps",)  # case-insensitive
+for _k, _v in METRIC_ALIASES.items():
+    _is_eps_class = (
+        any(f in _k for f in _EPS_LABEL_FRAGMENTS_KO)
+        or any(f in _k.lower() for f in _EPS_LABEL_FRAGMENTS_LATIN)
+    )
+    if _is_eps_class and _v != "eps":
+        raise AssertionError(
+            "PR #46 EPS-class label invariant: METRIC_ALIASES["
+            f"{_k!r}] = {_v!r}; an EPS-class label must map to 'eps'."
+        )
+del _k, _v
+
+
+def _label_metric_class_compatible(label: object, canonical_metric: str) -> bool:
+    """PR #46 runtime guard: return False iff `label` is EPS-class but
+    `canonical_metric` is anything other than 'eps' (the bug surfaced by
+    the Targeted Validation Pack v3 finding on 에코프로비엠 IBK).
+
+    The guard is intentionally permissive on missing/unknown labels: when
+    the caller cannot supply a label (e.g. PR #17's column-window scanner
+    works off horizon column index alone after a metric-label header
+    line), this returns True. Each commit site that DOES have a label
+    supplies it explicitly so the invariant is checked exactly where it
+    matters.
+
+    Known residual risk — label-lost path remains permissive by design.
+    Returning True on an empty/non-string `label` preserves recall for
+    the legitimate label-less OP / sales / NI rows produced by the
+    column-window scanner; rejecting them here would drop large blocks
+    of correctly-parsed pairs to prevent a bug class that has only been
+    observed when a label IS present. The invariant we still hold under
+    this design: WHEN an EPS-class label exists (substring `주당` in KO
+    or case-insensitive `eps` in Latin), the row can NEVER be promoted
+    to a non-eps canonical metric. Closing the label-lost gap is left
+    to a future PR that introduces label-recovery from header context;
+    until then the trade-off is intentional and audited by the runner's
+    9-pair MODULE_INVARIANT_DRIFT table (incl. an explicit empty-label
+    permissive row).
+    """
+    if not isinstance(label, str) or not label:
+        return True
+    is_eps_class = (
+        any(f in label for f in _EPS_LABEL_FRAGMENTS_KO)
+        or any(f in label.lower() for f in _EPS_LABEL_FRAGMENTS_LATIN)
+    )
+    if is_eps_class and canonical_metric != "eps":
+        return False
+    return True
 
 # Sentinels treated as "no value" by parse_numeric. Lowercased before lookup.
 _SENTINELS_NULL: frozenset[str] = frozenset({
@@ -718,6 +780,9 @@ def parse_side_anchor_revision_rows(text: str) -> tuple[dict[str, dict], str, st
                 metric_name = METRIC_ALIASES.get(label) or METRIC_ALIASES.get(label.lower())
                 if metric_name is None or metric_name in metrics:
                     continue
+                # PR #46 EPS-class label guard.
+                if not _label_metric_class_compatible(label, metric_name):
+                    continue
                 old_new = _resolve_old_new_with_indicator(
                     m.group("a"), m.group("b"), m.group("dir")
                 )
@@ -767,6 +832,29 @@ def parse_target_price_side_anchor(text: str) -> dict | None:
 # (matches SIDE_ANCHOR_WINDOW_LINES from PR #19) AND each candidate row
 # goes through value-shape validation (`_is_likely_growth_rate`).
 VARIANT_WINDOW_LINES = 15
+
+# PR #46 — Targeted Validation Pack v3 finding: 한화솔루션 미래에셋증권 표
+# carries a multi-horizon column layout where the per-row token order is
+# `[H1_before, H2_before, H1_after, H2_after]`. The previous variant-row
+# scanner naively took `nums[0], nums[1]` and produced a single
+# `(-5 → 1029)` pair from two BOTH-old values that belong to different
+# horizons. We refuse to emit a pair from any variant-window row with 4+
+# numeric tokens, because the token-order alone cannot tell us which
+# horizon each token belongs to. A typical single-horizon revision row
+# carries at most 3 numbers (old, new, optional 변동률 / %change).
+#
+# Recall trade-off (intentional). A row with 4+ numeric tokens is much
+# more likely a multi-horizon table than a noisy single-horizon row, so
+# the threshold is biased toward false-positive prevention: PR #46
+# accepts a (small) recall loss on legitimate 4-token single-horizon
+# layouts in exchange for guaranteeing no cross-horizon pair leaks into
+# downstream metrics. Recovering those legitimate-but-rejected rows is
+# left to a future horizon-aware column-mapping PR (the recovery path),
+# which can disambiguate tokens by their horizon column index instead
+# of relying on token order alone. Until then any 4+ token row surfaces
+# `gap_hint='multi_horizon_variant_row_no_pair'` so the gap is visible
+# rather than silent.
+_VARIANT_MAX_NUMS_FOR_PAIR = 3
 
 
 def _is_likely_growth_rate(metric: str, old_raw: str, new_raw: str) -> bool:
@@ -884,6 +972,7 @@ def parse_before_after_variant_rows(
     metrics: dict[str, dict] = {}
     rejected_growth = False
     rejected_dup_flat = False
+    rejected_multi_horizon = False
     for line in lines[1:]:
         s = line.strip()
         if not s:
@@ -902,6 +991,18 @@ def parse_before_after_variant_rows(
         rest = re.sub(r"^\s*\([^)]*\)", "", rest)
         nums = _NUMBER_TOKEN_RE.findall(rest)
         if len(nums) < 2:
+            continue
+        # PR #46 multi-horizon variant-row guard. A row whose numeric token
+        # count exceeds `_VARIANT_MAX_NUMS_FOR_PAIR` (3) almost certainly
+        # carries multiple horizon columns (e.g. 1Q26F + 2026F under both
+        # 변경전 and 변경후 → 4 tokens) where token-order alone cannot tell
+        # us which horizon each token belongs to. The naive `nums[0],
+        # nums[1]` pick conflates same-column adjacent tokens that belong
+        # to different horizons (the 한화솔루션 미래에셋 case: -5 and 1029
+        # are both 변경전 values for two different horizons). Refuse the
+        # row; surface a gap_hint when no other metric committed.
+        if len(nums) > _VARIANT_MAX_NUMS_FOR_PAIR:
+            rejected_multi_horizon = True
             continue
         # Two-column variant rows: take the first two numbers.
         a, b = nums[0], nums[1]
@@ -937,12 +1038,25 @@ def parse_before_after_variant_rows(
             if not has_explicit_flat_context(s):
                 rejected_dup_flat = True
                 continue
+        # PR #46 EPS-class label guard. Defense-in-depth invariant: an
+        # EPS-class label (EPS / 주당순이익 / anything containing `주당`
+        # or `eps`) MUST never be filed under any non-eps canonical
+        # metric. METRIC_ALIASES already enforces this at module load,
+        # but if a future alias edit drifted, this commit-time check
+        # still refuses the row instead of silently mis-promoting.
+        if not _label_metric_class_compatible(matched_label, metric_name):
+            continue
         if metric_name not in metrics:
             metrics[metric_name] = {"old": old_val, "new": new_val}
 
     gap_hint = ""
     if not metrics:
-        if rejected_growth:
+        if rejected_multi_horizon:
+            # PR #46: at least one row was refused because it carried 4+
+            # numeric tokens (likely multi-horizon). No safe pair could be
+            # constructed from token order alone.
+            gap_hint = "multi_horizon_variant_row_no_pair"
+        elif rejected_growth:
             gap_hint = "variant_rejected_growth_rate"
         elif rejected_dup_flat:
             gap_hint = "duplicate_column_flat_rejected"
@@ -1162,6 +1276,9 @@ def parse_side_anchor_multiline_kv_revision(text: str) -> tuple[dict[str, dict],
                       or METRIC_ALIASES.get(metric_label.lower())
         if metric_name is None or metric_name in metrics:
             continue
+        # PR #46 EPS-class label guard.
+        if not _label_metric_class_compatible(metric_label, metric_name):
+            continue
         window = collect_metric_context_window(lines, i, window=4)
         if any(reject_percentage_or_margin_context(w) for w in window):
             continue
@@ -1287,6 +1404,9 @@ def parse_natural_language_revision(text: str) -> tuple[dict[str, dict], str]:
                  or METRIC_ALIASES.get(metric_label.lower())
         if metric is None:
             continue
+        # PR #46 EPS-class label guard.
+        if not _label_metric_class_compatible(metric_label, metric):
+            continue
         old_raw, new_raw = m.group("old"), m.group("new")
         old_n = parse_numeric(old_raw)
         new_n = parse_numeric(new_raw)
@@ -1376,6 +1496,9 @@ def parse_side_anchor_kv_revision(text: str) -> tuple[dict[str, dict], str]:
             metric = METRIC_ALIASES.get(metric_label) \
                      or METRIC_ALIASES.get(metric_label.lower())
             if metric is None or metric in metrics:
+                continue
+            # PR #46 EPS-class label guard.
+            if not _label_metric_class_compatible(metric_label, metric):
                 continue
             # PR #28: reject rows whose surrounding line carries a margin /
             # % / growth marker. The match span gives us a window — use the
