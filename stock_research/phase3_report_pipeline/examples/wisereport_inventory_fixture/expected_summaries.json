@@ -1,6 +1,6 @@
 {
   "schema": "phase3:wisereport_inventory_fixture_expected:v1",
-  "_note": "PR #39 expected outcomes for the synthetic folder fixtures. Each scenario maps to a sub-tree under examples/wisereport_inventory_fixture/. The runner (examples/run_wisereport_inventory_fixture.py) walks the tree, runs build_wisereport_inventory.py against each, and asserts the summary counters and per-entry shapes.",
+  "_note": "PR #39+#40 expected outcomes for the synthetic folder fixtures. Each scenario maps to a sub-tree under examples/wisereport_inventory_fixture/. The runner (examples/run_wisereport_inventory_fixture.py) walks the tree, runs build_wisereport_inventory.py against each, and asserts the summary counters, per-entry shapes, AND the PR #40 `selected = selected_company` alias invariant.",
   "scenarios": {
     "happy_path": {
       "_root": "happy_path",
@@ -16,7 +16,9 @@
         "skipped_non_pdf_count": 0,
         "capped_company_count": 0,
         "capped_industry_count": 0,
-        "direct_trade_signal_true_count": 0
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true
       },
       "selected_company_ticker_hints_sorted": ["샘플바이오", "샘플반도체", "샘플전자"],
       "selected_industry_sector_hints_sorted": ["반도체", "자동차"]
@@ -35,7 +37,9 @@
         "skipped_non_pdf_count": 0,
         "capped_company_count": 0,
         "capped_industry_count": 0,
-        "direct_trade_signal_true_count": 0
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 1,
+        "selected_alias_matches_company": true
       },
       "expected_malformed_filenames_sorted": [
         "20260430_no_brackets_either.pdf",
@@ -57,7 +61,9 @@
         "skipped_non_pdf_count": 2,
         "capped_company_count": 0,
         "capped_industry_count": 0,
-        "direct_trade_signal_true_count": 0
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 1,
+        "selected_alias_matches_company": true
       },
       "expected_skipped_non_pdf_filenames_sorted": ["README.md", "notes.txt"]
     },
@@ -75,7 +81,9 @@
         "skipped_non_pdf_count": 0,
         "capped_company_count": 2,
         "capped_industry_count": 0,
-        "direct_trade_signal_true_count": 0
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 3,
+        "selected_alias_matches_company": true
       },
       "_note_cap": "5 PDFs in folder, --max-company-pdfs=3 → 3 selected, 2 dropped (capped_company_count=2). Deterministic ordering: 캡테스트1, 캡테스트2, 캡테스트3 (the first three by basename sort)."
     },
@@ -93,9 +101,31 @@
         "skipped_non_pdf_count": 0,
         "capped_company_count": 0,
         "capped_industry_count": 0,
-        "direct_trade_signal_true_count": 0
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 1,
+        "selected_alias_matches_company": true
       },
       "_note_missing_industry_dir": "산업 directory does not exist under empty_industry/2026-04-30/. The scanner must NOT fail; it must report industry_pdf_count=0 and continue."
+    },
+    "industry_only_alias_check": {
+      "_root": "happy_path",
+      "include_company": false,
+      "include_industry": true,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 0,
+        "industry_pdf_count": 2,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0,
+        "selected_alias_count": 0,
+        "selected_alias_matches_company": true
+      },
+      "_note_industry_alias": "PR #40 invariant: when only --include-industry is set, `selected[]` MUST be empty. Industry entries are present in `selected_industry[]` ONLY. The chain runner / parser therefore sees zero PDFs to process and refuses to silently parse industry reports."
     }
   },
   "global_invariants": [
@@ -108,6 +138,10 @@
     "schema is exactly 'phase3:wisereport_date_folder_inventory:v1'.",
     "sha256_prefix_12 is exactly 12 lowercase hex characters per entry.",
     "ticker_hint / sector_hint contains the bracketed text (no '[' or ']' chars).",
-    "Industry entries do NOT carry ticker_hint; company entries do NOT carry sector_hint or summary_queue."
+    "Industry entries do NOT carry ticker_hint; company entries do NOT carry sector_hint or summary_queue.",
+    "PR #40: top-level `selected[]` exists and is byte-equal to `selected_company[]` (same length, same per-index source_pdf_sha256).",
+    "PR #40: `selected[]` shares NO source_pdf_sha256_prefix with any entry in `selected_industry[]` (industry never leaks into the alias).",
+    "PR #40: `summary.selected_alias_count == len(selected) == len(selected_company)`.",
+    "PR #40: `summary.selected_alias_matches_company == true`."
   ]
 }

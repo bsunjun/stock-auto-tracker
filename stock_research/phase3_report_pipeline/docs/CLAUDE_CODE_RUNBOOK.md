@@ -862,7 +862,16 @@ python3 stock_research/phase3_report_pipeline/scripts/build_wisereport_inventory
 | folder_type | `기업` | `산업` |
 | bracket field | `ticker_hint` | `sector_hint` |
 | `summary_queue` | (없음) | `true` (LLM 요약 큐 후보) |
-| 다운스트림 | PR #29 chain runner `--inventory` 입력으로 OK | parser 에 절대 들어가지 않음 |
+| 다운스트림 | PR #29 chain runner `--inventory` 입력으로 OK (PR #40 `selected[]` alias 덕분에 변환 없이 직접 소비) | parser 에 절대 들어가지 않음 (`selected[]` alias 에 미포함) |
+
+### PR #40 `selected[]` alias
+
+inventory output 은 두 동등한 자리에 회사 entry 를 노출한다:
+
+- `selected_company[]` — schema-stable canonical 회사 리스트
+- `selected[]`         — `selected_company[]` 의 byte-equal mirror (PR #40 추가). 기존 `extract_report_estimate_table.py` (`selected[]` 를 읽음) 와 `run_inventory_batch_smoke.py --inventory` 가 별도 adapter 없이 바로 소비.
+
+`selected_industry[]` 는 절대 `selected[]` 에 mirror 되지 않는다. summary 의 `selected_alias_count` (= len(selected) = len(selected_company)) 와 `selected_alias_matches_company: true` 가 매번 alias invariant 를 명시적으로 기록한다.
 
 ### 가드
 

@@ -53,10 +53,17 @@ Schema (`phase3:wisereport_date_folder_inventory:v1`)
     "skipped_non_pdf_count": int,
     "capped_company_count": int,
     "capped_industry_count": int,
-    "direct_trade_signal_true_count": 0
+    "direct_trade_signal_true_count": 0,
+    "selected_alias_count": int,                  # PR #40: == len(selected_company)
+    "selected_alias_matches_company": true        # PR #40: invariant
   },
+  "selected": [ ... ],            # PR #40: alias mirroring `selected_company[]`
+                                  #         (so `extract_report_estimate_table.py`
+                                  #         and `run_inventory_batch_smoke.py
+                                  #         --inventory` consume directly).
+                                  #         NEVER mirrors `selected_industry[]`.
   "selected_company": [ ... ],   # capped at max-company-pdfs
-  "selected_industry": [ ... ],  # capped at max-industry-pdfs
+  "selected_industry": [ ... ],  # capped at max-industry-pdfs (NOT in `selected`)
   "malformed": [ {filename, folder, reason} ... ],
   "skipped_non_pdf": [ {filename, folder} ... ],
   "duplicate_basename": [ {basename, folder, count} ... ],
@@ -378,6 +385,10 @@ def main(argv: List[str] | None = None) -> int:
         "capped_company_count": capped_company_count,
         "capped_industry_count": capped_industry_count,
         "direct_trade_signal_true_count": 0,
+        # PR #40: alias counters. `selected[]` is exactly `selected_company[]`
+        # (industry entries NEVER mirror into the alias; see schema doc).
+        "selected_alias_count": len(selected_company),
+        "selected_alias_matches_company": True,
     }
 
     inventory = {
@@ -389,6 +400,16 @@ def main(argv: List[str] | None = None) -> int:
         "max_company_pdfs": args.max_company_pdfs,
         "max_industry_pdfs": args.max_industry_pdfs,
         "summary": summary,
+        # PR #40: top-level `selected[]` alias of `selected_company[]` so the
+        # existing PR #29 chain runner (`run_inventory_batch_smoke.py
+        # --inventory`) and the parser
+        # (`extract_report_estimate_table.py`, which reads `selected[]`)
+        # consume this inventory directly without an adapter step.
+        # By construction the alias mirrors `selected_company[]` ONLY;
+        # `selected_industry[]` is preserved separately for the LLM-summary
+        # queue and is NEVER folded into `selected[]`. The parser therefore
+        # cannot accidentally process industry PDFs.
+        "selected": list(selected_company),
         "selected_company": selected_company,
         "selected_industry": selected_industry,
         "malformed": malformed_all,
