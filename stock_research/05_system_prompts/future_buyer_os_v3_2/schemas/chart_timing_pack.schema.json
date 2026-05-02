@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/chart_timing_pack.schema.json",
+  "title": "ChartTimingPack",
+  "description": "Layer 7 — TradingView 차트. 언제 살지(시간) 확인. 가격은 secondary_reference 만 허용.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L7_chart_timing" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "ticker",
+          "when_band",
+          "supply_zone",
+          "demand_zone"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "when_band": {
+            "type": "string",
+            "enum": ["intraday", "short_term", "mid_term", "long_term"]
+          },
+          "supply_zone": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["zone_min", "zone_max", "zone_reason"],
+            "properties": {
+              "zone_min": { "type": ["number", "null"] },
+              "zone_max": { "type": ["number", "null"] },
+              "zone_reason": { "type": "string", "minLength": 1 }
+            }
+          },
+          "demand_zone": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["zone_min", "zone_max", "zone_reason"],
+            "properties": {
+              "zone_min": { "type": ["number", "null"] },
+              "zone_max": { "type": ["number", "null"] },
+              "zone_reason": { "type": "string", "minLength": 1 }
+            }
+          },
+          "indicators_summary": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "state"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "state": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "secondary_reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "primary signal 금지. 가격 참고만.",
+            "properties": {
+              "target_price": { "type": ["number", "null"] },
+              "target_price_currency": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

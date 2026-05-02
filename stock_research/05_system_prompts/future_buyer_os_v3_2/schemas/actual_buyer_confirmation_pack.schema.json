@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/actual_buyer_confirmation_pack.schema.json",
+  "title": "ActualBuyerConfirmationPack",
+  "description": "Layer 6 — Kiwoom flow. 실제 매수 주체 확인.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L6_actual_buyer_confirmation" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_id", "ticker", "window", "flows"],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "window": {
+            "type": "string",
+            "enum": ["intraday", "1d", "5d", "20d", "60d"]
+          },
+          "flows": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["buyer_type", "net_value", "unit"],
+              "properties": {
+                "buyer_type": {
+                  "type": "string",
+                  "enum": [
+                    "foreign", "institution", "pension",
+                    "financial_investment", "insurance", "bank",
+                    "private_equity", "retail", "program", "other_inst"
+                  ]
+                },
+                "net_value": { "type": "number" },
+                "unit": {
+                  "type": "string",
+                  "enum": ["KRW", "shares", "ratio_of_market_cap"]
+                },
+                "is_net_buy": { "type": "boolean" }
+              }
+            }
+          },
+          "notes": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/attention_flow_pack.schema.json",
+  "title": "AttentionFlowPack",
+  "description": "Layer 2 — 신문/메이저 뉴스. 개인 관심의 방향. 매매 신호 아님.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L2_attention_flow" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_id", "headline_summary", "source_id", "source_name", "buyer_type_impact"],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{6}$"
+          },
+          "theme_id": { "type": ["string", "null"] },
+          "headline_summary": { "type": "string", "minLength": 1 },
+          "source_id": { "type": "string", "minLength": 1 },
+          "source_name": { "type": "string", "minLength": 1 },
+          "buyer_type_impact": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": ["institution", "retail_attention", "fast_money", "foreign", "financial_investment", "pension", "short_cover"]
+            }
+          },
+          "attention_velocity": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          }
+        }
+      }
+    }
+  }
+}

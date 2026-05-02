@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/us_korea_readthrough_pack.schema.json",
+  "title": "USKoreaReadthroughPack",
+  "description": "Layer 4 보조 — 미국 동종섹터 / 동일 supplychain 흐름의 한국 readthrough. 단순 동행 상승은 readthrough 가 아님.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L4_us_korea_readthrough" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "us_trigger_summary",
+          "korea_ticker",
+          "tier",
+          "role_in_chain",
+          "exposure_quality",
+          "causal_path_summary"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "us_trigger_summary": { "type": "string", "minLength": 1 },
+          "us_source_id": { "type": ["string", "null"] },
+          "korea_ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "korea_name": { "type": "string", "minLength": 1 },
+          "tier": {
+            "type": "string",
+            "enum": ["tier_1_supplier", "tier_2_supplier", "tier_3_supplier", "downstream", "competitor", "indirect"]
+          },
+          "role_in_chain": { "type": "string", "minLength": 1 },
+          "exposure_quality": {
+            "type": "string",
+            "enum": ["primary", "secondary", "speculative"]
+          },
+          "causal_path_summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

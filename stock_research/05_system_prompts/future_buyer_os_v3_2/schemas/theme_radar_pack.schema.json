@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/theme_radar_pack.schema.json",
+  "title": "ThemeRadarPack",
+  "description": "Layer 3 — Telegram / 유료 채널의 테마 확산 속도. Telegram-only 단서로는 PB_READY 이상 승격 금지.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "themes",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L3_theme_radar" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["theme_id", "theme_label", "channel_sync_count", "velocity_score", "paid_only", "pb_state_recommendation"],
+        "properties": {
+          "theme_id": { "type": "string", "minLength": 1 },
+          "theme_label": { "type": "string", "minLength": 1 },
+          "channel_sync_count": { "type": "integer", "minimum": 0 },
+          "velocity_score": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["low", "medium", "high"] }
+            ]
+          },
+          "paid_only": { "type": "boolean" },
+          "pb_state_recommendation": {
+            "description": "Telegram-only 단서로는 WATCH_ONLY 또는 THEME_DISCOVERY 만 허용.",
+            "type": "string",
+            "enum": ["WATCH_ONLY", "THEME_DISCOVERY"]
+          },
+          "candidate_tickers": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[0-9]{6}$" }
+          }
+        }
+      }
+    }
+  }
+}

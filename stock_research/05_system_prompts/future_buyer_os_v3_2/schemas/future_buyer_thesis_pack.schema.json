@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/future_buyer_thesis_pack.schema.json",
+  "title": "FutureBuyerThesisPack",
+  "description": "Layer 9 — '나 다음에 누가 살 것인가' 의 데이터 구조.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "candidates",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L9_future_buyer_thesis" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "ticker", "theses"],
+        "properties": {
+          "candidate_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "theses": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thesis_id",
+                "buyer_type",
+                "why_they_buy",
+                "when_they_buy",
+                "invalidation_condition",
+                "ranked"
+              ],
+              "properties": {
+                "thesis_id": { "type": "string", "minLength": 1 },
+                "buyer_type": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "institution",
+                      "retail_attention",
+                      "fast_money",
+                      "foreign",
+                      "financial_investment",
+                      "pension",
+                      "short_cover"
+                    ]
+                  }
+                },
+                "why_they_buy": { "type": "string", "minLength": 1 },
+                "when_they_buy": { "type": "string", "minLength": 1 },
+                "invalidation_condition": { "type": "string", "minLength": 1 },
+                "ranked": { "type": "integer", "minimum": 1 },
+                "supporting_layers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["L1", "L2", "L3", "L4", "L4_readthrough", "L5", "L6", "L7", "L8"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

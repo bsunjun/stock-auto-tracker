@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/official_evidence_pack.schema.json",
+  "title": "OfficialEvidencePack",
+  "description": "Layer 5 — DART / 회사 IR. 공식 숫자 확인. 보고서 mismatch 표시.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L5_official_evidence" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "ticker",
+          "evidence_kind",
+          "rcept_no_or_id",
+          "filed_date_kst",
+          "summary"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "evidence_kind": {
+            "type": "string",
+            "enum": ["dart_disclosure", "company_ir", "guidance_update", "earnings_release", "regulatory_filing"]
+          },
+          "rcept_no_or_id": { "type": "string", "minLength": 1 },
+          "filed_date_kst": { "type": "string", "format": "date" },
+          "summary": { "type": "string", "minLength": 1 },
+          "guidance_metric": { "type": ["string", "null"] },
+          "guidance_value": { "type": ["number", "string", "null"] },
+          "guidance_unit": { "type": ["string", "null"] },
+          "mismatch_with_report": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "has_mismatch": { "type": "boolean" },
+              "mismatch_reason": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

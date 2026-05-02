@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/official_risk_flags_pack.schema.json",
+  "title": "OfficialRiskFlagsPack",
+  "description": "Layer 8 — 공식 risk flag. 한 개라도 매치되면 후보 자동 WATCH_ONLY 강등.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L8_official_risk_flags" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_id", "ticker", "flag", "source_id", "filed_date_kst", "summary"],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "flag": {
+            "type": "string",
+            "enum": [
+              "trading_halt",
+              "audit_supervisory",
+              "managed_listing",
+              "controlling_sale",
+              "equity_offering_imminent",
+              "accounting_qualification",
+              "delisting_risk",
+              "legal_risk",
+              "going_concern",
+              "other_official_risk"
+            ]
+          },
+          "source_id": { "type": "string", "minLength": 1 },
+          "filed_date_kst": { "type": "string", "format": "date" },
+          "summary": { "type": "string", "minLength": 1 },
+          "auto_demotion": { "const": "WATCH_ONLY" }
+        }
+      }
+    }
+  }
+}

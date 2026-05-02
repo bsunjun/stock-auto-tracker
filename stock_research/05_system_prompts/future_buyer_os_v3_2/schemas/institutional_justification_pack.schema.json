@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v3_2/institutional_justification_pack.schema.json",
+  "title": "InstitutionalJustificationPack",
+  "description": "Layer 4 — WiseReport / 산업리포트. 기관이 살 명분. 목표주가는 secondary_reference 만 허용.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "as_of_kst",
+    "items",
+    "edge_declared",
+    "direct_trade_signal"
+  ],
+  "properties": {
+    "schema_version": { "const": "v3.2" },
+    "layer": { "const": "L4_institutional_justification" },
+    "as_of_kst": { "type": "string", "format": "date-time" },
+    "edge_declared": { "type": "string", "minLength": 1 },
+    "direct_trade_signal": { "const": false },
+    "trade_signal": {
+      "anyOf": [
+        { "type": "null" },
+        { "const": false }
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "ticker",
+          "report_type",
+          "broker",
+          "report_date_kst",
+          "thesis_summary"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "ticker": { "type": "string", "pattern": "^[0-9]{6}$" },
+          "company_name": { "type": ["string", "null"] },
+          "report_type": {
+            "type": "string",
+            "enum": ["company", "industry", "strategy", "macro_to_korea"]
+          },
+          "broker": { "type": "string", "minLength": 1 },
+          "report_date_kst": { "type": "string", "format": "date" },
+          "thesis_summary": { "type": "string", "minLength": 1 },
+          "secondary_reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "primary signal 금지. 참고 정보로만 사용.",
+            "properties": {
+              "target_price": { "type": ["number", "null"] },
+              "target_price_currency": { "type": ["string", "null"] },
+              "target_price_revision": {
+                "type": ["string", "null"],
+                "enum": [null, "raised", "lowered", "maintained", "initiated"]
+              }
+            }
+          },
+          "buyer_type_impact": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["institution", "retail_attention", "fast_money", "foreign", "financial_investment", "pension", "short_cover"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
