@@ -946,6 +946,36 @@ python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack
 
 2026-04-30 baseline (PR #42): 13 산업 PDF / 9 distinct sectors / 13 stubs emitted / `direct_trade_signal_true_count = 0` / 모든 forbidden_actions_confirmed = 0.
 
+## PR #43 — Industry summary validation + catalyst pack stub (`validate_industry_summary_pack.py`)
+
+PR #41 stub pack 을 입력받아 7가지 verdict bucket 으로 분류한 뒤 valid 만 `industry_catalyst_pack_stub.json` 으로 projection. 매수/매도/Top Pick/target_price/position_size/PB_READY/PB_SCOUT/PB_TRIGGER 등 forbidden 패턴 22개 매칭 시 거부. `direct_trade_signal=true` 입력은 exit 3 (no files).
+
+### Dry-run + Apply
+
+```
+# Dry-run
+python3 stock_research/phase3_report_pipeline/scripts/validate_industry_summary_pack.py \
+    --pack    /tmp/industry_summary_pack/2026-04-30/industry_summary_pack_stub.json \
+    --out-dir /tmp/industry_catalyst_pack
+
+# Apply
+python3 stock_research/phase3_report_pipeline/scripts/validate_industry_summary_pack.py \
+    --pack    /tmp/industry_summary_pack/2026-04-30/industry_summary_pack_stub.json \
+    --out-dir /tmp/industry_catalyst_pack \
+    --date    2026-04-30 \
+    --apply
+```
+
+자세한 스키마 + invariant 는 [`docs/INDUSTRY_CATALYST_PACK_SCHEMA.md`](INDUSTRY_CATALYST_PACK_SCHEMA.md) 에.
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_validation_fixture.py
+```
+
+5 records (1 valid + 4 rejection bucket) + 1 hard-fail + 3 guard. PASS 시에만 exit 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)

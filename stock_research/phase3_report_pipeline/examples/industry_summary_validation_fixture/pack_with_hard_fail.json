@@ -1,0 +1,29 @@
+[
+  {
+    "_fixture_case": "direct_trade_signal_true_hard_fail",
+    "_note": "Adversarial — would NOT come from build_industry_summary_pack_stub.py (PR #41 forces direct_trade_signal=false). Defends against hand-edited packs.",
+    "schema": "phase3:industry_summary_pack_stub:v1",
+    "report_date": "2026-04-30",
+    "sector": "악성",
+    "report_title": "매수 신호 위장",
+    "source_file_basename": "20260430_[악성] 매수 신호 위장.pdf",
+    "sha256_prefix_12": "deadbeef0001",
+    "sub_sector": "위장",
+    "broker_hint": "위장",
+    "core_thesis": "위장.",
+    "demand_signal": "위장.",
+    "supply_signal": "위장.",
+    "price_signal": "위장.",
+    "policy_signal": "위장.",
+    "capex_signal": "위장.",
+    "value_chain": ["위장"],
+    "beneficiary_candidates": ["위장"],
+    "risk_flags": ["위장"],
+    "earnings_revision_link_possible": null,
+    "source_confidence": null,
+    "missing_verification": [],
+    "status": "llm_summary_filled",
+    "direct_trade_signal": true,
+    "trade_signal": null
+  }
+]

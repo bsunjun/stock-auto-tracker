@@ -1,0 +1,45 @@
+{
+  "schema": "phase3:industry_summary_validation_fixture_expected:v1",
+  "_note": "PR #43 expected outcomes for the validator self-test. The runner runs against the 5-record `pack_five_no_hard_fail.json` plus the 1-record adversarial `pack_with_hard_fail.json` (which must exit 3) and asserts every count + per-record verdict + emitted catalyst row invariant.",
+  "five_pack": {
+    "_pack_file": "pack_five_no_hard_fail.json",
+    "expected_records_in": 5,
+    "expected_verdict_counts": {
+      "valid": 1,
+      "rejected_pending_summary": 1,
+      "rejected_missing_verification": 1,
+      "rejected_trade_signal_truthy": 1,
+      "rejected_forbidden_trade_language": 1,
+      "rejected_empty_required_field": 0,
+      "rejected_unknown_status": 0
+    },
+    "expected_catalyst_rows": 1,
+    "expected_per_case_verdict": {
+      "valid_filled_summary": "valid",
+      "pending_summary_rejected": "rejected_pending_summary",
+      "missing_verification_rejected": "rejected_missing_verification",
+      "forbidden_trade_language_rejected": "rejected_forbidden_trade_language",
+      "trade_signal_truthy_rejected": "rejected_trade_signal_truthy"
+    },
+    "expected_validation_summary_invariants": {
+      "direct_trade_signal_true_count": 0,
+      "trade_signal_truthy_emitted": 0,
+      "valid_count": 1
+    }
+  },
+  "hard_fail_pack": {
+    "_pack_file": "pack_with_hard_fail.json",
+    "expected_exit_code": 3,
+    "expected_files_written": 0
+  },
+  "global_invariants": [
+    "Every emitted catalyst row carries direct_trade_signal=false AND trade_signal=null.",
+    "Every emitted catalyst row carries status='catalyst_pack_emitted'.",
+    "Every emitted catalyst row carries schema='phase3:industry_catalyst_pack_stub:v1'.",
+    "No emitted catalyst row carries any field with a name in {recommendation, top_pick, target_price, position_size, buy_at, sell_at, cut_loss, take_profit}.",
+    "validation_summary.forbidden_actions_confirmed all 12 fields == 0.",
+    "catalyst_summary.all_direct_trade_signal_false == true (vacuously true if 0 catalyst rows).",
+    "catalyst_summary.all_trade_signal_null == true.",
+    "PR #41 industry_summary_pack_stub fixture self-test still passes (no cross-impact)."
+  ]
+}
