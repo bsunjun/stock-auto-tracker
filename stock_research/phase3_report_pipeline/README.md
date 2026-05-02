@@ -38,6 +38,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #36: ticker_map 5차 확장 (소규모 verified TODO 정리; parser/bridge 미변경) — PR #35 의 9 TODO-pending 중 high-confidence 2종만 추가: RFHIC KRX:218410 (KOSDAQ), 에치에프알 KRX:230240 (KOSDAQ). 나머지 7종 (한화비전 / 저스템 / LIG디펜스앤에어로스페이스 / RF머트리얼즈 / 샘씨엔에스 / 세나테크놀로지 / 환인제약) 은 KIND/KRX 2-source 확인 전까지 governance hold. 대한조선 governance-excluded 유지. 100-PDF re-smoke: ticker_resolved 89→92 (+3), ticker_not_krx reject 11→8 (-3); structured/accepted (15/9) byte-identical (parser unchanged); direct_trade_signal=true 0; templates md5 unchanged.
 │   │                                     #   PR #37: broker autodetect — parser broker metadata detection 보수적 second-pass. 기존 `_BROKER_SUFFIXES` (`증권` / `금융투자` / `자산운용`) primary 경로는 그대로 보존하고, primary 가 비었을 때만 새 helper `_detect_broker_header_research_suffix` 가 document head 영역 (첫 15 non-empty lines) 에서 한정된 suffix 집합 (`리서치센터` / `리서치본부` / `리서치 센터` / `리서치 본부` / `Research Center` / `Equity Research`) 을 line-end 에 anchor 해 매칭. 회사명 / 섹터 / 애널리스트 콘택트 / 표 헤더는 `[`/`목표주가` 포함, line length > 80, digit count > 5 라인-shape 필터로 reject. metric extraction logic 변경 없음 — gap_reason / structured_rows 는 byte-identical. 5 신규 synthetic fixture (3 positive + 2 negative).
 │   ├── emit_revision_trend.py            # PR #38 — `build_report_estimate_v132 --strict --apply` accepted rows → `REPORT_REVISION_TREND` / `REPORT_ESTIMATE_HIGH_TABLE_CANDIDATES` 운영 산출물 (CSV + JSON + summary). dry-run 기본 / `--apply` 만 파일 생성 / `--output-dir` repo 안 거부. 분류 5종 (`high_conviction` / `margin_expansion` / `marginal_review` / `downside_guard_excluded` / `data_insufficient`). primary metric 4종 (operating_profit / net_income / sales / eps); `target_price` 는 secondary_reference 전용 (절대 high_conviction 안 됨). direction=down → `downside_guard_excluded` (high_table 후보 영구 제외). delta_pct ≥ 5% AND direction=up AND primary metric AND old_target ≠ 0 일 때만 `high_conviction`. parser / bridge / merge / build / ticker_map / broker autodetect 코드 변경 0 — 다운스트림 emit-only 추가. 9-case fixture (`emit_revision_trend_fixture/`) + self-test runner (`run_emit_revision_trend_fixture.py`) — 5/5 분류 버킷 + target_price-only / horizon-empty / direction-down / old_target=0 invariants 모두 cover.
+│   ├── build_wisereport_inventory.py     # PR #39 — `<root>/<YYYY-MM-DD>/{기업,산업}` 스캐너. operator-host local mount 또는 mounted Drive 기반. `--include-company` 는 PR #29 chain runner 의 `--inventory` 입력으로 그대로 흘러갈 수 있는 형태로 emit (ticker_hint, sha256_prefix_12, local_pdf_path 등); `--include-industry` 는 `summary_queue=true` 로 표시되어 다운스트림 LLM-summary 파이프라인 후보로만 보관 (parser 에 들어가지 않음). dry-run 기본; `--apply` 만 `--out` 파일 생성. `--out` repo 안 + `--apply` → exit 2. `--max-company-pdfs` / `--max-industry-pdfs` 둘 다 HARD_MAX=50; 초과 시 exit 2. 모든 entry `direct_trade_signal=false`; summary `direct_trade_signal_true_count=0` 강제. malformed filename / non-PDF / per-folder cap / missing 산업 dir 분기 모두 fixture 로 cover. parser / bridge / merge / build / emit / ticker_map / broker autodetect 코드 변경 0.
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
@@ -53,6 +54,8 @@ phase3_report_pipeline/
 │   ├── run_inventory_batch_smoke.py      # PR #29 — inventory batch chain runner (parser → bridge → merge → build --strict; rolling --apply 절대 없음)
 │   ├── run_emit_revision_trend_fixture.py # PR #38 — emit_revision_trend.py 9-case fixture self-test runner (분류 5종 + 모든 invariant)
 │   ├── emit_revision_trend_fixture/       # PR #38 — accepted_rows / structured_extraction / expected_classifications fixture set
+│   ├── run_wisereport_inventory_fixture.py # PR #39 — build_wisereport_inventory.py 5-scenario + 4-guard self-test runner
+│   ├── wisereport_inventory_fixture/      # PR #39 — happy_path / malformed / non_pdf / cap_test / empty_industry sub-trees + expected_summaries.json
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── resources/
 │   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)
@@ -162,6 +165,75 @@ phase3_report_pipeline/
   ```
 
   → 9-case fixture 가 5/5 분류 + target_price-only + horizon-empty + direction-down + old_target=0 invariant 모두 cover.
+
+## PR #39 — WiseReport date-folder inventory (`build_wisereport_inventory.py`)
+
+operator-host 로컬 마운트 (또는 Drive 마운트) 의 `<root>/<YYYY-MM-DD>/{기업,산업}` 폴더를 스캔해 단일 inventory JSON 으로 묶는다. parser / bridge / merge / build / emit 어느 곳도 변경하지 않으며, PDF 본문 / extracted text / output JSON 을 repo 에 commit 하지 않는다.
+
+### 사용법
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_wisereport_inventory.py \
+    --root /mnt/wisereport \
+    --date 2026-04-30 \
+    --include-company \
+    --include-industry \
+    --out /tmp/wisereport_inventory.json \
+    --max-company-pdfs 50 \
+    --max-industry-pdfs 50 \
+    [--apply]
+```
+
+### 출력 (apply 시)
+
+`<--out>` 단일 JSON. 스키마 `phase3:wisereport_date_folder_inventory:v1`.
+
+| 필드 | 내용 |
+| --- | --- |
+| `selected_company[]` | `{report_date, report_type=company, filename, local_pdf_path, ticker_hint, title_hint, folder_type=기업, sha256_prefix_12, direct_trade_signal=false}` — PR #29 chain runner 의 `--inventory` 로 그대로 사용 가능 |
+| `selected_industry[]` | `{report_date, report_type=industry, filename, local_pdf_path, sector_hint, title_hint, folder_type=산업, sha256_prefix_12, direct_trade_signal=false, summary_queue=true}` — parser 에 들어가지 않으며 LLM-summary 파이프라인 후보로 표시 |
+| `summary` | `company_pdf_count / industry_pdf_count / malformed_filename_count / duplicate_basename_count / skipped_non_pdf_count / capped_company_count / capped_industry_count / direct_trade_signal_true_count=0` |
+| `malformed[]` | `{filename, folder, reason}` — `not_pdf_extension` / `no_bracket_segment` / `no_yyyymmdd_prefix` / `regex_match_failed` 중 하나 |
+| `skipped_non_pdf[]` | `{filename, folder}` — .pdf 가 아닌 파일 |
+| `duplicate_basename[]` | `{basename, folder, count}` — POSIX 에서는 사실상 발화 불가 (방어용) |
+
+### 핵심 invariant (PR #39 가드)
+
+- `--out` repo 안 경로 + `--apply` → **exit 2** (PR #29 chain runner 가드와 동일 정책)
+- `--max-company-pdfs` 또는 `--max-industry-pdfs` > 50 → **exit 2** (HARD_MAX 침범)
+- `--include-company` / `--include-industry` 둘 다 미지정 → **exit 2** (스캔 대상 없음)
+- 기본값 dry-run; `--apply` 명시 시에만 파일 생성. `rolling_append.py`, `--latest`, `--promote`, `Super Pack` 절대 호출하지 않는다.
+- 모든 emit entry `direct_trade_signal=false`; `summary.direct_trade_signal_true_count=0`; `forbidden_actions_confirmed.*=0`.
+- sha256 은 prefix 12 hex 만 (PDF body fingerprint 누출 방지).
+- 산업 entries 는 절대 parser / bridge / merge / build / emit 으로 흘러가지 않는다 (스키마상 `summary_queue=true` 로만 표시; 다운스트림 LLM-summary 큐 용도).
+
+### 호환 경로
+
+```
+# 1. 인벤토리 작성 (operator host)
+python3 .../build_wisereport_inventory.py --root /mnt/wisereport --date 2026-04-30 \
+    --include-company --out /tmp/inv.json --apply
+
+# 2. 회사 PDF 만 PR #29 chain runner 로 흘려보내기
+python3 .../examples/run_inventory_batch_smoke.py \
+    --inventory /tmp/inv.json \
+    --pdf-dir /mnt/wisereport/2026-04-30/기업 \
+    --workdir /tmp/chain --max-pdfs 50 \
+    --manual-meta /tmp/manual_meta.json \
+    --ticker-map .../resources/ticker_map.csv \
+    --chain-bridge --chain-merge --chain-build
+
+# 3. 산업 PDF 는 LLM-summary 큐로 (parser 에 절대 흘리지 않음)
+#    -> 본 PR 의 범위 밖. selected_industry[] 만 dump 해서 별도 워크플로우가 처리.
+```
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_wisereport_inventory_fixture.py
+```
+
+5 scenarios (happy_path / malformed / non_pdf / cap_test / empty_industry) + 4 guards (HARDMAX violation / repo-out + apply / dry-run no-write / no-include) — PASS 시에만 exit 0.
 
 ## What this pack does NOT do
 

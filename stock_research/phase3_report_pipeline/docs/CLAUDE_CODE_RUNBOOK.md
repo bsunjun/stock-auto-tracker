@@ -824,6 +824,63 @@ python3 stock_research/phase3_report_pipeline/examples/run_emit_revision_trend_f
 
 9-case fixture (5/5 분류 + target_price-only + horizon-empty + direction-down + old_target=0 invariant) 모두 cover. PASS 시에만 exit 0.
 
+## PR #39 — WiseReport date-folder inventory (`build_wisereport_inventory.py`)
+
+operator-host 로컬 마운트 또는 Drive 마운트의 `<root>/<YYYY-MM-DD>/{기업,산업}` 폴더를 스캔해 단일 inventory JSON 을 작성한다. parser / bridge / merge / build / emit 어느 곳도 변경하지 않는다.
+
+### Dry-run
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_wisereport_inventory.py \
+    --root /mnt/wisereport \
+    --date 2026-04-30 \
+    --include-company \
+    --include-industry \
+    --out /tmp/wisereport_inv.json
+# (dry-run; 파일 작성 없음. summary 만 stdout)
+```
+
+### Apply (파일 생성)
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/build_wisereport_inventory.py \
+    --root /mnt/wisereport \
+    --date 2026-04-30 \
+    --include-company \
+    --include-industry \
+    --out /tmp/wisereport_inv.json \
+    --max-company-pdfs 50 \
+    --max-industry-pdfs 50 \
+    --apply
+```
+
+### 회사 entry vs 산업 entry
+
+| | company (`기업`) | industry (`산업`) |
+| --- | --- | --- |
+| report_type | `company` | `industry` |
+| folder_type | `기업` | `산업` |
+| bracket field | `ticker_hint` | `sector_hint` |
+| `summary_queue` | (없음) | `true` (LLM 요약 큐 후보) |
+| 다운스트림 | PR #29 chain runner `--inventory` 입력으로 OK | parser 에 절대 들어가지 않음 |
+
+### 가드
+
+- `--out` repo 안 + `--apply` → exit 2
+- `--max-*-pdfs` > 50 → exit 2
+- `--include-company` / `--include-industry` 둘 다 누락 → exit 2
+- dry-run default; `--apply` 만 파일 생성
+- `direct_trade_signal=false` 강제; `summary.direct_trade_signal_true_count=0`; `forbidden_actions_confirmed.*=0`
+- sha256 prefix 12 hex 만 — PDF body fingerprint 누출 방지
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_wisereport_inventory_fixture.py
+```
+
+5 scenarios + 4 guards. PASS 시에만 exit 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)

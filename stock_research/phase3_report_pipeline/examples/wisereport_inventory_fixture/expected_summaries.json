@@ -1,0 +1,113 @@
+{
+  "schema": "phase3:wisereport_inventory_fixture_expected:v1",
+  "_note": "PR #39 expected outcomes for the synthetic folder fixtures. Each scenario maps to a sub-tree under examples/wisereport_inventory_fixture/. The runner (examples/run_wisereport_inventory_fixture.py) walks the tree, runs build_wisereport_inventory.py against each, and asserts the summary counters and per-entry shapes.",
+  "scenarios": {
+    "happy_path": {
+      "_root": "happy_path",
+      "include_company": true,
+      "include_industry": true,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 2,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0
+      },
+      "selected_company_ticker_hints_sorted": ["샘플바이오", "샘플반도체", "샘플전자"],
+      "selected_industry_sector_hints_sorted": ["반도체", "자동차"]
+    },
+    "malformed": {
+      "_root": "malformed",
+      "include_company": true,
+      "include_industry": false,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 1,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 3,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0
+      },
+      "expected_malformed_filenames_sorted": [
+        "20260430_no_brackets_either.pdf",
+        "[no_yyyymmdd_prefix] 제목.pdf",
+        "no_bracket_segment.pdf"
+      ]
+    },
+    "non_pdf": {
+      "_root": "non_pdf",
+      "include_company": true,
+      "include_industry": false,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 1,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 2,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0
+      },
+      "expected_skipped_non_pdf_filenames_sorted": ["README.md", "notes.txt"]
+    },
+    "cap_test": {
+      "_root": "cap_test",
+      "include_company": true,
+      "include_industry": false,
+      "max_company_pdfs": 3,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 3,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 2,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0
+      },
+      "_note_cap": "5 PDFs in folder, --max-company-pdfs=3 → 3 selected, 2 dropped (capped_company_count=2). Deterministic ordering: 캡테스트1, 캡테스트2, 캡테스트3 (the first three by basename sort)."
+    },
+    "empty_industry": {
+      "_root": "empty_industry",
+      "include_company": true,
+      "include_industry": true,
+      "max_company_pdfs": 50,
+      "max_industry_pdfs": 50,
+      "expected": {
+        "company_pdf_count": 1,
+        "industry_pdf_count": 0,
+        "malformed_filename_count": 0,
+        "duplicate_basename_count": 0,
+        "skipped_non_pdf_count": 0,
+        "capped_company_count": 0,
+        "capped_industry_count": 0,
+        "direct_trade_signal_true_count": 0
+      },
+      "_note_missing_industry_dir": "산업 directory does not exist under empty_industry/2026-04-30/. The scanner must NOT fail; it must report industry_pdf_count=0 and continue."
+    }
+  },
+  "global_invariants": [
+    "Every selected_company entry has direct_trade_signal=false.",
+    "Every selected_industry entry has direct_trade_signal=false AND summary_queue=true.",
+    "Every selected_company entry has report_type='company' and folder_type='기업'.",
+    "Every selected_industry entry has report_type='industry' and folder_type='산업'.",
+    "summary.direct_trade_signal_true_count is always 0.",
+    "forbidden_actions_confirmed.* are all 0.",
+    "schema is exactly 'phase3:wisereport_date_folder_inventory:v1'.",
+    "sha256_prefix_12 is exactly 12 lowercase hex characters per entry.",
+    "ticker_hint / sector_hint contains the bracketed text (no '[' or ']' chars).",
+    "Industry entries do NOT carry ticker_hint; company entries do NOT carry sector_hint or summary_queue."
+  ]
+}
