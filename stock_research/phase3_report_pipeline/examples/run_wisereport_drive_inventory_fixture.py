@@ -433,6 +433,34 @@ def main() -> int:
             _fail(f"bare folder id: expected FIXTURE_COMPANY_HAPPY_001A_pr44, "
                   f"got {bare_inv['company_drive_folder_id']!r}")
 
+        # Listing-cache miss → exit 4 (Codex review on PR #44):
+        # operator passes --listing-cache-dir but forgets to provision the
+        # per-folder html. The script must NOT raise an unhandled
+        # FileNotFoundError + exit 1; it must produce the same controlled
+        # operator-friendly exit-4 path that a network failure produces.
+        miss_cache_dir = tmpdir / "empty_listing_cache"
+        miss_cache_dir.mkdir(parents=True, exist_ok=True)
+        miss_out = tmpdir / "miss.json"
+        miss_proc = subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--date", "2026-04-30",
+             "--company-drive-folder-url",
+             "https://drive.google.com/drive/folders/FIXTURE_COMPANY_HAPPY_001A_pr44",
+             "--listing-cache-dir", str(miss_cache_dir),
+             "--out", str(miss_out),
+             "--apply"],
+            capture_output=True, text=True,
+        )
+        if miss_proc.returncode != 4:
+            _fail(f"cache-miss guard: expected exit 4 (controlled error), "
+                  f"got {miss_proc.returncode}\n"
+                  f"stderr={miss_proc.stderr!r}")
+        if "listing cache miss" not in (miss_proc.stderr or ""):
+            _fail(f"cache-miss guard: stderr missing 'listing cache miss' "
+                  f"phrase; got: {miss_proc.stderr!r}")
+        if miss_out.exists():
+            _fail("cache-miss guard: inventory file written despite exit 4")
+
         # PR #29/#30 chain-runner integration smoke:
         # Build a happy_path inventory + download the 3 company stubs to /tmp,
         # then feed the inventory into examples/run_inventory_batch_smoke.py.
@@ -521,7 +549,8 @@ def main() -> int:
 
     print(f"PASS run_wisereport_drive_inventory_fixture: "
           f"{len(scenarios)} scenarios + 7 guards + download magic-guard + "
-          f"bare-folder-ID accept + chain-runner integration smoke "
+          f"bare-folder-ID accept + cache-miss exit-4 guard + "
+          f"chain-runner integration smoke "
           f"(industry isolation verified end-to-end)")
     return 0
 

@@ -115,6 +115,9 @@ Forbidden / refused operations
     never read from user input) the script would exit 3 by guard.
   * Drive listing fetch failure (network error / 403) → exit 4 with
     a hint pointing the operator at --listing-cache-dir for offline mode.
+  * --listing-cache-dir cache miss (file expected at
+    `<DIR>/<folder_id>.html` is missing) → also exit 4, with a hint
+    that distinguishes the cache-miss case from the network case.
 
 This script does NOT change parser / bridge / merge / build / emit / ticker
 map / broker autodetect logic. It is purely a Drive-folder lister + raw
@@ -631,6 +634,24 @@ def main(argv: List[str] | None = None) -> int:
                 f"https://drive.google.com/embeddedfolderview?id={folder_id} "
                 f"on a network-allowed host, save as <DIR>/{folder_id}.html, "
                 f"and re-run with --listing-cache-dir <DIR>.",
+                file=sys.stderr,
+            )
+            raise SystemExit(4)
+        except FileNotFoundError as exc:
+            # `--listing-cache-dir` is set but the per-folder cache file is
+            # missing. This is an expected operator-side input mistake, not
+            # an internal crash, so it gets the same controlled exit-4 path
+            # as a network failure (Codex review on PR #44).
+            cache_path = listing_cache_dir / f"{folder_id}.html" \
+                if listing_cache_dir else None
+            print(
+                f"error: listing cache miss for folder_id={folder_id!r} "
+                f"({folder_type}): {exc}\n"
+                f"hint: --listing-cache-dir is set, but the expected file "
+                f"{cache_path} is missing. Either pre-fetch "
+                f"https://drive.google.com/embeddedfolderview?id={folder_id} "
+                f"into that path on a network-allowed host, or drop "
+                f"--listing-cache-dir to fetch live from drive.google.com.",
                 file=sys.stderr,
             )
             raise SystemExit(4)
