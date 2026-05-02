@@ -1,0 +1,26 @@
+{
+  "schema": "phase3:emit_revision_trend_fixture_expected:v1",
+  "_note": "PR #38 fixture self-test expected outcomes. Each entry maps a case (one entry in accepted_rows.json) to the classification that the script must emit. The fixture exercises ALL five classification buckets plus the conservative invariants (target_price never primary, downside never high_conviction, old_target=0 never high_conviction, missing horizon → data_insufficient, missing structured match → data_insufficient).",
+  "expected_classification_counts": {
+    "high_conviction": 2,
+    "margin_expansion": 0,
+    "marginal_review": 3,
+    "downside_guard_excluded": 1,
+    "data_insufficient": 3
+  },
+  "expected_high_table_candidates_count": 2,
+  "expected_target_price_only_count": 1,
+  "expected_metric_missing_count": 1,
+  "expected_direct_trade_signal_all_false": true,
+  "per_case": {
+    "high_conviction_op_up_15pct": "high_conviction",
+    "high_conviction_eps_up_8pct": "high_conviction",
+    "marginal_review_up_2pct_below_threshold": "marginal_review",
+    "marginal_review_flat": "marginal_review",
+    "downside_guard_excluded_down": "downside_guard_excluded",
+    "data_insufficient_target_price_only": "data_insufficient",
+    "data_insufficient_metric_missing_no_structured_match": "data_insufficient",
+    "data_insufficient_horizon_empty": "data_insufficient",
+    "marginal_review_old_target_zero": "marginal_review"
+  }
+}

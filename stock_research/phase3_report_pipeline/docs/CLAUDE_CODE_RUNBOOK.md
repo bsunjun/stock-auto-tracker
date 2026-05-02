@@ -766,6 +766,64 @@ PR #13 가드:
 selector inventory 와 함께 묶일 예정이다. **실제 WiseReport 10-PDF batch 는
 여전히 operator host 에서 제한 실행하며 결과는 repo 에 커밋하지 않는다.**
 
+## PR #38 — Revision-trend 운영 산출물 (`emit_revision_trend.py`)
+
+`build_report_estimate_v132 --strict --apply` 가 만든 accepted rows 를 받아 두 가지 운영 산출물 (CSV + JSON) 을 만든다. 모두 dry-run-default. parser / bridge / merge / build / ticker_map / broker autodetect 코드는 변경하지 않는다 (다운스트림 emit-only).
+
+### Dry-run 단독 실행
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/emit_revision_trend.py \
+    --accepted-rows /tmp/phase3_runner/wk/build_output/2026-04-30/estimate_revision_rows.json \
+    --structured /tmp/phase3_runner/wk/structured_extraction.json \
+    --output-dir /tmp/phase3_runner/wk/emit \
+    --date 2026-04-30
+# (dry-run; 파일 작성 없음. summary 만 stdout)
+```
+
+### Apply (파일 생성)
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/emit_revision_trend.py \
+    --accepted-rows /tmp/phase3_runner/wk/build_output/2026-04-30/estimate_revision_rows.json \
+    --structured /tmp/phase3_runner/wk/structured_extraction.json \
+    --output-dir /tmp/phase3_runner/wk/emit \
+    --date 2026-04-30 \
+    --apply
+# /tmp/phase3_runner/wk/emit/2026-04-30/ 아래에 다음 5개 파일이 생긴다:
+#   report_revision_trend.json
+#   report_revision_trend.csv
+#   report_estimate_high_table_candidates.json
+#   report_estimate_high_table_candidates.csv
+#   emit_revision_trend_summary.json
+```
+
+### 분류 5종 (one per accepted row)
+
+| classification | 조건 |
+| --- | --- |
+| `high_conviction` | direction=up AND metric ∈ {operating_profit / net_income / sales / eps} AND `|new-old|/|old|` ≥ 5% AND old_target ≠ 0 |
+| `margin_expansion` | (예약; v1 에서는 항상 0) |
+| `marginal_review` | direction=flat, OR direction=up + delta < 5%, OR direction=up + old_target = 0 |
+| `downside_guard_excluded` | direction=down (high_table 후보 영구 제외) |
+| `data_insufficient` | required field 누락 / invalid; `metric=target_price` 도 여기 (secondary reference 전용) |
+
+### Invariant (PR #38 가드)
+
+- `direct_trade_signal` 은 출력 row / summary 모두에서 **항상 false**. 입력에 true 가 한 건이라도 있으면 exit 3 거부.
+- `metric=target_price` 인 row 는 절대 `high_conviction` / `margin_expansion` 으로 들어가지 않는다 (target_price-as-primary 금지).
+- direction=down 인 row 는 `report_estimate_high_table_candidates` 에 절대 포함되지 않는다.
+- `--output-dir` 가 repo 안이면 거부 (PR #29 chain runner 가드와 동일 정책).
+- Default dry-run; `--apply` 명시 시에만 파일 생성. `rolling_append.py` 호출 절대 없음.
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_emit_revision_trend_fixture.py
+```
+
+9-case fixture (5/5 분류 + target_price-only + horizon-empty + direction-down + old_target=0 invariant) 모두 cover. PASS 시에만 exit 0.
+
 ## What this pack does NOT do
 
 - 실제 PDF 파싱 (외부 파서가 담당)

@@ -37,6 +37,7 @@ phase3_report_pipeline/
 │   │                                     #   PR #35: ticker_map 4차 확장 (parser 미변경) — PR #34 100-PDF wider smoke 의 ticker_unresolved=43 을 줄이기 위해 KRX 상장 확정 종목 15개 (현대건설 / 대우건설 / 한화솔루션 / 한국타이어앤테크놀로지 / 롯데정밀화학 / 롯데렌탈 / 롯데하이마트 / 제일기획 / 넥센타이어 / 금호타이어 / 대한전선 / 인텔리안테크 / HK이노엔 / KG모빌리티 / iM금융지주) 를 ticker_map 에 추가. governance 보존: 대한조선 (private/non-KRX) / 한화비전 (코드 재검증 필요) / RFHIC / RF머트리얼즈 / 샘씨엔에스 / 세나테크놀로지 / 에치에프알 / 환인제약 / LIG디펜스앤에어로스페이스 등 9개는 TICKER_MAP_TODO 로 유지. parser/bridge 코드 변경 없음. 100-PDF re-smoke: ticker_resolved 57→89 (+32), ticker_not_krx reject 43→11, build accepted 3→9 (+6; up 6 + down 3). parser structured_rows_total / gap_reason_counts 변화 없음.
 │   │                                     #   PR #36: ticker_map 5차 확장 (소규모 verified TODO 정리; parser/bridge 미변경) — PR #35 의 9 TODO-pending 중 high-confidence 2종만 추가: RFHIC KRX:218410 (KOSDAQ), 에치에프알 KRX:230240 (KOSDAQ). 나머지 7종 (한화비전 / 저스템 / LIG디펜스앤에어로스페이스 / RF머트리얼즈 / 샘씨엔에스 / 세나테크놀로지 / 환인제약) 은 KIND/KRX 2-source 확인 전까지 governance hold. 대한조선 governance-excluded 유지. 100-PDF re-smoke: ticker_resolved 89→92 (+3), ticker_not_krx reject 11→8 (-3); structured/accepted (15/9) byte-identical (parser unchanged); direct_trade_signal=true 0; templates md5 unchanged.
 │   │                                     #   PR #37: broker autodetect — parser broker metadata detection 보수적 second-pass. 기존 `_BROKER_SUFFIXES` (`증권` / `금융투자` / `자산운용`) primary 경로는 그대로 보존하고, primary 가 비었을 때만 새 helper `_detect_broker_header_research_suffix` 가 document head 영역 (첫 15 non-empty lines) 에서 한정된 suffix 집합 (`리서치센터` / `리서치본부` / `리서치 센터` / `리서치 본부` / `Research Center` / `Equity Research`) 을 line-end 에 anchor 해 매칭. 회사명 / 섹터 / 애널리스트 콘택트 / 표 헤더는 `[`/`목표주가` 포함, line length > 80, digit count > 5 라인-shape 필터로 reject. metric extraction logic 변경 없음 — gap_reason / structured_rows 는 byte-identical. 5 신규 synthetic fixture (3 positive + 2 negative).
+│   ├── emit_revision_trend.py            # PR #38 — `build_report_estimate_v132 --strict --apply` accepted rows → `REPORT_REVISION_TREND` / `REPORT_ESTIMATE_HIGH_TABLE_CANDIDATES` 운영 산출물 (CSV + JSON + summary). dry-run 기본 / `--apply` 만 파일 생성 / `--output-dir` repo 안 거부. 분류 5종 (`high_conviction` / `margin_expansion` / `marginal_review` / `downside_guard_excluded` / `data_insufficient`). primary metric 4종 (operating_profit / net_income / sales / eps); `target_price` 는 secondary_reference 전용 (절대 high_conviction 안 됨). direction=down → `downside_guard_excluded` (high_table 후보 영구 제외). delta_pct ≥ 5% AND direction=up AND primary metric AND old_target ≠ 0 일 때만 `high_conviction`. parser / bridge / merge / build / ticker_map / broker autodetect 코드 변경 0 — 다운스트림 emit-only 추가. 9-case fixture (`emit_revision_trend_fixture/`) + self-test runner (`run_emit_revision_trend_fixture.py`) — 5/5 분류 버킷 + target_price-only / horizon-empty / direction-down / old_target=0 invariants 모두 cover.
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
@@ -50,6 +51,8 @@ phase3_report_pipeline/
 │   ├── ticker_resolver_fixture.json      # PR #21 — resolver 케이스 (filename → ticker / unresolved) 18건
 │   ├── run_ticker_resolver_fixture.py    # PR #21 — 위 fixture를 ticker_resolver 모듈에 돌려보는 smoke runner
 │   ├── run_inventory_batch_smoke.py      # PR #29 — inventory batch chain runner (parser → bridge → merge → build --strict; rolling --apply 절대 없음)
+│   ├── run_emit_revision_trend_fixture.py # PR #38 — emit_revision_trend.py 9-case fixture self-test runner (분류 5종 + 모든 invariant)
+│   ├── emit_revision_trend_fixture/       # PR #38 — accepted_rows / structured_extraction / expected_classifications fixture set
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── resources/
 │   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)
@@ -124,6 +127,41 @@ phase3_report_pipeline/
       --ticker-map stock_research/phase3_report_pipeline/resources/ticker_map.csv
   python3 stock_research/phase3_report_pipeline/examples/run_ticker_resolver_fixture.py
   ```
+
+## PR #38 — Revision-trend 운영 산출물 (`emit_revision_trend.py`)
+
+`build_report_estimate_v132.py --strict --apply` 가 만든 `estimate_revision_rows.json`
+(accepted rows) 을 받아 두 가지 dry-run-default 운영 산출물을 만든다:
+
+  * `<output-dir>/<date>/report_revision_trend.json` + `.csv`
+  * `<output-dir>/<date>/report_estimate_high_table_candidates.json` + `.csv`
+  * `<output-dir>/<date>/emit_revision_trend_summary.json`
+
+분류 (per accepted row):
+
+  | classification | 조건 |
+  | --- | --- |
+  | `high_conviction` | direction=up AND metric ∈ {operating_profit, net_income, sales, eps} AND `|new-old|/|old|` ≥ 5% AND old_target ≠ 0 AND new_target finite |
+  | `margin_expansion` | (예약 버킷; v1 에서는 항상 0 — 향후 margin metric primary 추가 시 사용) |
+  | `marginal_review` | direction=flat, OR direction=up AND delta_pct < 5%, OR direction=up AND old_target = 0 |
+  | `downside_guard_excluded` | direction=down (high_table 후보 영구 제외) |
+  | `data_insufficient` | ticker non-KRX / broker / horizon / metric / old / new / direction 누락 또는 invalid; metric=`target_price` 인 경우도 여기 (secondary_reference 전용) |
+
+핵심 invariant:
+
+  * `direct_trade_signal` 은 **항상 false**. 입력 row 가 true 면 exit 3 으로 거부.
+  * `target_price` 는 **secondary reference 전용**. high_conviction 또는 margin_expansion 에 절대 들어가지 않는다.
+  * `--output-dir` 가 repo 안이면 거부 (PR #29 chain runner 와 같은 가드).
+  * 기본 dry-run; `--apply` 만 파일 생성.
+  * `parser / bridge / merge / build / ticker_map / broker autodetect` 코드 변경 0 — 본 PR 은 emit-only.
+
+검증:
+
+  ```
+  python3 stock_research/phase3_report_pipeline/examples/run_emit_revision_trend_fixture.py
+  ```
+
+  → 9-case fixture 가 5/5 분류 + target_price-only + horizon-empty + direction-down + old_target=0 invariant 모두 cover.
 
 ## What this pack does NOT do
 
