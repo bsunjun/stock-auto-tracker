@@ -1,0 +1,281 @@
+name: phase3 - Drive folder URL smoke (manual)
+
+# PR #45: manual GitHub Actions smoke for the PR #44 Drive folder URL
+# ingestion layer (`scripts/build_wisereport_drive_inventory.py`). Lets
+# operators verify the listing + sample-download paths from a
+# network-allowed runner without needing a MacBook with a Drive mount.
+#
+# This workflow is BY DESIGN manual-only:
+#   * `workflow_dispatch` is the ONLY trigger. No `schedule`, no `push`,
+#     no `pull_request`. Operators run it on demand.
+#   * No secrets are used. Listings + downloads only target public /
+#     shared Drive folder URLs supplied at dispatch time.
+#   * Outputs land in /tmp on the runner. Nothing is committed back to
+#     the repo. No PDF / inventory JSON artifact is uploaded.
+#   * The script's invariants (--out outside repo, --download-dir
+#     outside repo, HARD_MAX 50, direct_trade_signal=false, %PDF magic
+#     guard) all stay enforced; this workflow only adds a workspace-side
+#     forbidden-actions audit on top.
+
+on:
+  workflow_dispatch:
+    inputs:
+      company_drive_folder_url:
+        description: "Drive folder URL (or bare ID) for the 기업 cohort"
+        required: false
+        default: "https://drive.google.com/drive/folders/1-GiNJ47og07Jwvj2-PbQLqs7EwpN21va"
+      industry_drive_folder_url:
+        description: "Drive folder URL (or bare ID) for the 산업 cohort"
+        required: false
+        default: "https://drive.google.com/drive/folders/1Y4AhlpSSGW6GiroVMS1mSpyCCiF7JUEW"
+      date:
+        description: "Report date (YYYY-MM-DD) stamped onto every entry"
+        required: false
+        default: "2026-04-30"
+      max_company_pdfs:
+        description: "Per-folder cap on company PDFs (HARD_MAX 50)"
+        required: false
+        default: "50"
+      max_industry_pdfs:
+        description: "Per-folder cap on industry PDFs (HARD_MAX 50)"
+        required: false
+        default: "50"
+      sample_download_count:
+        description: "PDFs to sample-download per folder type (0..5 recommended)"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  drive-smoke:
+    name: Drive folder URL ingestion smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      COMPANY_URL: ${{ inputs.company_drive_folder_url }}
+      INDUSTRY_URL: ${{ inputs.industry_drive_folder_url }}
+      DATE: ${{ inputs.date }}
+      MAX_COMPANY: ${{ inputs.max_company_pdfs }}
+      MAX_INDUSTRY: ${{ inputs.max_industry_pdfs }}
+      SAMPLE_DL: ${{ inputs.sample_download_count }}
+      SCRIPT: stock_research/phase3_report_pipeline/scripts/build_wisereport_drive_inventory.py
+      SMOKE_DIR: /tmp/phase3_drive_smoke
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Show PR #44 script help (contract surface)"
+        run: |
+          python3 "$SCRIPT" --help | head -40
+
+      - name: Listing-only smoke (no downloads)
+        id: listing
+        run: |
+          set +e
+          mkdir -p "$SMOKE_DIR"
+          OUT="$SMOKE_DIR/listing_inventory.json"
+          python3 "$SCRIPT" \
+              --date "$DATE" \
+              --company-drive-folder-url  "$COMPANY_URL" \
+              --industry-drive-folder-url "$INDUSTRY_URL" \
+              --out "$OUT" \
+              --max-company-pdfs "$MAX_COMPANY" \
+              --max-industry-pdfs "$MAX_INDUSTRY" \
+              --apply
+          rc=$?
+          set -e
+          echo "listing_exit=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -ne 0 ] || [ ! -f "$OUT" ]; then
+            echo "drive_real_smoke_status=failed_or_blocked" >> "$GITHUB_OUTPUT"
+            echo "::warning::Drive listing failed (exit=$rc). The script's exit-4 hint (if exit=4) explains the network/permission cause; otherwise inspect the step log."
+            # Do NOT fail the job — the user explicitly asked that Drive
+            # access failure be reported, not hidden.
+          else
+            echo "drive_real_smoke_status=ok" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Company sample download (1 PDF to /tmp/...)
+        id: download_company
+        if: steps.listing.outputs.drive_real_smoke_status == 'ok' && inputs.sample_download_count != '0'
+        run: |
+          OUT="$SMOKE_DIR/company_download_inventory.json"
+          python3 "$SCRIPT" \
+              --date "$DATE" \
+              --company-drive-folder-url  "$COMPANY_URL" \
+              --out "$OUT" \
+              --max-company-pdfs "$MAX_COMPANY" \
+              --download-dir "$SMOKE_DIR" \
+              --max-download-pdfs "$SAMPLE_DL" \
+              --download-which company \
+              --apply
+
+      - name: Industry sample download (1 PDF to /tmp/...)
+        id: download_industry
+        if: steps.listing.outputs.drive_real_smoke_status == 'ok' && inputs.sample_download_count != '0'
+        run: |
+          OUT="$SMOKE_DIR/industry_download_inventory.json"
+          python3 "$SCRIPT" \
+              --date "$DATE" \
+              --industry-drive-folder-url "$INDUSTRY_URL" \
+              --out "$OUT" \
+              --max-industry-pdfs "$MAX_INDUSTRY" \
+              --download-dir "$SMOKE_DIR" \
+              --max-download-pdfs "$SAMPLE_DL" \
+              --download-which industry \
+              --apply
+
+      - name: Verify %PDF magic on downloaded samples
+        if: steps.listing.outputs.drive_real_smoke_status == 'ok' && inputs.sample_download_count != '0'
+        run: |
+          # The script writes downloads under <download-dir>/{기업,산업}/<filename>.
+          # We check ONLY the magic header — never the body, never the full sha.
+          checked=0
+          for sub in 기업 산업; do
+            d="$SMOKE_DIR/$sub"
+            [ -d "$d" ] || continue
+            for f in "$d"/*.pdf; do
+              [ -e "$f" ] || continue
+              head_hex=$(head -c 4 "$f" | od -An -t x1 | tr -d ' \n')
+              # ASCII '%PDF' = hex 25 50 44 46
+              if [ "$head_hex" != "25504446" ]; then
+                echo "::error::sample missing %PDF magic in $sub/ (head_hex=$head_hex)"
+                exit 1
+              fi
+              size=$(wc -c < "$f")
+              # Only an opaque presence line: subdir + size, no filename, no sha.
+              echo "::notice::sample present in $sub/ (size=${size}B)"
+              checked=$((checked + 1))
+            done
+          done
+          echo "checked $checked sample PDFs"
+
+      - name: Counter-only summary report
+        if: always()
+        env:
+          DRIVE_STATUS: ${{ steps.listing.outputs.drive_real_smoke_status }}
+        run: |
+          {
+            echo "## Phase 3 - Drive folder URL smoke (counters only)"
+            echo ""
+            echo "- drive_real_smoke_status: \`$DRIVE_STATUS\`"
+            echo "- date: \`$DATE\`"
+            echo "- max_company_pdfs: \`$MAX_COMPANY\`"
+            echo "- max_industry_pdfs: \`$MAX_INDUSTRY\`"
+            echo "- sample_download_count_per_type: \`$SAMPLE_DL\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          LST="$SMOKE_DIR/listing_inventory.json"
+          DL_CO="$SMOKE_DIR/company_download_inventory.json"
+          DL_IN="$SMOKE_DIR/industry_download_inventory.json"
+
+          if [ ! -f "$LST" ]; then
+            {
+              echo ""
+              echo "_listing inventory missing — Drive access failed or was blocked._"
+              echo "Recovery: see \`stock_research/phase3_report_pipeline/docs/pr44_drive_folder_ingestion.md\`"
+              echo "(offline cache mode via \`--listing-cache-dir\`)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          python3 - "$LST" "$DL_CO" "$DL_IN" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, os, sys
+
+          def load(p):
+              if not os.path.isfile(p):
+                  return None
+              return json.loads(open(p, encoding="utf-8").read())
+
+          lst = load(sys.argv[1])
+          dl_co = load(sys.argv[2])
+          dl_in = load(sys.argv[3])
+
+          s = lst.get("summary", {}) or {}
+          sel = lst.get("selected") or []
+          sel_co = lst.get("selected_company") or []
+          sel_in = lst.get("selected_industry") or []
+          co_ids = [e.get("drive_file_id") for e in sel_co]
+          sel_ids = [e.get("drive_file_id") for e in sel]
+          in_ids = {e.get("drive_file_id") for e in sel_in}
+          alias_ok = (sel_ids == co_ids)
+          industry_isolated = not (set(sel_ids) & in_ids)
+
+          all_entries = sel_co + sel_in
+          dts_true = sum(1 for e in all_entries if e.get("direct_trade_signal") is True)
+          ts_truthy = sum(1 for e in all_entries if e.get("trade_signal") not in (None, False))
+
+          dl_co_count = (dl_co or {}).get("summary", {}).get("downloaded_pdf_count", 0)
+          dl_in_count = (dl_in or {}).get("summary", {}).get("downloaded_pdf_count", 0)
+          fail_co = (dl_co or {}).get("summary", {}).get("failed_download_count", 0)
+          fail_in = (dl_in or {}).get("summary", {}).get("failed_download_count", 0)
+
+          fa_lst = lst.get("forbidden_actions_confirmed") or {}
+          fa_co = (dl_co or {}).get("forbidden_actions_confirmed") or {}
+          fa_in = (dl_in or {}).get("forbidden_actions_confirmed") or {}
+          fa_all_zero = all(v == 0 for v in {**fa_lst, **fa_co, **fa_in}.values())
+
+          print("")
+          print(f"- company_listing_count: `{s.get('company_pdf_count', 0)}`")
+          print(f"- industry_listing_count: `{s.get('industry_pdf_count', 0)}`")
+          print(f"- malformed_filename_count: `{s.get('malformed_filename_count', 0)}`")
+          print(f"- duplicate_basename_count: `{s.get('duplicate_basename_count', 0)}`")
+          print(f"- skipped_non_pdf_count: `{s.get('skipped_non_pdf_count', 0)}`")
+          print(f"- capped_company_count: `{s.get('capped_company_count', 0)}`")
+          print(f"- capped_industry_count: `{s.get('capped_industry_count', 0)}`")
+          print(f"- downloaded_company_sample_count: `{dl_co_count}`")
+          print(f"- downloaded_industry_sample_count: `{dl_in_count}`")
+          print(f"- failed_download_count: `{fail_co + fail_in}`")
+          print(f"- selected_eq_selected_company_invariant: `{alias_ok}`")
+          print(f"- industry_isolated_from_selected_invariant: `{industry_isolated}`")
+          print(f"- direct_trade_signal_true_count: `{dts_true}`")
+          print(f"- trade_signal_truthy_count: `{ts_truthy}`")
+          print(f"- forbidden_actions_confirmed_all_zero: `{fa_all_zero}`")
+          PY
+
+      - name: Forbidden-actions workspace audit
+        if: always()
+        run: |
+          # Defense-in-depth: the script already gates these (--out and
+          # --download-dir refuse repo-internal paths under --apply), but
+          # we re-verify the workspace is clean before declaring success.
+          fail=0
+
+          tracked_pdfs=$(git ls-files | grep -c '\.pdf$' || true)
+          existing_fixture_pdfs=$(git ls-files | grep -E 'fixture/.*\.pdf$' | wc -l | tr -d ' ')
+          if [ "$tracked_pdfs" -ne "$existing_fixture_pdfs" ]; then
+            echo "::error::repo carries $tracked_pdfs tracked PDF(s); only fixture stubs ($existing_fixture_pdfs) are allowed."
+            fail=1
+          fi
+
+          stray_inv=$(find . -path ./.git -prune -o -name 'wisereport_drive_inventory*.json' -print | grep -v '^$' || true)
+          if [ -n "$stray_inv" ]; then
+            echo "::error::a drive-inventory JSON appeared inside the workspace:"
+            echo "$stray_inv"
+            fail=1
+          fi
+
+          stray_pdfs=$(find . -path ./.git -prune -o -name '*.pdf' -print 2>/dev/null \
+                       | grep -v '/wisereport_drive_inventory_fixture/' \
+                       | grep -v '/wisereport_inventory_fixture/' \
+                       | grep -v '^$' || true)
+          if [ -n "$stray_pdfs" ]; then
+            echo "::error::stray PDF inside workspace:"
+            echo "$stray_pdfs"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+          echo "::notice::forbidden-actions workspace audit OK (no PDF/JSON leakage)"

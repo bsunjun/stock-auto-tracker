@@ -137,3 +137,69 @@ python3 stock_research/phase3_report_pipeline/examples/run_inventory_batch_smoke
 The PR #44 inventory's industry entries (`selected_industry[]`) are
 NEVER fed to the parser — they are isolated for downstream LLM-summary
 queue use only. The synthetic-fixture chain test asserts this end-to-end.
+
+## GitHub Actions smoke (PR #45)
+
+PR #45 adds `.github/workflows/phase3_drive_smoke.yml`, a manual
+`workflow_dispatch`-only workflow so an operator can run the listing +
+sample-download paths from a network-allowed runner without needing a
+MacBook with a Drive mount.
+
+How to invoke (Actions tab → "phase3 - Drive folder URL smoke (manual)"
+→ Run workflow), with these inputs (defaults shown):
+
+| input                       | default                                                            |
+|-----------------------------|--------------------------------------------------------------------|
+| `company_drive_folder_url`  | `https://drive.google.com/drive/folders/1-GiNJ47og07Jwvj2-PbQLqs7EwpN21va` |
+| `industry_drive_folder_url` | `https://drive.google.com/drive/folders/1Y4AhlpSSGW6GiroVMS1mSpyCCiF7JUEW` |
+| `date`                      | `2026-04-30`                                                       |
+| `max_company_pdfs`          | `50`                                                               |
+| `max_industry_pdfs`         | `50`                                                               |
+| `sample_download_count`     | `1` (per folder type — set `0` to skip downloads entirely)         |
+
+Workflow steps (all sandboxed under `/tmp/phase3_drive_smoke/` on the
+runner; nothing is committed back to the repo):
+
+1. Checkout + Python 3.11 setup.
+2. `--help` of the PR #44 script (contract surface).
+3. Listing-only smoke against both folders → `listing_inventory.json`.
+4. Company sample download (only if listing succeeded and
+   `sample_download_count != 0`).
+5. Industry sample download (same gate).
+6. `%PDF` magic-header verification on each downloaded sample. The
+   workflow logs ONLY `subdir` + `sizeB`, never the filename, never the
+   sha, never the body.
+7. Counter-only summary written to `GITHUB_STEP_SUMMARY`:
+   - `company_listing_count`, `industry_listing_count`
+   - `malformed_filename_count`, `duplicate_basename_count`,
+     `skipped_non_pdf_count`, `capped_company_count`, `capped_industry_count`
+   - `downloaded_company_sample_count`, `downloaded_industry_sample_count`
+   - `failed_download_count`
+   - `selected_eq_selected_company_invariant`,
+     `industry_isolated_from_selected_invariant`
+   - `direct_trade_signal_true_count` (must be 0),
+     `trade_signal_truthy_count` (must be 0)
+   - `forbidden_actions_confirmed_all_zero` (must be `True`)
+8. Forbidden-actions workspace audit: re-greps the workspace for any
+   tracked PDF or stray inventory JSON outside the existing fixture
+   trees. Fails the job if anything leaked.
+
+If Drive listing fails or is blocked (e.g., a runner whose egress
+policy denies `drive.google.com` — same situation as the sandbox in
+which this PR was written), the workflow does NOT hide the failure: it
+emits `drive_real_smoke_status=failed_or_blocked` and the summary
+points the operator at the offline-cache section above.
+
+Security posture:
+
+- Trigger: `workflow_dispatch` only. No `schedule`, no `push`, no
+  `pull_request`.
+- Permissions: `contents: read` only.
+- Secrets: none. The script does not need an API key; only the public
+  `embeddedfolderview` + `uc?export=download` endpoints are used.
+- No artifacts are uploaded. Sample PDFs live only inside the runner's
+  ephemeral `/tmp` for the lifetime of the job.
+- All hard-rule invariants from PR #44 stay enforced (`--out` outside
+  repo, `--download-dir` outside repo, `HARD_MAX 50`,
+  `direct_trade_signal=false`, `%PDF` magic guard). The workflow adds a
+  workspace-side defense-in-depth audit on top.
