@@ -96,13 +96,24 @@ jobs:
           rc=$?
           set -e
           echo "listing_exit=$rc" >> "$GITHUB_OUTPUT"
-          if [ "$rc" -ne 0 ] || [ ! -f "$OUT" ]; then
-            echo "drive_real_smoke_status=failed_or_blocked" >> "$GITHUB_OUTPUT"
-            echo "::warning::Drive listing failed (exit=$rc). The script's exit-4 hint (if exit=4) explains the network/permission cause; otherwise inspect the step log."
-            # Do NOT fail the job — the user explicitly asked that Drive
-            # access failure be reported, not hidden.
-          else
+          # Exit-code policy (Codex P1 review on PR #45):
+          #   - 0          : success → drive_real_smoke_status=ok
+          #   - 4          : controlled Drive-blocked / cache-miss path
+          #                  → drive_real_smoke_status=failed_or_blocked,
+          #                  warning only (operator explicitly asked that
+          #                  Drive access failure be reported, not hidden).
+          #   - 2 / 3 / *  : CLI / invariant / unexpected breakage
+          #                  → drive_real_smoke_status=script_error and the
+          #                  job FAILS so regressions don't silently pass.
+          if [ "$rc" -eq 0 ] && [ -f "$OUT" ]; then
             echo "drive_real_smoke_status=ok" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -eq 4 ]; then
+            echo "drive_real_smoke_status=failed_or_blocked" >> "$GITHUB_OUTPUT"
+            echo "::warning::Drive listing blocked (exit=4). See the script's exit-4 hint above; recovery via offline cache mode is documented in stock_research/phase3_report_pipeline/docs/pr44_drive_folder_ingestion.md."
+          else
+            echo "drive_real_smoke_status=script_error" >> "$GITHUB_OUTPUT"
+            echo "::error::script_error: build_wisereport_drive_inventory.py exited with $rc (not the controlled exit-4 path). exit 2 = CLI / config / HARD_MAX / repo-internal --out, exit 3 = direct_trade_signal=true guard, anything else = unexpected. Failing the smoke job."
+            exit 1
           fi
 
       - name: Company sample download (1 PDF to /tmp/...)
@@ -251,21 +262,25 @@ jobs:
           # we re-verify the workspace is clean before declaring success.
           fail=0
 
-          tracked_pdfs=$(git ls-files | grep -c '\.pdf$' || true)
-          existing_fixture_pdfs=$(git ls-files | grep -E 'fixture/.*\.pdf$' | wc -l | tr -d ' ')
+          # PDF detection is CASE-INSENSITIVE (Codex P1 review on PR #45):
+          # PR #44's build_wisereport_drive_inventory.py accepts `.pdf` with
+          # re.IGNORECASE, so a leaked `Report.PDF` / `Report.Pdf` would still
+          # be a real PDF and must trip this guard.
+          tracked_pdfs=$(git ls-files | grep -ci '\.pdf$' || true)
+          existing_fixture_pdfs=$(git ls-files | grep -Ei 'fixture/.*\.pdf$' | wc -l | tr -d ' ')
           if [ "$tracked_pdfs" -ne "$existing_fixture_pdfs" ]; then
             echo "::error::repo carries $tracked_pdfs tracked PDF(s); only fixture stubs ($existing_fixture_pdfs) are allowed."
             fail=1
           fi
 
-          stray_inv=$(find . -path ./.git -prune -o -name 'wisereport_drive_inventory*.json' -print | grep -v '^$' || true)
+          stray_inv=$(find . -path ./.git -prune -o -iname 'wisereport_drive_inventory*.json' -print | grep -v '^$' || true)
           if [ -n "$stray_inv" ]; then
             echo "::error::a drive-inventory JSON appeared inside the workspace:"
             echo "$stray_inv"
             fail=1
           fi
 
-          stray_pdfs=$(find . -path ./.git -prune -o -name '*.pdf' -print 2>/dev/null \
+          stray_pdfs=$(find . -path ./.git -prune -o -iname '*.pdf' -print 2>/dev/null \
                        | grep -v '/wisereport_drive_inventory_fixture/' \
                        | grep -v '/wisereport_inventory_fixture/' \
                        | grep -v '^$' || true)
@@ -278,4 +293,4 @@ jobs:
           if [ "$fail" -ne 0 ]; then
             exit 1
           fi
-          echo "::notice::forbidden-actions workspace audit OK (no PDF/JSON leakage)"
+          echo "::notice::forbidden-actions workspace audit OK (no PDF/JSON leakage; case-insensitive)"

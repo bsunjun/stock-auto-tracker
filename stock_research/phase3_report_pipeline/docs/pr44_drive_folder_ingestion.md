@@ -184,11 +184,19 @@ runner; nothing is committed back to the repo):
    tracked PDF or stray inventory JSON outside the existing fixture
    trees. Fails the job if anything leaked.
 
-If Drive listing fails or is blocked (e.g., a runner whose egress
-policy denies `drive.google.com` — same situation as the sandbox in
-which this PR was written), the workflow does NOT hide the failure: it
-emits `drive_real_smoke_status=failed_or_blocked` and the summary
-points the operator at the offline-cache section above.
+Listing-step exit-code policy (Codex P1 review on PR #45):
+
+- exit `0` + inventory file present → `drive_real_smoke_status=ok`,
+  job continues to the download / verify steps.
+- exit `4` (the script's controlled Drive-blocked / cache-miss path) →
+  `drive_real_smoke_status=failed_or_blocked`, **warning only, job stays
+  green**. The summary points the operator at the offline-cache section
+  above.
+- exit `2` (CLI / config / `HARD_MAX` / repo-internal `--out`), exit `3`
+  (defensive `direct_trade_signal=true` guard), or any other unexpected
+  code → `drive_real_smoke_status=script_error`, **`::error::` raised
+  and the smoke job FAILS**. Codex's concern: silently downgrading
+  these to a warning would let real script regressions pass unnoticed.
 
 Security posture:
 
