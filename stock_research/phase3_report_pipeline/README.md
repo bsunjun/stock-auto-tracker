@@ -40,6 +40,7 @@ phase3_report_pipeline/
 │   ├── emit_revision_trend.py            # PR #38 — `build_report_estimate_v132 --strict --apply` accepted rows → `REPORT_REVISION_TREND` / `REPORT_ESTIMATE_HIGH_TABLE_CANDIDATES` 운영 산출물 (CSV + JSON + summary). dry-run 기본 / `--apply` 만 파일 생성 / `--output-dir` repo 안 거부. 분류 5종 (`high_conviction` / `margin_expansion` / `marginal_review` / `downside_guard_excluded` / `data_insufficient`). primary metric 4종 (operating_profit / net_income / sales / eps); `target_price` 는 secondary_reference 전용 (절대 high_conviction 안 됨). direction=down → `downside_guard_excluded` (high_table 후보 영구 제외). delta_pct ≥ 5% AND direction=up AND primary metric AND old_target ≠ 0 일 때만 `high_conviction`. parser / bridge / merge / build / ticker_map / broker autodetect 코드 변경 0 — 다운스트림 emit-only 추가. 9-case fixture (`emit_revision_trend_fixture/`) + self-test runner (`run_emit_revision_trend_fixture.py`) — 5/5 분류 버킷 + target_price-only / horizon-empty / direction-down / old_target=0 invariants 모두 cover.
 │   ├── build_wisereport_inventory.py     # PR #39 + PR #40 — `<root>/<YYYY-MM-DD>/{기업,산업}` 스캐너. operator-host local mount 또는 mounted Drive 기반. `--include-company` 는 PR #29 chain runner 의 `--inventory` 입력으로 그대로 흘러갈 수 있는 형태로 emit (ticker_hint, sha256_prefix_12, local_pdf_path 등); `--include-industry` 는 `summary_queue=true` 로 표시되어 다운스트림 LLM-summary 파이프라인 후보로만 보관 (parser 에 들어가지 않음). dry-run 기본; `--apply` 만 `--out` 파일 생성. `--out` repo 안 + `--apply` → exit 2. `--max-company-pdfs` / `--max-industry-pdfs` 둘 다 HARD_MAX=50; 초과 시 exit 2. 모든 entry `direct_trade_signal=false`; summary `direct_trade_signal_true_count=0` 강제. malformed filename / non-PDF / per-folder cap / missing 산업 dir 분기 모두 fixture 로 cover. parser / bridge / merge / build / emit / ticker_map / broker autodetect 코드 변경 0. **PR #40**: top-level `selected[]` alias 추가 — `extract_report_estimate_table.py` (`selected[]` 를 읽음) 와 `run_inventory_batch_smoke.py --inventory` 가 별도 adapter 없이 inventory 를 바로 소비. `selected[]` 는 `selected_company[]` 와 byte-equal mirror 이며 `selected_industry[]` 는 절대 alias 에 들어가지 않음 (industry isolation invariant 유지; chain-runner integration smoke 가 fixture self-test 에 포함).
 │   ├── build_industry_summary_pack_stub.py # PR #41 — `selected_industry[]` 만 입력으로 받아 `pending_llm_summary` stub pack (JSON + Markdown + summary) 을 emit. 11개 분석 필드는 빈 placeholder; `missing_verification[]` 에 모두 등록. `selected_company[]` / `selected[]` alias 는 무시 (industry-only). PDF 본문 절대 안 읽음 — filename / sha256_prefix_12 / sector_hint 만. `direct_trade_signal=false` / `trade_signal=null` / `status=pending_llm_summary` 강제. 입력에 `direct_trade_signal=true` 가 한 건이라도 있으면 exit 3. dry-run default; `--apply` 만 파일 생성; `--out-dir` repo 안 + `--apply` → exit 2; `--max-stubs` HARD_MAX=50. parser / bridge / merge / build / emit / ticker_map / broker autodetect / `build_wisereport_inventory.py` 코드 변경 0. 4 fixture scenario + 4 guard + static-grep self-test (`run_industry_summary_pack_stub_fixture.py`).
+│   ├── validate_industry_summary_pack.py # PR #43 — PR #41 stub pack (still-empty 또는 LLM-filled) 을 입력받아 hard / soft 검증 후 valid 만 `industry_catalyst_pack_stub.json` (+md+summary+validation_summary) 로 projection. 7가지 verdict bucket (`valid` / `rejected_pending_summary` / `rejected_missing_verification` / `rejected_trade_signal_truthy` / `rejected_forbidden_trade_language` / `rejected_empty_required_field` / `rejected_unknown_status`) + hard-fail (`direct_trade_signal=true` → exit 3). emitted catalyst row 는 `direct_trade_signal=false` / `trade_signal=null` / `status=catalyst_pack_emitted`. 스키마 자체에 `recommendation` / `top_pick` / `target_price` / `position_size` 필드 자체가 없음 (by construction). 매수/매도/Top Pick/target_price/position_size/PB_READY/PB_SCOUT/PB_TRIGGER 등 forbidden 패턴 22개 정규식 매칭. dry-run default; `--apply` 만 파일 생성; `--out-dir` repo 안 + `--apply` → exit 2. parser / bridge / merge / build / emit / ticker_map / broker autodetect / `build_wisereport_inventory.py` / `build_industry_summary_pack_stub.py` 코드 변경 0. 5 fixture scenario + hard-fail adversarial + 3 guard self-test (`run_industry_summary_validation_fixture.py`).
 │   ├── ticker_resolver.py                # PR #21 — 한글 종목명 → KRX:NNNNNN resolver (rich CSV / 정규화 / 별칭 / 파일명 [...] 추출 / --verify)
 │   ├── promote_report_outputs.py         # output/<date> → output/latest (이중 gate)
 │   └── vision_ocr_pdf.py                 # Vision OCR (raw / --extract-mode estimate; default 호출 안 함)
@@ -59,6 +60,8 @@ phase3_report_pipeline/
 │   ├── wisereport_inventory_fixture/      # PR #39 — happy_path / malformed / non_pdf / cap_test / empty_industry sub-trees + expected_summaries.json
 │   ├── run_industry_summary_pack_stub_fixture.py # PR #41 — industry stub generator self-test (4 scenarios + 4 guards + static-grep)
 │   ├── industry_summary_pack_stub_fixture/ # PR #41 — fixture inventories: company_and_industry / industry_only / company_only / with_signal_true
+│   ├── run_industry_summary_validation_fixture.py # PR #43 — validator self-test (5-record pack + hard-fail adversarial + 3 guards)
+│   ├── industry_summary_validation_fixture/ # PR #43 — pack_five_no_hard_fail / pack_with_hard_fail / expected_outcomes.json
 │   └── structured_extraction.example.json # vision_ocr --extract-mode estimate 출력 형식 예시 (PR #5)
 ├── resources/
 │   └── ticker_map.csv                    # PR #21 — 권위 있는 KRX ticker map (rich schema: company_name_kr,ticker,aliases,market,notes; 73 종목)
@@ -320,6 +323,57 @@ python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_pack
 ### PR #42 — Real-data smoke (counter-only)
 
 operator-host 또는 cloud session 에서 actual WiseReport 산업 cohort 에 대해 inventory + stub 생성 → 카운터만 보고하는 절차. PDF body 안 읽음, Drive write 없음, repo write 없음. 자세한 절차는 [`docs/INDUSTRY_SUMMARY_REAL_SMOKE_TEMPLATE.md`](docs/INDUSTRY_SUMMARY_REAL_SMOKE_TEMPLATE.md) 에, 매 실행 결과 append-only log 는 [`docs/INDUSTRY_SUMMARY_REAL_SMOKE_RESULT_LOG.md`](docs/INDUSTRY_SUMMARY_REAL_SMOKE_RESULT_LOG.md) 에. 2026-04-30 baseline (PR #42): 13 산업 PDF / 9 distinct sectors / 13 stubs / 모든 forbidden_actions_confirmed = 0.
+
+## PR #43 — Industry summary validation + catalyst pack stub (`validate_industry_summary_pack.py`)
+
+PR #41 에서 만든 stub pack (still-empty 또는 LLM-filled) 을 입력받아 7가지 verdict bucket 으로 분류한 뒤 valid 만 `industry_catalyst_pack_stub.json` 으로 projection 한다. `direct_trade_signal=true` 입력은 exit 3. emitted catalyst row 의 스키마에는 `recommendation` / `top_pick` / `target_price` / `position_size` 필드 자체가 없다 (by construction). forbidden 패턴 22개 (매수 / 매도 / Top Pick / target_price / position_size / PB_READY / PB_SCOUT / PB_TRIGGER 등) 가 분석 필드에 등장하면 거부.
+
+### Dry-run
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/validate_industry_summary_pack.py \
+    --pack    /tmp/industry_summary_pack/2026-04-30/industry_summary_pack_stub.json \
+    --out-dir /tmp/industry_catalyst_pack
+```
+
+### Apply
+
+```
+python3 stock_research/phase3_report_pipeline/scripts/validate_industry_summary_pack.py \
+    --pack    /tmp/industry_summary_pack/2026-04-30/industry_summary_pack_stub.json \
+    --out-dir /tmp/industry_catalyst_pack \
+    --date    2026-04-30 \
+    --apply
+# /tmp/industry_catalyst_pack/2026-04-30/{
+#   industry_catalyst_pack_stub.json,
+#   industry_catalyst_pack_stub.md,
+#   industry_catalyst_pack_stub_summary.json,
+#   validation_summary.json
+# }
+```
+
+### Verdict buckets
+
+| classification | trigger |
+|---|---|
+| `valid` | 모든 검증 통과 → catalyst pack 으로 emit |
+| `rejected_pending_summary` | LLM 이 아직 채우지 않은 stub |
+| `rejected_missing_verification` | `status=llm_summary_filled` 인데 `missing_verification` 비어있지 않음 |
+| `rejected_trade_signal_truthy` | `trade_signal` 이 `null` / `false` 외 값 |
+| `rejected_forbidden_trade_language` | 분석 필드에 forbidden 패턴 매칭 |
+| `rejected_empty_required_field` | `status=llm_summary_filled` 인데 11개 mandatory 분석 필드 중 하나 이상 비어있음 |
+| `rejected_unknown_status` | status 가 `pending_llm_summary` / `llm_summary_filled` 외 값 또는 input schema mismatch |
+| `hard_fail_direct_trade_signal_true` | exit 3 즉시 (no files written) |
+
+자세한 스키마 + invariant 정의는 [`docs/INDUSTRY_CATALYST_PACK_SCHEMA.md`](docs/INDUSTRY_CATALYST_PACK_SCHEMA.md) 에.
+
+### Self-test
+
+```
+python3 stock_research/phase3_report_pipeline/examples/run_industry_summary_validation_fixture.py
+```
+
+5-record pack (1 valid + 4 distinct rejection bucket) + 1 hard-fail adversarial + 3 guard. PASS 시에만 exit 0.
 
 ## What this pack does NOT do
 
