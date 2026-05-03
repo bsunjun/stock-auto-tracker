@@ -55,7 +55,7 @@ discarded — not "scrubbed and reused".
 
 Every candidate the operator builds in the second week must include
 **all** of the following sections. Missing sections invalidate the
-exercise even if `validate_fixtures.py` returns `PASS`.
+exercise even if every other check passes.
 
 - `setup` — anonymized description of the chart / context setup.
 - `edge` — why the operator believes this setup has a defined edge,
@@ -73,26 +73,52 @@ exercise even if `validate_fixtures.py` returns `PASS`.
 - `human_gate` — explicit statement that a human operator decision
   is required before any action; must not be auto-satisfied.
 - `signal_safety` — explicit statement that this candidate is a
-  training artifact, that PASS is not execution permission, and that
-  no automatic execution is authorized.
+  training artifact, that schema-conformance is not execution
+  permission, and that no automatic execution is authorized.
 
 ## 4. Workflow
 
 1. Operator drafts a candidate locally (outside the repo working
    tree, e.g., in a private scratch directory).
-2. Operator runs `validate_fixtures.py` against a **local** copy
-   placed in a throwaway path. The committed fixtures S1–S6 must not
-   be edited or replaced.
-3. Operator reviews the result in their private journal.
-4. Operator deletes the local artifact at end-of-day. Nothing is
-   committed.
+2. Operator performs a **manual schema-conformance check** against
+   the JSON Schemas under `activation_pack/schemas/` (the same
+   schemas referenced by the committed S1–S6 fixtures). The check
+   confirms that required fields exist and that anonymization tags
+   from §1 are used throughout.
+3. Operator does **not** run `validate_fixtures.py` against the
+   X/Y/Z draft. The committed validator hard-codes the allowed
+   `name` values to `Candidate A/B/C` (see §6); running it against
+   a Candidate X/Y/Z draft would always FAIL on the `name` check
+   and is therefore not part of the week-2 workflow.
+4. The committed fixtures S1–S6 must not be edited or replaced.
+   Validator runs against S1–S6 themselves are still permitted —
+   they are the same runs performed in week 1.
+5. Operator reviews the manual-checklist result in their private
+   journal.
+6. Operator deletes the local X/Y/Z artifact at end-of-day.
+   Nothing is committed.
 
-## 5. What `PASS` means and does not mean
+## 5. What schema-conformance means and does not mean
 
-- `PASS` means the JSON conforms to the validator's schema and
-  rule set.
-- `PASS` does **not** mean buy. It does **not** mean sell. It does
+- A passing manual schema-conformance check means the draft JSON
+  satisfies the schema's structural requirements and uses only the
+  anonymization tags listed in §1.
+- It does **not** mean buy. It does **not** mean sell. It does
   **not** authorize any order, any alert delivery, or any automated
   pipeline.
 - The human gate remains the only path to action, and action remains
   out of scope for this PR.
+
+## 6. Why the validator is not run on X/Y/Z drafts
+
+`validate_fixtures.py` enforces the week-1 invariant that fixture
+candidate names are drawn from `{Candidate A, Candidate B,
+Candidate C}`. That invariant is intentional for the committed
+S1–S6 set. The week-2 exercise deliberately uses a disjoint name
+space (`Candidate X/Y/Z`) so that locally-drafted artifacts cannot
+be confused with the committed week-1 set.
+
+This PR does **not** modify `validate_fixtures.py` and does **not**
+extend the allowed-name set. Any future change to bring the
+validator into scope for X/Y/Z drafts must be a separate PR with
+explicit approval.

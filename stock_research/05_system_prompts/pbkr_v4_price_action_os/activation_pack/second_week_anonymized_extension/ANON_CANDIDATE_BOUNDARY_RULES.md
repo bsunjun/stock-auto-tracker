@@ -51,10 +51,24 @@ PBKR v4 dry-run program:
 
 - No automatic execution path is created or implied by this PR.
 - The validator does not place orders.
-- `PASS` from `validate_fixtures.py` does not authorize alerts,
-  webhooks, broker calls, or any downstream side effect.
+- A `PASS` from `validate_fixtures.py` against the committed S1–S6
+  fixtures does not authorize alerts, webhooks, broker calls, or
+  any downstream side effect. The same applies to a passing manual
+  schema-conformance check on a Candidate X/Y/Z draft.
 - The `human_gate` block in every generated candidate must be a
   human-in-the-loop checkpoint, not an auto-satisfied flag.
+
+### Validator scope
+
+| Target                                  | `validate_fixtures.py` | Manual schema-conformance |
+| --------------------------------------- | ---------------------- | ------------------------- |
+| Committed S1–S6 fixtures (A/B/C)        | Yes (week-1 workflow)  | Optional                  |
+| Locally-drafted X/Y/Z candidates        | **No** (would FAIL on `name` check) | Yes |
+
+The validator's `ALLOWED_NAMES = {"Candidate A", "Candidate B",
+"Candidate C"}` constraint is intentional and unchanged in PR #58.
+Bringing X/Y/Z into the validator's allowed name set would require
+a separate, explicitly-approved PR.
 
 ## 5. Anonymization boundary
 

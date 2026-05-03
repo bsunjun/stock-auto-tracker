@@ -68,6 +68,13 @@ eligible for merge. Each item is a hard gate.
     approval.
 26. The human gate remains a mandatory checkpoint in every
     documented workflow.
+27. The documented week-2 workflow does **not** instruct operators
+    to run `validate_fixtures.py` against locally-drafted
+    Candidate X/Y/Z artifacts. The committed validator restricts
+    allowed candidate names to `Candidate A/B/C`; that restriction
+    is intentional and unchanged in this PR. Week-2 X/Y/Z drafts
+    are checked via a manual schema-conformance review against the
+    JSON Schemas under `activation_pack/schemas/`.
 
 ## Verification commands (informational)
 

@@ -13,22 +13,29 @@
   실제 거래량, 실제 수급, 실제 계좌는 어떤 형태로도 사용하지 않는다.
 - 모든 날짜 값은 `2099-` 접두 합성 날짜만 사용한다.
 - 매일의 결과는 **개인 journal에만** 기록한다.
-  생성된 candidate JSON, validator 출력, 리뷰 노트는 **repo에 commit
-  하지 않는다.**
-- 매일 `validate_fixtures.py` 를 실행하여 schema 부합 여부를
-  확인하되, `PASS` 는 매수/매도 신호도, 실행 권한도 아니다.
+  생성된 candidate JSON, 수동 점검 결과, 리뷰 노트는 **repo에
+  commit 하지 않는다.**
+- 매일 `activation_pack/schemas/` 의 JSON 스키마와 §1 익명 태그 규칙에
+  대한 **수동 schema-conformance 점검**을 수행한다. 이 점검의 통과는
+  매수/매도 신호도, 실행 권한도 아니다.
+- `validate_fixtures.py` 는 *Candidate X / Y / Z* 초안에 대해
+  실행하지 않는다. 해당 validator 는 허용 이름을
+  `Candidate A / B / C` 로 고정하고 있으며, 본 PR 은 validator 를
+  수정하지 않는다. 자세한 사항은 `ANON_CANDIDATE_CREATION_GUIDE.md`
+  §6 을 참조한다. (1주차에서 사용하는 S1~S6 fixture 에 대한 validator
+  실행은 그대로 유효하다.)
 - 모든 후보에는 `human_gate` 와 `signal_safety` 섹션이 반드시
   포함되어야 한다.
 - 자동 실행, 자동 주문, 자동 알림 어떤 것도 허용되지 않는다.
 
-## Day 1 — Candidate X clean-pass 초안
+## Day 1 — Candidate X clean-conformance 초안
 
-- 목표: clean-pass 시나리오 한 건을 *Candidate X* 로 익명 작성.
+- 목표: clean-conformance 시나리오 한 건을 *Candidate X* 로 익명 작성.
 - 필수 필드: setup, edge, entry_tactic, trigger_level (`anon-pivot-X`),
   failure_level (`anon-failure-X`), stop_logic, stop_level
   (`anon-stop-X`), sell_rules, human_gate, signal_safety.
-- 동작: 로컬 임시 경로에 저장 → `validate_fixtures.py` 실행 → 결과를
-  private journal에 기록 → 로컬 artifact 삭제.
+- 동작: 로컬 임시 경로에 저장 → 수동 schema-conformance 점검 수행
+  → 결과를 private journal 에 기록 → 로컬 artifact 삭제.
 - repo commit: **금지.**
 
 ## Day 2 — Candidate Y hard-veto 초안
@@ -36,7 +43,8 @@
 - 목표: hard veto 시나리오를 *Candidate Y* 로 익명 작성.
 - 포커스: 진입을 막는 invalidation 조건의 명확화. `anon-failure-Y`
   가 trigger 보다 명백히 우선시됨을 확인한다.
-- 동작: validator 실행 후 hard veto 처리 흐름을 journal에 기록.
+- 동작: 수동 schema-conformance 점검 후 hard veto 처리 흐름을
+  journal 에 기록.
 - repo commit: **금지.**
 
 ## Day 3 — Candidate Z Tier-5-only 강등(demotion)
@@ -59,10 +67,10 @@
 
 ## Day 5 — Candidate X gate-deny
 
-- 목표: validator/schema는 PASS 이지만 운영자 human gate에서 명시적
-  거부(deny)되는 흐름을 *Candidate X* 로 재구성.
-- 확인: PASS ≠ 실행 권한. operator decision 이 deny 인 한 어떤
-  실행 경로도 열리지 않는다.
+- 목표: 수동 schema-conformance 점검은 통과하지만 운영자 human gate
+  에서 명시적 거부(deny)되는 흐름을 *Candidate X* 로 재구성.
+- 확인: schema-conformance ≠ 실행 권한. operator decision 이 deny 인
+  한 어떤 실행 경로도 열리지 않는다.
 - repo commit: **금지.**
 
 ## Day 6 — no-action synthetic day
@@ -82,14 +90,15 @@
   - 실제 데이터(종목명/가격/뉴스/공시번호/계좌)가 단 한 건도
     유입되지 않았는가.
   - 모든 후보에 human_gate, signal_safety 가 포함됐는가.
-  - 생성된 candidate, validator 출력, 리뷰 노트가 repo에
-    commit되지 않았는가.
+  - 생성된 candidate, 수동 점검 결과, 리뷰 노트가 repo 에
+    commit 되지 않았는가.
+  - `validate_fixtures.py` 가 X/Y/Z 초안에 대해 실행되지 않았는가.
   - 자동 실행 흔적이 전혀 없는가.
 - 결과는 private journal에만 저장한다. repo에는 어떤 generated
   artifact 도 commit 하지 않는다.
 
 ## 다음 단계
 
-두 번째 주 리뷰가 PASS 로 마감되더라도, 그 자체는 실데이터 단계로의
+두 번째 주 리뷰가 통과로 마감되더라도, 그 자체는 실데이터 단계로의
 진입 권한이 아니다. 실데이터 단계는 **별도의 PR과 명시적 승인**을
 요구하며, 본 PR(#58)의 범위를 벗어난다.

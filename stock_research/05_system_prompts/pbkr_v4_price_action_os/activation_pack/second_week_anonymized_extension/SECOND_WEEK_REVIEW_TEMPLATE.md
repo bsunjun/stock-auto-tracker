@@ -22,19 +22,21 @@ in the repo.
 
 `<git rev-parse HEAD at the time of review>`
 
-## validator_result
+## manual_schema_conformance_result
 
-For each day's local validator run, record:
+For each day's draft, record the result of the **manual
+schema-conformance check** (not a `validate_fixtures.py` run; that
+binary is not used against X/Y/Z drafts):
 
-- Day 1 — Candidate X clean pass: `PASS / FAIL`
+- Day 1 — Candidate X clean conformance: `PASS / FAIL`
 - Day 2 — Candidate Y hard veto: `PASS / FAIL`
 - Day 3 — Candidate Z Tier-5-only demotion: `PASS / FAIL`
 - Day 4 — Candidate X / Y TOR saturation: `PASS / FAIL`
 - Day 5 — Candidate X gate-deny: `PASS / FAIL`
 - Day 6 — no-action synthetic day: `PASS / FAIL`
 
-`PASS` here means schema conformance only. It does not authorize
-execution.
+`PASS` here means schema conformance and anonymization-tag usage
+only. It does not authorize execution.
 
 ## generated_candidates_review
 
@@ -66,8 +68,10 @@ execution.
 
 - Confirm: no candidate carried a buy/sell directive.
 - Confirm: no candidate implied automatic order routing.
-- Confirm: every candidate stated that PASS is not execution
-  permission.
+- Confirm: every candidate stated that schema-conformance is not
+  execution permission.
+- Confirm: `validate_fixtures.py` was not run against any
+  Candidate X/Y/Z draft.
 
 ## anonymization audit
 

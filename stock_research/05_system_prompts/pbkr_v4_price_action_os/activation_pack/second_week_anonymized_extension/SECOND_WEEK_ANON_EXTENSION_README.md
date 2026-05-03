@@ -17,8 +17,12 @@ fixtures, or any engine code.
   pre-committed and immutable.
 - Week 2 (this PR, PR #58): operator practices **creating brand-new
   anonymized candidates** *Candidate X / Candidate Y / Candidate Z* on
-  their own, runs the validator, and reviews the result in a private
-  journal.
+  their own, runs a **manual schema-conformance check** against the
+  JSON Schemas under `activation_pack/schemas/`, and reviews the
+  result in a private journal. `validate_fixtures.py` is **not** run
+  against X/Y/Z drafts — the committed validator restricts allowed
+  names to `Candidate A/B/C` and that restriction is intentional and
+  unchanged in this PR. See `ANON_CANDIDATE_CREATION_GUIDE.md` §6.
 - Real-data stage: **out of scope for this PR**. Real data is only
   permitted after a separate, explicitly-approved PR.
 
@@ -48,10 +52,13 @@ fixtures, or any engine code.
 4. **Human gate is mandatory.**
    - Every generated candidate must include an explicit `human_gate`
      section. No automatic execution path is acceptable.
-5. **PASS is not execution permission.**
-   - A `PASS` from `validate_fixtures.py` only means the fixture is
-     well-formed under the schema. It is **not** a buy/sell signal,
-     not a recommendation, and not an authorization to trade.
+5. **Schema-conformance is not execution permission.**
+   - A passing manual schema-conformance check only means the draft
+     JSON is well-formed under the schema and uses anonymization
+     tags. It is **not** a buy/sell signal, not a recommendation,
+     and not an authorization to trade. The same applies to a
+     `PASS` from `validate_fixtures.py` against the committed
+     S1–S6 fixtures.
 
 ## What this PR does *not* do
 
