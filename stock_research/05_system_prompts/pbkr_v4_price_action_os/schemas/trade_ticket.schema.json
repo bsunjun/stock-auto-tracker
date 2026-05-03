@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/trade_ticket.schema.json",
+  "title": "PBKR v4 Trade Ticket",
+  "description": "Pre-execution trade ticket. Educational. Not a trade signal. Every required field must be populated before the human gate is asked to evaluate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "ticket_id",
+    "session_date",
+    "name",
+    "trade_class",
+    "edge",
+    "setup",
+    "entry_tactic",
+    "trigger_level",
+    "failure_level",
+    "stop_logic",
+    "stop_level",
+    "stop_distance_pct",
+    "total_open_risk_before",
+    "total_open_risk_after",
+    "position_size_plan",
+    "sell_rules",
+    "human_gate",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "ticket_id": { "type": "string", "pattern": "^tkt-[0-9]{8}-[A-Za-z0-9_-]{2,32}$" },
+    "session_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "trade_class": { "enum": ["short_term", "swing", "position", "leader_grade_position"] },
+    "edge": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["HVE", "HVIPO", "HV1", "RelativeStrength", "NFactor", "GroupMove", "GrowthAcceleration"] }
+    },
+    "setup": { "enum": ["LaunchPad", "Gapper", "BaseBreakout", "BreakoutFirstPullback", "ContinuationFlag", "ReversalOfTrend"] },
+    "entry_tactic": {
+      "enum": [
+        "KeySupportLevelReclaim",
+        "ConsolidationPivotBreakout",
+        "KeyMovingAveragePullback",
+        "KeySupportLevelPullback",
+        "OopsReversal",
+        "OpeningRangeBreakout",
+        "IntradayBaseEntry",
+        "HighVolumeClosePivot",
+        "AddOnEntry"
+      ]
+    },
+    "trigger_level": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "failure_level": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "stop_logic": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "stop_level": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "stop_distance_pct": { "type": "number", "minimum": 0, "maximum": 50 },
+    "stop_evaluation_basis": { "enum": ["closing", "intraday_hard"] },
+    "kr_caveat": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "total_open_risk_before": { "type": "number", "minimum": 0, "maximum": 100 },
+    "total_open_risk_after": { "type": "number", "minimum": 0, "maximum": 100 },
+    "position_size_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk_budget_pct", "applied_caps", "initial_size_pct"],
+      "properties": {
+        "risk_budget_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "applied_caps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["risk_budget", "notional_cap", "liquidity_cap", "sector_cap", "stage_cap", "conviction_cap", "setup_quality_cap"]
+          }
+        },
+        "initial_size_pct": { "type": "number", "minimum": 0, "maximum": 20 },
+        "max_size_pct": { "type": "number", "minimum": 0, "maximum": 20 },
+        "size_up_rule": { "type": "string", "maxLength": 400 }
+      }
+    },
+    "sell_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trim_into_strength_triggers", "structural_exit_triggers"],
+      "properties": {
+        "trim_into_strength_triggers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["plus_5_partial", "r_multiple_partial", "base_extension_20_25", "climax_session"] }
+        },
+        "trim_into_weakness_triggers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["first_close_below_ma", "failed_higher_low_test", "adverse_group_signal"] }
+        },
+        "structural_exit_triggers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["failed_higher_low", "distribution_print", "two_closes_below_ma", "failure_level_break", "group_breakdown", "key_reversal_bar"] }
+        },
+        "time_stop_window_sessions": { "type": "integer", "minimum": 1, "maximum": 60 }
+      }
+    },
+    "thesis": { "type": "string", "minLength": 8, "maxLength": 600 },
+    "counter_thesis": { "type": "string", "minLength": 8, "maxLength": 600 },
+    "linked_audit_pack_id": { "type": "string", "maxLength": 64 },
+    "human_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "result"],
+      "properties": {
+        "required": { "const": true },
+        "result": { "enum": ["pending", "pass", "deny"] },
+        "unchecked_items": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "operator_decision": { "enum": ["pending", "execute", "abstain"] }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "source", "date"],
+        "properties": {
+          "tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "source": { "type": "string", "minLength": 1, "maxLength": 280 },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "url_or_attribution": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

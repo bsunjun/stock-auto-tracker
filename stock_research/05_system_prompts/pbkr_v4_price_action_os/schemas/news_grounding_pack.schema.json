@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/news_grounding_pack.schema.json",
+  "title": "PBKR v4 News Grounding Pack",
+  "description": "News Grounder output: source-tiered evidence and event-risk windows. Educational. Not a trade signal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "news_grounding_pack_id",
+    "macro_context",
+    "kr_policy_regulation",
+    "sector_flow",
+    "newspaper_flow_signal_vs_noise",
+    "event_risk_windows",
+    "evidence",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "news_grounding_pack_id": { "type": "string", "pattern": "^ng-[0-9]{8}-[A-Za-z0-9_-]{2,32}$" },
+    "macro_context": { "type": "string", "minLength": 1, "maxLength": 600 },
+    "kr_policy_regulation": { "type": "string", "maxLength": 1200 },
+    "sector_flow": { "type": "string", "maxLength": 1200 },
+    "newspaper_flow_signal_vs_noise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signal", "noise"],
+      "properties": {
+        "signal": { "type": "string", "maxLength": 1200 },
+        "noise": { "type": "string", "maxLength": 1200 }
+      }
+    },
+    "event_risk_windows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_type", "date", "summary"],
+        "properties": {
+          "event_type": { "enum": ["earnings", "agm_season", "fomc", "bok", "regulatory", "kr_disclosure_cluster", "other"] },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 280 }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "source", "date", "summary"],
+        "properties": {
+          "tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "source": { "type": "string", "minLength": 1, "maxLength": 280 },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 600 },
+          "url_or_attribution": { "type": "string", "maxLength": 500 },
+          "tier_5_caveat": { "const": "tier_5_not_load_bearing" }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

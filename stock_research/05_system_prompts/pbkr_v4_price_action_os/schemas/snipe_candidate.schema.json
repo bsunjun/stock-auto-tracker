@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/snipe_candidate.schema.json",
+  "title": "PBKR v4 Snipe Candidate",
+  "description": "Within-session snipe-queue candidate, evaluated against the S.N.I.P.E. checklist. Educational. Not a trade signal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "snipe_candidate_id",
+    "focus_list_entry_ref",
+    "name",
+    "snipe_check",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "snipe_candidate_id": { "type": "string", "pattern": "^sc-[A-Za-z0-9_-]{2,32}$" },
+    "focus_list_entry_ref": { "type": "string", "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "snipe_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["s_setup", "n_number_tor", "i_indicator_alignment", "p_price_at_trigger", "e_exit_defined"],
+      "properties": {
+        "s_setup": { "enum": ["yes", "no"] },
+        "n_number_tor": { "enum": ["yes", "no"] },
+        "i_indicator_alignment": { "enum": ["yes", "no"] },
+        "p_price_at_trigger": { "enum": ["yes", "no"] },
+        "e_exit_defined": { "enum": ["yes", "no"] }
+      }
+    },
+    "snipe_decision": { "enum": ["proceed_to_gate", "watch", "demote"] },
+    "notes": { "type": "string", "maxLength": 600 },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

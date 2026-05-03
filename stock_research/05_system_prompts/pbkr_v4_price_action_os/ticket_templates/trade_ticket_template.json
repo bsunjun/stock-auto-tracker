@@ -1,0 +1,52 @@
+{
+  "schema_version": "v4.1",
+  "asof": "YYYY-MM-DDTHH:MM:SS+09:00",
+  "ticket_id": "tkt-YYYYMMDD-shortid",
+  "session_date": "YYYY-MM-DD",
+  "name": "anonymized-identifier",
+  "trade_class": "swing",
+  "edge": ["HVE", "RelativeStrength"],
+  "setup": "BaseBreakout",
+  "entry_tactic": "ConsolidationPivotBreakout",
+  "trigger_level": "consolidation pivot, with small acceptance buffer",
+  "failure_level": "re-entry into consolidation on same or next session",
+  "stop_logic": "below consolidation low minus volatility buffer; closing basis unless hard breach",
+  "stop_level": "concrete-level-or-text",
+  "stop_distance_pct": 4.0,
+  "stop_evaluation_basis": "closing",
+  "kr_caveat": "exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker",
+  "total_open_risk_before": 1.5,
+  "total_open_risk_after": 2.1,
+  "position_size_plan": {
+    "risk_budget_pct": 0.6,
+    "applied_caps": ["risk_budget", "stage_cap", "conviction_cap", "setup_quality_cap"],
+    "initial_size_pct": 10.0,
+    "max_size_pct": 20.0,
+    "size_up_rule": "Add-on permitted only after stop migrates to breakeven and a fresh setup forms with its own trigger / failure / stop logic"
+  },
+  "sell_rules": {
+    "trim_into_strength_triggers": ["plus_5_partial", "r_multiple_partial"],
+    "trim_into_weakness_triggers": ["first_close_below_ma"],
+    "structural_exit_triggers": ["failed_higher_low", "two_closes_below_ma", "failure_level_break"],
+    "time_stop_window_sessions": 10
+  },
+  "thesis": "Operator observes a multi-week tight consolidation with high-volume episode preceding the pivot; group context constructive.",
+  "counter_thesis": "Group leadership thinning relative to last week; if leadership group breaks, this name is among the weakest by RS rank.",
+  "linked_audit_pack_id": "aud-YYYYMMDD-shortid",
+  "human_gate": {
+    "required": true,
+    "result": "pending",
+    "unchecked_items": [],
+    "operator_decision": "pending"
+  },
+  "source_refs": [
+    { "tier": 1, "source": "DART quarterly filing", "date": "YYYY-MM-DD", "url_or_attribution": "" },
+    { "tier": 4, "source": "named newspaper article", "date": "YYYY-MM-DD", "url_or_attribution": "" }
+  ],
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}
