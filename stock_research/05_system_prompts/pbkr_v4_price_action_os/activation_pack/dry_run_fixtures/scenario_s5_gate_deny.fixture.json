@@ -9,6 +9,9 @@
     "../../schemas/trade_ticket.schema.json"
   ],
   "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "trade_ticket_with_missing_time_stop": "sell_rules omits time_stop_window_sessions; gate verifier must report this as an unchecked item and deny."
+  },
   "artifacts": {
     "trade_ticket_with_missing_time_stop": {
       "schema_version": "v4.1",
@@ -62,8 +65,7 @@
         "trade_signal": null,
         "automatic_execution_allowed": false,
         "human_gate_required": true
-      },
-      "fixture_note": "sell_rules omits time_stop_window_sessions; gate verifier must report this as an unchecked item and deny."
+      }
     }
   },
   "expected_outcome": {

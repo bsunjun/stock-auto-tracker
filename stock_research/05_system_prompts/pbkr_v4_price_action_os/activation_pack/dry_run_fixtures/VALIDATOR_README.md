@@ -120,6 +120,26 @@ on the appropriate branch that fixes the fixture or aligns the
 schema, then re-run the validator. No commit ever sets a safety
 flag truthy as a way to "make the validator pass."
 
+### 5.1 First-run discovery (PR #55)
+
+On its first run against the fixtures merged in PR #54, the
+validator correctly identified one schema drift: the S5 fixture's
+`artifacts.trade_ticket_with_missing_time_stop` contained a
+`fixture_note` field at the artifact level, but
+`trade_ticket.schema.json` declares `additionalProperties: false`.
+This was the same drift pattern that PR #54's earlier in-flight
+fix had already lifted out of the `daily_focus_list*` artifacts
+(S2/S4/S6) but had missed inside the trade_ticket artifact in S5.
+
+The fix lifted the `fixture_note` value into a top-level
+`fixture_notes` object on the fixture wrapper, mirroring the
+S2/S4/S6 pattern. The fix is a separate commit on this branch;
+the validator itself was **not** altered, was **not** weakened,
+and did **not** special-case `fixture_note`. The
+`additionalProperties: false` enforcement remains intact.
+
+After the fix, the validator reports `OVERALL: PASS` (6/6).
+
 ---
 
 ## 6. Hard Bans (Apply Always)
