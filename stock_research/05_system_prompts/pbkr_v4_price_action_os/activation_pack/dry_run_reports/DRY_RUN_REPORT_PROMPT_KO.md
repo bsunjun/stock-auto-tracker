@@ -131,7 +131,8 @@
       있다.
 - [ ] §10 Final Dry-Run Status 가 입력에 근거하여 단언되어 있다.
 - [ ] 단정적 매매 표현이 없다.
-- [ ] AI 가 추측한 부분이 명시되어 있다.
+- [ ] AI 가 추측한 내용이 없다 (§2 의 추정 금지 / 추측 금지 규칙
+      준수).
 - [ ] instantiated report 가 repository 에 commit 되지 않았다.
 
 ---
