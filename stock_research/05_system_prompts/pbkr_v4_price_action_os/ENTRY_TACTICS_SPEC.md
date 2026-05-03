@@ -80,7 +80,7 @@ structure. The setup itself does not generate an entry.
 
 ## 5. Entry Tactics
 
-Each tactic specifies the exact rules that produce an entry. All eight
+Each tactic specifies the exact rules that produce an entry. All nine
 tactics share a common schema:
 
 - `definition` — the structural condition that defines the tactic.
