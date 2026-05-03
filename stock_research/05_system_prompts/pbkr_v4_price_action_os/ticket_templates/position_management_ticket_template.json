@@ -8,11 +8,7 @@
   "action_detail": {
     "from_stop_level": "below initial swing low",
     "to_stop_level": "breakeven (entry pivot)",
-    "trim_pct_of_position": 0,
-    "trim_trigger": null,
-    "exit_trigger": null,
-    "add_on_setup": null,
-    "add_on_tactic": null
+    "trim_pct_of_position": 0
   },
   "rationale": "After doctrinal trim into strength at +5%, stop on remainder migrates to breakeven per SELL_RULES_POSITION_MANAGEMENT.md.",
   "human_gate": {

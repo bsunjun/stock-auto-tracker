@@ -41,8 +41,8 @@ entries; ideally **1–3**.
 Per entry, you must include:
 
 - `name` — anonymized identifier.
-- `trade_class` — short_term / swing / position / leader.
-- `edge[]` — at least one.
+- `trade_class` — short_term / swing / position / leader_grade_position.
+- `edges[]` — at least one.
 - `setup` — exactly one.
 - `entry_tactic` with explicit `trigger_level`, `failure_level`,
   `stop_logic` (and KR caveat).

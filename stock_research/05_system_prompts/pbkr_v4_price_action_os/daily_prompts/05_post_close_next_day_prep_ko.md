@@ -43,7 +43,7 @@
 후보 풀에서 **1~5개** (이상적으로 1~3개) 를 선택해서 잠정 focus list
 를 만든다. 각 항목에:
 
-- `edge[]` / `setup`
+- `edges[]` / `setup`
 - `entry_tactic` 후보 (1개) 와 `trigger_level` / `failure_level` /
   `stop_logic` / `kr_caveat` 잠정 값.
 - 잠정 size_plan (current equity, 현재 stage_cap 적용).
