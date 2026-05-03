@@ -76,7 +76,7 @@ For each snipe-queue name, evaluate:
 
 1. Is the pivot being approached or tested?
 2. Are the four confirmation requirements
-   (`ENTRY_TACTICS_SPEC.md` §4) met simultaneously?
+   (`ENTRY_TACTICS_SPEC.md` §7) met simultaneously?
 3. Does the group context still support the entry?
 4. Does TOR still have headroom for the resulting size?
 
