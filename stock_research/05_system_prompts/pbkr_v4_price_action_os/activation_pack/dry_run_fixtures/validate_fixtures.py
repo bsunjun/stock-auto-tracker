@@ -95,11 +95,22 @@ def load_schemas():
 
 
 def match_artifact_to_schema(art_key, schemas):
-    """Return the schema dict for a given artifact key, or None."""
+    """Resolve an artifact key against the known schema prefix table.
+
+    Returns ``(schema_dict, expected_filename, prefix_matched)``:
+
+    - ``prefix_matched`` is True iff the artifact key matches a known
+      prefix in ``ARTIFACT_PREFIX_TO_SCHEMA``.
+    - ``schema_dict`` is the loaded schema, or ``None`` if the
+      schema file was not found on disk (the caller must treat this
+      as a hard failure when ``prefix_matched`` is True).
+    - ``expected_filename`` is the schema filename that the prefix
+      maps to, or ``None`` when no prefix matches.
+    """
     for prefix, fname in ARTIFACT_PREFIX_TO_SCHEMA:
         if art_key == prefix or art_key.startswith(prefix + "_"):
-            return schemas.get(fname)
-    return None
+            return (schemas.get(fname), fname, True)
+    return (None, None, False)
 
 
 # --------------------------------------------------------------------
@@ -321,7 +332,7 @@ def main():
             overall_pass = False
             continue
 
-        # 1. schema_refs presence + repo-relative
+        # 1. schema_refs presence + repo-relative + file existence
         refs = data.get("schema_refs", [])
         if not isinstance(refs, list) or not refs:
             issues.append("schema_refs missing or empty")
@@ -332,6 +343,13 @@ def main():
                         f"schema_refs entry not a repo-relative "
                         f"path: {ref!r}"
                     )
+                    continue
+                ref_path = THIS_DIR / ref
+                if not ref_path.exists():
+                    issues.append(
+                        f"schema_refs entry points to a non-existent "
+                        f"file: {ref!r}"
+                    )
 
         # 2. validate each artifact against the matched schema
         artifacts = data.get("artifacts", {})
@@ -339,8 +357,22 @@ def main():
             issues.append("artifacts must be an object")
         else:
             for art_key, art_payload in artifacts.items():
-                schema = match_artifact_to_schema(art_key, schemas)
-                if schema is not None:
+                schema, expected_fname, matched = (
+                    match_artifact_to_schema(art_key, schemas)
+                )
+                if matched and schema is None:
+                    # Prefix matched a known artifact type, but the
+                    # schema file is missing on disk. Hard failure:
+                    # silently skipping shape validation here would
+                    # let fixtures be reported valid for an artifact
+                    # type whose schema vanished or was renamed.
+                    issues.append(
+                        f"artifacts.{art_key}: matched schema "
+                        f"prefix but expected schema file "
+                        f"{expected_fname!r} not found in "
+                        f"{SCHEMAS_DIR}"
+                    )
+                elif schema is not None:
                     validate_against_schema(
                         art_payload,
                         schema,
