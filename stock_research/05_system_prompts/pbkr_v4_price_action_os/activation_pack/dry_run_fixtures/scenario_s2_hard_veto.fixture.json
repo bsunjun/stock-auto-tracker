@@ -1,0 +1,109 @@
+{
+  "fixture_id": "fx-S2-hard-veto-anon",
+  "scenario_id": "S2",
+  "scenario_name": "hard_veto",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-02T08:30:00+09:00",
+  "session_date": "2099-01-02",
+  "schema_refs": [
+    "../../schemas/daily_focus_list.schema.json",
+    "../../schemas/audit_pack.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "artifacts": {
+    "daily_focus_list_draft_with_defect": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-02T08:25:00+09:00",
+      "session_date": "2099-01-02",
+      "focus_list_id": "fl-20990102-anon",
+      "market_cycle_ref": "mc-20990102-anon",
+      "tor_state": {
+        "tor_pct": 0.5,
+        "k": 1.0,
+        "tor_ceiling_pct": 6.0
+      },
+      "entries": [
+        {
+          "entry_id": "fle-cand-B-anon",
+          "ticket_ref": "tkt-20990102-cand-B-anon",
+          "name": "Candidate B",
+          "trade_class": "swing",
+          "edges": ["HVE"],
+          "setup": "BaseBreakout",
+          "entry_tactic_id": "ConsolidationPivotBreakout",
+          "trigger_level": "anon-pivot-B",
+          "failure_level": "MISSING_FAILURE_LEVEL_PLACEHOLDER",
+          "stop_logic_summary": "anon-stop-logic-B",
+          "size_plan_summary": "anon-size-plan-B",
+          "sell_plan_summary": "anon-sell-plan-B",
+          "thesis": "Synthetic thesis for Candidate B; intentionally has missing failure_level to demonstrate hard veto.",
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      },
+      "fixture_note": "MISSING_FAILURE_LEVEL_PLACEHOLDER is a fixture-level marker. In a real focus list draft this entry would be syntactically present but doctrinally invalid because failure_level is not a meaningful pivot reference."
+    },
+    "audit_pack": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-02T08:40:00+09:00",
+      "audit_pack_id": "aud-20990102-anon",
+      "audited_focus_list_id": "fl-20990102-anon",
+      "entries": [
+        {
+          "entry_ref": "fle-cand-B-anon",
+          "audit_decision": "block",
+          "findings": [
+            {
+              "severity": "hard_veto",
+              "code": "A001",
+              "description": "entry_tactic missing trigger_level / failure_level / stop_logic. failure_level placeholder is the doctrinal-missing marker; this is a hard veto under R1 and Auditor rule A001.",
+              "suggested_fix": "Restore a precise failure_level definition before re-submission; without it the tactic is non-doctrinal and cannot reach the human gate."
+            }
+          ],
+          "counter_thesis": "",
+          "risk_notes": {
+            "concentration": "anon-sector-low",
+            "correlation": "anon-correlation-low",
+            "event_window": "no-near-term-event"
+          },
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "summary_note": "Synthetic hard veto demonstration; chain stops at audit; no ticket reaches the gate.",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    }
+  },
+  "expected_outcome": {
+    "audit_decision": "block",
+    "gate_result": "not_evaluated",
+    "operator_decision": "abstain",
+    "transaction_executed_in_fixture": false,
+    "notes": "Auditor blocks at A001; the gate is never invoked. Operator's no-action journal would log audit_block for Candidate B."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}

@@ -1,0 +1,243 @@
+{
+  "fixture_id": "fx-S1-clean-pass-anon",
+  "scenario_id": "S1",
+  "scenario_name": "clean_pass",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-01T08:30:00+09:00",
+  "session_date": "2099-01-01",
+  "schema_refs": [
+    "../../schemas/market_cycle.schema.json",
+    "../../schemas/news_grounding_pack.schema.json",
+    "../../schemas/daily_focus_list.schema.json",
+    "../../schemas/audit_pack.schema.json",
+    "../../schemas/trade_ticket.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number. Do not feed into any execution path.",
+  "artifacts": {
+    "market_cycle": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-01T08:00:00+09:00",
+      "kospi_stage": "stage_2",
+      "kosdaq_stage": "stage_2",
+      "sub_grade": "normal",
+      "k_multiplier": 1.0,
+      "stage_cap_pct": 10.0,
+      "tor_ceiling_pct": 6.0,
+      "inputs": {
+        "index_trend": {
+          "kospi_vs_21ema": "above",
+          "kospi_vs_50sma": "above",
+          "kospi_vs_200sma": "above",
+          "kosdaq_vs_21ema": "above",
+          "kosdaq_vs_50sma": "above",
+          "kosdaq_vs_200sma": "above"
+        },
+        "breadth": {
+          "pct_above_50sma": 60,
+          "advance_decline_net": 100
+        },
+        "leadership": "cyclical_growth",
+        "foreign_flow": "net_positive",
+        "fx_context": "krw_neutral",
+        "volatility_regime": "normal",
+        "leader_action": "synthetic-leader-action-constructive",
+        "recent_10_trades_feedback": "constructive"
+      },
+      "notes": "synthetic stage_2 normal regime",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "news_grounding_pack": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-01T08:15:00+09:00",
+      "news_grounding_pack_id": "ng-20990101-anon",
+      "macro_context": "Synthetic neutral macro snapshot.",
+      "kr_policy_regulation": "No synthetic regulatory event in scope window.",
+      "sector_flow": "Synthetic group constructive context for Candidate A's sector.",
+      "newspaper_flow_signal_vs_noise": {
+        "signal": "Synthetic Tier-1 disclosure indicates first-order operating implication for Candidate A's group.",
+        "noise": "Synthetic Tier-4 commentary largely repeats consensus."
+      },
+      "event_risk_windows": [
+        {
+          "event_type": "earnings",
+          "date": "2099-02-15",
+          "summary": "Synthetic earnings window placeholder, outside near-term pre-disclosure window."
+        }
+      ],
+      "evidence": [
+        {
+          "tier": 1,
+          "source": "synthetic-tier1-disclosure",
+          "date": "2099-01-01",
+          "summary": "Synthetic primary disclosure aligned with Candidate A's setup.",
+          "url_or_attribution": ""
+        },
+        {
+          "tier": 4,
+          "source": "synthetic-tier4-newspaper",
+          "date": "2099-01-01",
+          "summary": "Synthetic secondary commentary; non-load-bearing."
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "daily_focus_list": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-01T08:35:00+09:00",
+      "session_date": "2099-01-01",
+      "focus_list_id": "fl-20990101-anon",
+      "market_cycle_ref": "mc-20990101-anon",
+      "tor_state": {
+        "tor_pct": 1.0,
+        "k": 1.0,
+        "tor_ceiling_pct": 6.0
+      },
+      "entries": [
+        {
+          "entry_id": "fle-cand-A-anon",
+          "ticket_ref": "tkt-20990101-cand-A-anon",
+          "name": "Candidate A",
+          "trade_class": "swing",
+          "edges": ["HVE", "RelativeStrength"],
+          "setup": "BaseBreakout",
+          "entry_tactic_id": "ConsolidationPivotBreakout",
+          "trigger_level": "anon-pivot-A",
+          "failure_level": "anon-failure-A",
+          "stop_logic_summary": "anon-stop-logic-A",
+          "size_plan_summary": "anon-size-plan-A",
+          "sell_plan_summary": "anon-sell-plan-A",
+          "thesis": "Synthetic constructive thesis for Candidate A; observation, not recommendation.",
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "source_refs": [
+        {
+          "tier": 1,
+          "source": "synthetic-tier1-disclosure",
+          "date": "2099-01-01"
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "audit_pack": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-01T08:45:00+09:00",
+      "audit_pack_id": "aud-20990101-anon",
+      "audited_focus_list_id": "fl-20990101-anon",
+      "entries": [
+        {
+          "entry_ref": "fle-cand-A-anon",
+          "audit_decision": "pass",
+          "findings": [],
+          "counter_thesis": "Synthetic specific risk note: leadership group is constructive but if breadth contracts, this name is a likely first relative-strength laggard.",
+          "risk_notes": {
+            "concentration": "anon-sector-concentration-low",
+            "correlation": "anon-correlation-low",
+            "event_window": "Earnings window 2099-02-15; outside near-term pre-disclosure."
+          },
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "summary_note": "Synthetic clean audit; one pass entry.",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "trade_ticket": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-01T08:50:00+09:00",
+      "ticket_id": "tkt-20990101-cand-A-anon",
+      "session_date": "2099-01-01",
+      "name": "Candidate A",
+      "trade_class": "swing",
+      "edge": ["HVE", "RelativeStrength"],
+      "setup": "BaseBreakout",
+      "entry_tactic": "ConsolidationPivotBreakout",
+      "trigger_level": "anon-pivot-A",
+      "failure_level": "anon-failure-A",
+      "stop_logic": "anon-stop-logic-A: stop placed beneath consolidation low minus volatility buffer; closing basis",
+      "stop_level": "anon-stop-A",
+      "stop_distance_pct": 4.0,
+      "stop_evaluation_basis": "closing",
+      "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker.",
+      "total_open_risk_before": 1.0,
+      "total_open_risk_after": 1.6,
+      "position_size_plan": {
+        "risk_budget_pct": 0.6,
+        "applied_caps": ["risk_budget", "stage_cap", "conviction_cap", "setup_quality_cap"],
+        "initial_size_pct": 10.0,
+        "max_size_pct": 20.0,
+        "size_up_rule": "Add-on permitted only after stop migrates to breakeven and a fresh setup forms."
+      },
+      "sell_rules": {
+        "trim_into_strength_triggers": ["plus_5_partial", "r_multiple_partial"],
+        "trim_into_weakness_triggers": ["first_close_below_ma"],
+        "structural_exit_triggers": ["failed_higher_low", "two_closes_below_ma", "failure_level_break"],
+        "time_stop_window_sessions": 10
+      },
+      "thesis": "Synthetic constructive thesis for Candidate A.",
+      "counter_thesis": "Synthetic specific risk note: leadership group concentration risk.",
+      "linked_audit_pack_id": "aud-20990101-anon",
+      "human_gate": {
+        "required": true,
+        "result": "pass",
+        "unchecked_items": [],
+        "operator_decision": "pending"
+      },
+      "source_refs": [
+        {
+          "tier": 1,
+          "source": "synthetic-tier1-disclosure",
+          "date": "2099-01-01"
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    }
+  },
+  "expected_outcome": {
+    "audit_decision": "pass",
+    "gate_result": "pass",
+    "operator_decision": "pending",
+    "transaction_executed_in_fixture": false,
+    "notes": "Operator decision deliberately stays 'pending' in the fixture; no transaction is part of the dry-run."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}

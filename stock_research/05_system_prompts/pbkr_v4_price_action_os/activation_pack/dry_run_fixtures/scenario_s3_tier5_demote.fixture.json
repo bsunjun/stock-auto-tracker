@@ -1,0 +1,96 @@
+{
+  "fixture_id": "fx-S3-tier5-demote-anon",
+  "scenario_id": "S3",
+  "scenario_name": "tier5_demote",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-03T08:30:00+09:00",
+  "session_date": "2099-01-03",
+  "schema_refs": [
+    "../../schemas/news_grounding_pack.schema.json",
+    "../../schemas/audit_pack.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "artifacts": {
+    "news_grounding_pack_tier5_only": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-03T08:15:00+09:00",
+      "news_grounding_pack_id": "ng-20990103-anon",
+      "macro_context": "Synthetic neutral macro snapshot.",
+      "kr_policy_regulation": "No synthetic regulatory event in scope window.",
+      "sector_flow": "Synthetic group sentiment chatter; no first-order operating impact identified.",
+      "newspaper_flow_signal_vs_noise": {
+        "signal": "No Tier-1 / Tier-2 / Tier-3 / Tier-4 evidence available for Candidate C in scope window.",
+        "noise": "Synthetic Tier-5 chatter circulates in unattributable channels."
+      },
+      "event_risk_windows": [],
+      "evidence": [
+        {
+          "tier": 5,
+          "source": "synthetic-tier5-unattributable-channel",
+          "date": "2099-01-03",
+          "summary": "Synthetic Tier-5 chatter mentioning Candidate C; non-load-bearing.",
+          "tier_5_caveat": "tier_5_not_load_bearing"
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "audit_pack": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-03T08:45:00+09:00",
+      "audit_pack_id": "aud-20990103-anon",
+      "audited_focus_list_id": "fl-20990103-anon",
+      "entries": [
+        {
+          "entry_ref": "fle-cand-C-anon",
+          "audit_decision": "block",
+          "findings": [
+            {
+              "severity": "missing_evidence",
+              "code": "A204",
+              "description": "Tier-5-only sourcing for Candidate C. No Tier-1 through Tier-4 evidence supports promotion to leader / position / swing class. Per News Grounder doctrine, Tier 5 is never load-bearing.",
+              "suggested_fix": "Wait for a Tier-1 disclosure or Tier-2 IR material before re-promoting Candidate C. Until then, the watchlist entry remains in 'pending' state and is excluded from focus-list construction."
+            }
+          ],
+          "counter_thesis": "",
+          "risk_notes": {
+            "concentration": "anon-sector-low",
+            "correlation": "anon-correlation-low",
+            "event_window": "no-near-term-event"
+          },
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "summary_note": "Synthetic Tier-5 demotion demonstration; Candidate C never enters the snipe queue.",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    }
+  },
+  "expected_outcome": {
+    "audit_decision": "block",
+    "demotion_reason": "tier5_only_sourcing",
+    "gate_result": "not_evaluated",
+    "operator_decision": "abstain",
+    "transaction_executed_in_fixture": false,
+    "notes": "Tier-5-only candidates do not advance to focus list. Operator's journal records evidence_gap for Candidate C until a higher-tier source emerges."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}

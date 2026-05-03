@@ -1,0 +1,83 @@
+{
+  "fixture_id": "fx-S5-gate-deny-anon",
+  "scenario_id": "S5",
+  "scenario_name": "gate_deny",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-05T08:30:00+09:00",
+  "session_date": "2099-01-05",
+  "schema_refs": [
+    "../../schemas/trade_ticket.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "artifacts": {
+    "trade_ticket_with_missing_time_stop": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-05T09:30:00+09:00",
+      "ticket_id": "tkt-20990105-cand-A-anon",
+      "session_date": "2099-01-05",
+      "name": "Candidate A",
+      "trade_class": "swing",
+      "edge": ["HVE", "RelativeStrength"],
+      "setup": "BaseBreakout",
+      "entry_tactic": "ConsolidationPivotBreakout",
+      "trigger_level": "anon-pivot-A",
+      "failure_level": "anon-failure-A",
+      "stop_logic": "anon-stop-logic-A",
+      "stop_level": "anon-stop-A",
+      "stop_distance_pct": 4.0,
+      "stop_evaluation_basis": "closing",
+      "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker.",
+      "total_open_risk_before": 1.0,
+      "total_open_risk_after": 1.6,
+      "position_size_plan": {
+        "risk_budget_pct": 0.6,
+        "applied_caps": ["risk_budget", "stage_cap", "conviction_cap", "setup_quality_cap"],
+        "initial_size_pct": 10.0,
+        "max_size_pct": 20.0,
+        "size_up_rule": "Add-on permitted only after stop migrates to breakeven."
+      },
+      "sell_rules": {
+        "trim_into_strength_triggers": ["plus_5_partial", "r_multiple_partial"],
+        "trim_into_weakness_triggers": ["first_close_below_ma"],
+        "structural_exit_triggers": ["failed_higher_low", "two_closes_below_ma", "failure_level_break"]
+      },
+      "thesis": "Synthetic constructive thesis for Candidate A; ticket is intentionally missing time_stop_window_sessions to demonstrate gate deny.",
+      "counter_thesis": "Synthetic specific risk note: leadership group concentration risk.",
+      "linked_audit_pack_id": "aud-20990105-anon",
+      "human_gate": {
+        "required": true,
+        "result": "deny",
+        "unchecked_items": ["sell_rules.time_stop_window_sessions"],
+        "operator_decision": "abstain"
+      },
+      "source_refs": [
+        {
+          "tier": 1,
+          "source": "synthetic-tier1-disclosure",
+          "date": "2099-01-05"
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      },
+      "fixture_note": "sell_rules omits time_stop_window_sessions; gate verifier must report this as an unchecked item and deny."
+    }
+  },
+  "expected_outcome": {
+    "audit_decision": "pass",
+    "gate_result": "deny",
+    "unchecked_items": ["sell_rules.time_stop_window_sessions"],
+    "operator_decision": "abstain",
+    "transaction_executed_in_fixture": false,
+    "notes": "Gate deny is the correct outcome when a doctrinal field is missing. Operator abstains and journals gate_deny; ticket may be revised and re-submitted in a later session, never overridden in the same session."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}
