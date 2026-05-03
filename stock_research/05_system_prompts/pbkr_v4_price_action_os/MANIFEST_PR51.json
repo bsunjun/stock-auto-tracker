@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "manifest_id": "pbkr-v4-operating-package-pr51",
+  "manifest_version": "1.0.0",
+  "pr_branch": "docs/pbkr-v4-operating-package-pr51",
+  "base_pr": {
+    "pr_number": 50,
+    "merge_commit_sha": "74046df297a7dc75e77bcd61729dbdad65ded9ed",
+    "title": "PBKR v4 Core Doctrine"
+  },
+  "purpose": "Operating Package layered on top of the PBKR v4 Core Doctrine merged in PR #50. Adds AI project instructions, daily prompts (KR), JSON schemas, ticket templates, modelbook templates, and weekly review templates.",
+  "base_path": "stock_research/05_system_prompts/pbkr_v4_price_action_os/",
+  "additions": [
+    {
+      "path": "00_README_PBKR_V4_OPERATING_PACKAGE.md",
+      "type": "markdown",
+      "purpose": "Operating package README; scope, invariants, hard rules."
+    },
+    {
+      "path": "MANIFEST_PR51.json",
+      "type": "json",
+      "purpose": "This manifest. Inventory + safety attestations."
+    },
+    {
+      "path": "ai_project_instructions/PBKR_V4_ORCHESTRATOR_INSTRUCTIONS.md",
+      "type": "markdown",
+      "purpose": "Orchestrator role; merges candidates into a daily focus list; never executes."
+    },
+    {
+      "path": "ai_project_instructions/PBKR_V4_AUDITOR_INSTRUCTIONS.md",
+      "type": "markdown",
+      "purpose": "Auditor role; hard / soft / missing-evidence / forbidden-signal vetoes."
+    },
+    {
+      "path": "ai_project_instructions/PBKR_V4_NEWS_GROUNDER_INSTRUCTIONS.md",
+      "type": "markdown",
+      "purpose": "News Grounder role; source tiering; Telegram-only candidates capped."
+    },
+    {
+      "path": "ai_project_instructions/PBKR_V4_HUMAN_GATE_INSTRUCTIONS.md",
+      "type": "markdown",
+      "purpose": "Human Gate role; pre-execution final checklist."
+    },
+    {
+      "path": "ai_project_instructions/PBKR_V4_JOURNAL_REVIEW_INSTRUCTIONS.md",
+      "type": "markdown",
+      "purpose": "Journal Review role; post-session and weekly review; mistake taxonomy."
+    },
+    {
+      "path": "daily_prompts/01_pre_open_planner_ko.md",
+      "type": "markdown",
+      "purpose": "Pre-open planner (KR): regime read, leading groups, candidates, tactic candidates, TOR headroom."
+    },
+    {
+      "path": "daily_prompts/02_opening_discovery_ko.md",
+      "type": "markdown",
+      "purpose": "Opening discovery (KR, 09:00-09:15): observe-only window."
+    },
+    {
+      "path": "daily_prompts/03_primary_window_snipe_check_ko.md",
+      "type": "markdown",
+      "purpose": "Primary window (KR, 09:15-11:30): trigger / failure / stop / TOR / human gate check."
+    },
+    {
+      "path": "daily_prompts/04_close_review_ko.md",
+      "type": "markdown",
+      "purpose": "Close review (KR): holdings, candidates, risk, stop migration."
+    },
+    {
+      "path": "daily_prompts/05_post_close_next_day_prep_ko.md",
+      "type": "markdown",
+      "purpose": "Post-close next-day prep (KR): next-day daily focus list of 1-5 names."
+    },
+    {
+      "path": "daily_prompts/06_event_risk_recheck_ko.md",
+      "type": "markdown",
+      "purpose": "Event-risk recheck (KR): disclosures, designations, halts, CB / BW, contracts."
+    },
+    {
+      "path": "schemas/pbkr_v4_common.schema.json",
+      "type": "json",
+      "purpose": "Common subschema: schema_version, asof, source_refs, signal-safety invariants."
+    },
+    {
+      "path": "schemas/market_cycle.schema.json",
+      "type": "json",
+      "purpose": "MCS-KR stage / sub-grade / K / inputs."
+    },
+    {
+      "path": "schemas/watchlist_item.schema.json",
+      "type": "json",
+      "purpose": "Watchlist item: edge / setup / proximity / classification."
+    },
+    {
+      "path": "schemas/daily_focus_list.schema.json",
+      "type": "json",
+      "purpose": "Daily focus list of 1-5 audited candidates."
+    },
+    {
+      "path": "schemas/snipe_candidate.schema.json",
+      "type": "json",
+      "purpose": "Snipe-queue candidate within a session."
+    },
+    {
+      "path": "schemas/trade_ticket.schema.json",
+      "type": "json",
+      "purpose": "Trade ticket with edge / setup / entry tactic / trigger / failure / stop / size / sell rules / human gate."
+    },
+    {
+      "path": "schemas/position_update.schema.json",
+      "type": "json",
+      "purpose": "Position update: stop migration / trim / structural exit / time stop."
+    },
+    {
+      "path": "schemas/audit_pack.schema.json",
+      "type": "json",
+      "purpose": "Auditor output: hard / soft / missing / forbidden findings."
+    },
+    {
+      "path": "schemas/news_grounding_pack.schema.json",
+      "type": "json",
+      "purpose": "News Grounder output: source-tiered evidence."
+    },
+    {
+      "path": "schemas/weekly_review.schema.json",
+      "type": "json",
+      "purpose": "Weekly review: process_adherence / rule_violations / modelbook_updates / expectancy_review / next_week_focus."
+    },
+    {
+      "path": "ticket_templates/trade_ticket_template.md",
+      "type": "markdown",
+      "purpose": "Pre-execution trade ticket template."
+    },
+    {
+      "path": "ticket_templates/trade_ticket_template.json",
+      "type": "json",
+      "purpose": "Pre-execution trade ticket JSON template."
+    },
+    {
+      "path": "ticket_templates/position_management_ticket_template.md",
+      "type": "markdown",
+      "purpose": "Position management ticket template."
+    },
+    {
+      "path": "ticket_templates/position_management_ticket_template.json",
+      "type": "json",
+      "purpose": "Position management ticket JSON template."
+    },
+    {
+      "path": "ticket_templates/audit_ticket_template.md",
+      "type": "markdown",
+      "purpose": "Audit ticket template (hard / soft / missing / forbidden)."
+    },
+    {
+      "path": "ticket_templates/no_action_journal_template.md",
+      "type": "markdown",
+      "purpose": "No-action journal template; even idle days are logged."
+    },
+    {
+      "path": "modelbook_templates/modelbook_entry_template.md",
+      "type": "markdown",
+      "purpose": "Modelbook entry: closed or missed trade."
+    },
+    {
+      "path": "modelbook_templates/modelbook_index_template.json",
+      "type": "json",
+      "purpose": "Modelbook index of entries."
+    },
+    {
+      "path": "modelbook_templates/failure_case_review_template.md",
+      "type": "markdown",
+      "purpose": "Failure case review (loss / rule violation / chase / failed stop)."
+    },
+    {
+      "path": "modelbook_templates/best_case_review_template.md",
+      "type": "markdown",
+      "purpose": "Best case review (good setup / good entry / good management)."
+    },
+    {
+      "path": "weekly_review/weekly_review_template.md",
+      "type": "markdown",
+      "purpose": "Weekly review template."
+    },
+    {
+      "path": "weekly_review/weekly_review_prompt_ko.md",
+      "type": "markdown",
+      "purpose": "Weekly review prompt (KR)."
+    }
+  ],
+  "modifications": [],
+  "deletions": [],
+  "safety_notes": [
+    "No engine code modified. Parser / bridge / merge / build / emit / ticker_map / Kiwoom / WiseReport / Drive scripts are out of scope and untouched.",
+    "No automated execution authorized. No agent, schema, or template emits a machine-actionable trade signal.",
+    "Screening is candidate generation only.",
+    "Market Cycle is an exposure dial only.",
+    "Human gate required before any execution.",
+    "No real PDF / screenshot / extracted text / output JSON / CSV committed.",
+    "No API key / token / password committed.",
+    "No real ticker name, real order, or real recommendation phrase introduced."
+  ],
+  "validation_checklist": {
+    "markdown_or_json_only": true,
+    "all_files_under_base_path": true,
+    "engine_code_modified": false,
+    "forbidden_phrase_count": 0,
+    "direct_trade_signal_truthy_count": 0,
+    "trade_signal_truthy_count": 0,
+    "automatic_execution_allowed_truthy_count": 0,
+    "json_parse_clean": true,
+    "real_artifact_count": 0
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  },
+  "merge_performed": false
+}

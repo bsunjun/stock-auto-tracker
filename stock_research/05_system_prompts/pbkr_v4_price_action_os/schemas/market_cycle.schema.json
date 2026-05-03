@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/market_cycle.schema.json",
+  "title": "PBKR v4 Market Cycle (MCS-KR)",
+  "description": "Daily MCS-KR snapshot. Educational. Not a trade signal. The cycle is an exposure dial only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "kospi_stage",
+    "kosdaq_stage",
+    "k_multiplier",
+    "stage_cap_pct",
+    "inputs",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "source", "date"],
+        "properties": {
+          "tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "source": { "type": "string", "minLength": 1, "maxLength": 280 },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "url_or_attribution": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "kospi_stage": { "enum": ["stage_1", "stage_2", "stage_3", "stage_4"] },
+    "kosdaq_stage": { "enum": ["stage_1", "stage_2", "stage_3", "stage_4"] },
+    "sub_grade": { "enum": ["weak", "normal", "strong", "n_a"] },
+    "k_multiplier": { "type": "number", "minimum": 0, "maximum": 1 },
+    "stage_cap_pct": { "type": "number", "minimum": 0, "maximum": 20 },
+    "tor_ceiling_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_trend", "breadth", "leadership", "foreign_flow", "fx_context", "volatility_regime"],
+      "properties": {
+        "index_trend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kospi_vs_21ema": { "enum": ["above", "near", "below"] },
+            "kospi_vs_50sma": { "enum": ["above", "near", "below"] },
+            "kospi_vs_200sma": { "enum": ["above", "near", "below"] },
+            "kosdaq_vs_21ema": { "enum": ["above", "near", "below"] },
+            "kosdaq_vs_50sma": { "enum": ["above", "near", "below"] },
+            "kosdaq_vs_200sma": { "enum": ["above", "near", "below"] }
+          }
+        },
+        "breadth": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pct_above_50sma": { "type": "number", "minimum": 0, "maximum": 100 },
+            "advance_decline_net": { "type": "number" }
+          }
+        },
+        "leadership": { "enum": ["cyclical_growth", "mixed", "defensive", "absent"] },
+        "foreign_flow": { "enum": ["net_positive", "neutral", "net_negative"] },
+        "fx_context": { "enum": ["krw_strong", "krw_neutral", "krw_weak"] },
+        "volatility_regime": { "enum": ["low", "normal", "elevated", "stress"] },
+        "leader_action": { "type": "string", "maxLength": 280 },
+        "recent_10_trades_feedback": { "enum": ["constructive", "neutral", "deteriorating", "adverse"] }
+      }
+    },
+    "notes": { "type": "string", "maxLength": 600 },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

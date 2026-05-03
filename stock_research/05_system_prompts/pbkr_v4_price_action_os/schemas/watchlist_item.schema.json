@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/watchlist_item.schema.json",
+  "title": "PBKR v4 Watchlist Item",
+  "description": "A single watchlist entry. Educational. Not a trade signal. Screening produces candidates only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "watchlist_item_id",
+    "name",
+    "watchlist_state",
+    "edges",
+    "setup",
+    "setup_proximity",
+    "trade_class",
+    "growth_evidence",
+    "kr_designation_status",
+    "liquidity_tier",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "watchlist_item_id": { "type": "string", "pattern": "^wl-[A-Za-z0-9_-]{4,64}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "watchlist_state": { "enum": ["active", "pending", "cold", "retired"] },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["HVE", "HVIPO", "HV1", "RelativeStrength", "NFactor", "GroupMove", "GrowthAcceleration"]
+      }
+    },
+    "setup": { "enum": ["LaunchPad", "Gapper", "BaseBreakout", "BreakoutFirstPullback", "ContinuationFlag", "ReversalOfTrend"] },
+    "setup_proximity": { "enum": ["far", "approaching", "tactic_ready"] },
+    "trade_class": { "enum": ["short_term", "swing", "position", "leader_grade_position"] },
+    "growth_evidence": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "sales_growth",
+          "eps_growth",
+          "operating_profit_growth",
+          "margin_expansion",
+          "turnaround",
+          "asp_rise",
+          "shipment_growth",
+          "backlog_order_growth",
+          "consensus_revision_improvement",
+          "report_cluster",
+          "dart_surprise"
+        ]
+      }
+    },
+    "kr_designation_status": {
+      "enum": ["clean", "investment_attention", "investment_warning", "investment_risk", "administrative_issue", "trading_halt", "listing_review"]
+    },
+    "liquidity_tier": { "enum": ["tier_1", "tier_2", "tier_3", "tier_below_floor"] },
+    "group_state": { "enum": ["constructive", "neutral", "deteriorating"] },
+    "thesis": { "type": "string", "maxLength": 600 },
+    "next_quarterly_report_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "source", "date"],
+        "properties": {
+          "tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "source": { "type": "string", "minLength": 1, "maxLength": 280 },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "url_or_attribution": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

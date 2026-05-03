@@ -1,0 +1,29 @@
+{
+  "schema_version": "v4.1",
+  "asof": "YYYY-MM-DDTHH:MM:SS+09:00",
+  "position_update_id": "pu-shortid",
+  "linked_ticket_id": "tkt-YYYYMMDD-shortid",
+  "name": "anonymized-identifier",
+  "action_type": "stop_migration",
+  "action_detail": {
+    "from_stop_level": "below initial swing low",
+    "to_stop_level": "breakeven (entry pivot)",
+    "trim_pct_of_position": 0,
+    "trim_trigger": null,
+    "exit_trigger": null,
+    "add_on_setup": null,
+    "add_on_tactic": null
+  },
+  "rationale": "After doctrinal trim into strength at +5%, stop on remainder migrates to breakeven per SELL_RULES_POSITION_MANAGEMENT.md.",
+  "human_gate": {
+    "required": true,
+    "result": "pending",
+    "unchecked_items": []
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}

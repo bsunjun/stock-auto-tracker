@@ -1,0 +1,39 @@
+{
+  "schema_version": "v4.1",
+  "modelbook_index_id": "mbi-shortid",
+  "asof": "YYYY-MM-DDTHH:MM:SS+09:00",
+  "entries": [
+    {
+      "modelbook_id": "mb-YYYYMMDD-shortid",
+      "kind": "closed_trade",
+      "name": "anonymized-identifier",
+      "trade_class": "swing",
+      "outcome_class": "winner_enhancer",
+      "lesson_summary": "Multi-edge swing trade resolved cleanly; trim_into_strength at +5% was premature relative to realized expectancy."
+    },
+    {
+      "modelbook_id": "mb-YYYYMMDD-shortid",
+      "kind": "missed_trade",
+      "name": "anonymized-identifier",
+      "trade_class": "leader_grade_position",
+      "outcome_class": "missed_trade",
+      "lesson_summary": "Gate-denied for sector_overrun; with hindsight expectancy was negative due to correlation."
+    }
+  ],
+  "rollup": {
+    "closed_trade_count": 0,
+    "winner_leader_count": 0,
+    "winner_enhancer_count": 0,
+    "winner_short_term_count": 0,
+    "loser_stop_count": 0,
+    "loser_structural_count": 0,
+    "loser_time_count": 0,
+    "missed_trade_count": 0
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}
