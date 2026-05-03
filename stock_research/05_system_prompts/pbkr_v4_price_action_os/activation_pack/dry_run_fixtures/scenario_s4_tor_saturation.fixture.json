@@ -1,0 +1,160 @@
+{
+  "fixture_id": "fx-S4-tor-saturation-anon",
+  "scenario_id": "S4",
+  "scenario_name": "tor_saturation",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-04T08:30:00+09:00",
+  "session_date": "2099-01-04",
+  "schema_refs": [
+    "../../schemas/daily_focus_list.schema.json",
+    "../../schemas/audit_pack.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "daily_focus_list_pre_audit": "tor_pct=5.4, K*tor_ceiling_pct=6.0. Adding both A (R=0.4) and B (R=0.5) would push TOR to 6.3, breaching headroom. Auditor must compress to one entry."
+  },
+  "artifacts": {
+    "daily_focus_list_pre_audit": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-04T08:30:00+09:00",
+      "session_date": "2099-01-04",
+      "focus_list_id": "fl-20990104-anon",
+      "market_cycle_ref": "mc-20990104-anon",
+      "tor_state": {
+        "tor_pct": 5.4,
+        "k": 1.0,
+        "tor_ceiling_pct": 6.0
+      },
+      "entries": [
+        {
+          "entry_id": "fle-cand-A-anon",
+          "watchlist_item_ref": "wl-cand-A-anon",
+          "name": "Candidate A",
+          "trade_class": "swing",
+          "edges": ["HVE", "RelativeStrength"],
+          "setup": "BaseBreakout",
+          "entry_tactic": {
+            "tactic_id": "ConsolidationPivotBreakout",
+            "trigger_level": "anon-pivot-A",
+            "failure_level": "anon-failure-A",
+            "stop_logic": "anon-stop-logic-A",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-A",
+          "size_plan_summary": "anon-size-plan-A; r_per_position 0.4 (lower priority)",
+          "sell_plan_summary": "anon-sell-plan-A",
+          "thesis": "Synthetic constructive thesis for Candidate A; lower priority because TOR headroom is tight.",
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        },
+        {
+          "entry_id": "fle-cand-B-anon",
+          "watchlist_item_ref": "wl-cand-B-anon",
+          "name": "Candidate B",
+          "trade_class": "leader_grade_position",
+          "edges": ["HVE", "RelativeStrength", "GrowthAcceleration"],
+          "setup": "BreakoutFirstPullback",
+          "entry_tactic": {
+            "tactic_id": "KeyMovingAveragePullback",
+            "trigger_level": "anon-pivot-B",
+            "failure_level": "anon-failure-B",
+            "stop_logic": "anon-stop-logic-B",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-B",
+          "size_plan_summary": "anon-size-plan-B; r_per_position 0.5 (higher priority leader candidate)",
+          "sell_plan_summary": "anon-sell-plan-B",
+          "thesis": "Synthetic leader-grade thesis for Candidate B; higher priority than Candidate A.",
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "audit_pack": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-04T08:45:00+09:00",
+      "audit_pack_id": "aud-20990104-anon",
+      "audited_focus_list_id": "fl-20990104-anon",
+      "entries": [
+        {
+          "entry_ref": "fle-cand-B-anon",
+          "audit_decision": "pass",
+          "findings": [],
+          "counter_thesis": "Synthetic specific risk note: leader sub-grade thinning; if breadth contracts, watch for first higher-low test failure.",
+          "risk_notes": {
+            "concentration": "anon-sector-low",
+            "correlation": "anon-correlation-low",
+            "event_window": "no-near-term-event"
+          },
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        },
+        {
+          "entry_ref": "fle-cand-A-anon",
+          "audit_decision": "revise_required",
+          "findings": [
+            {
+              "severity": "soft_veto",
+              "code": "A102",
+              "description": "Including Candidate A would push TOR to 6.3% vs ceiling 6.0% (K=1.0). Headroom breach. Lower-priority entry per Orchestrator compression rules; revise focus list to drop Candidate A or wait for headroom to free via stop migrations on existing positions.",
+              "suggested_fix": "Drop Candidate A from today's focus list; reconsider after a stop on an existing position migrates and TOR shrinks below ceiling minus Candidate A's R."
+            }
+          ],
+          "counter_thesis": "",
+          "risk_notes": {
+            "concentration": "anon-sector-low",
+            "correlation": "anon-correlation-low",
+            "event_window": "no-near-term-event"
+          },
+          "signal_safety": {
+            "direct_trade_signal": false,
+            "trade_signal": null,
+            "automatic_execution_allowed": false,
+            "human_gate_required": true
+          }
+        }
+      ],
+      "summary_note": "Synthetic TOR saturation demonstration; focus list compresses from 2 to 1 (Candidate B passes; Candidate A revise_required).",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    }
+  },
+  "expected_outcome": {
+    "audit_decision_per_entry": {
+      "fle-cand-A-anon": "revise_required",
+      "fle-cand-B-anon": "pass"
+    },
+    "focus_list_after_audit_count": 1,
+    "operator_decision": "pending",
+    "transaction_executed_in_fixture": false,
+    "notes": "Mechanical TOR ceiling enforcement; the focus list compresses to the higher-priority entry."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}

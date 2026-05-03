@@ -1,0 +1,127 @@
+{
+  "fixture_id": "fx-S6-no-action-day-anon",
+  "scenario_id": "S6",
+  "scenario_name": "no_action_day",
+  "fixture_version": "v4.1",
+  "asof": "2099-01-06T08:30:00+09:00",
+  "session_date": "2099-01-06",
+  "schema_refs": [
+    "../../schemas/market_cycle.schema.json",
+    "../../schemas/daily_focus_list.schema.json"
+  ],
+  "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "daily_focus_list_empty": "Empty focus list is a valid daily outcome under stage_4. No candidate enters the snipe queue today."
+  },
+  "artifacts": {
+    "market_cycle": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-06T08:00:00+09:00",
+      "kospi_stage": "stage_4",
+      "kosdaq_stage": "stage_4",
+      "sub_grade": "n_a",
+      "k_multiplier": 0.10,
+      "stage_cap_pct": 5.0,
+      "tor_ceiling_pct": 6.0,
+      "inputs": {
+        "index_trend": {
+          "kospi_vs_21ema": "below",
+          "kospi_vs_50sma": "below",
+          "kospi_vs_200sma": "below",
+          "kosdaq_vs_21ema": "below",
+          "kosdaq_vs_50sma": "below",
+          "kosdaq_vs_200sma": "below"
+        },
+        "breadth": {
+          "pct_above_50sma": 20,
+          "advance_decline_net": -200
+        },
+        "leadership": "absent",
+        "foreign_flow": "net_negative",
+        "fx_context": "krw_weak",
+        "volatility_regime": "elevated",
+        "leader_action": "synthetic-leader-action-deteriorating",
+        "recent_10_trades_feedback": "adverse"
+      },
+      "notes": "Synthetic stage_4 defensive regime. Cash is the prescribed posture.",
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "daily_focus_list_empty": {
+      "schema_version": "v4.1",
+      "asof": "2099-01-06T08:35:00+09:00",
+      "session_date": "2099-01-06",
+      "focus_list_id": "fl-20990106-anon",
+      "market_cycle_ref": "mc-20990106-anon",
+      "tor_state": {
+        "tor_pct": 0.0,
+        "k": 0.10,
+        "tor_ceiling_pct": 6.0
+      },
+      "entries": [],
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    },
+    "no_action_journal_summary": {
+      "fixture_journal_id": "naj-20990106-anon",
+      "session_date": "2099-01-06",
+      "regime_summary": {
+        "kospi_stage": "stage_4",
+        "kosdaq_stage": "stage_4",
+        "sub_grade": "n_a",
+        "k_multiplier": 0.10,
+        "stage_cap_pct": 5.0
+      },
+      "reason_for_no_action": "regime_defensive",
+      "detail": "Stage 4 across both indices; breadth below floor; leadership absent; foreign flow persistently net-negative; cash is the prescribed posture per POSITION_SIZING_TOTAL_OPEN_RISK.md §11.",
+      "what_was_observed": {
+        "daily_focus_list_state": {
+          "executed": 0,
+          "passed_gate_no_act": 0,
+          "watch_carry": 0,
+          "demoted": 0,
+          "retired": 0,
+          "empty_focus_list": true
+        },
+        "holdings_touched": "no positions opened or modified in fixture",
+        "group_observations": "No constructive synthetic group structure today."
+      },
+      "lessons": [
+        "Cash is a position; defensive posture is doctrinally prescribed.",
+        "An empty focus list is not a process failure."
+      ],
+      "process_adherence": {
+        "boxes_required": 1,
+        "boxes_passed": 1,
+        "adherence_pct": 100.0
+      },
+      "signal_safety": {
+        "direct_trade_signal": false,
+        "trade_signal": null,
+        "automatic_execution_allowed": false,
+        "human_gate_required": true
+      }
+    }
+  },
+  "expected_outcome": {
+    "focus_list_count": 0,
+    "reason_for_no_action": "regime_defensive",
+    "operator_decision": "abstain",
+    "transaction_executed_in_fixture": false,
+    "notes": "Defensive regime; operator does not transact. Cash posture documented in synthetic no-action journal summary."
+  },
+  "signal_safety": {
+    "direct_trade_signal": false,
+    "trade_signal": null,
+    "automatic_execution_allowed": false,
+    "human_gate_required": true
+  }
+}
