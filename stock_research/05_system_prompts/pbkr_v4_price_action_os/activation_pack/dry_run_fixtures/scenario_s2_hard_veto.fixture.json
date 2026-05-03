@@ -10,6 +10,9 @@
     "../../schemas/audit_pack.schema.json"
   ],
   "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "daily_focus_list_draft_with_defect": "MISSING_FAILURE_LEVEL_PLACEHOLDER is a fixture-level marker. In a real focus list draft this entry would be syntactically present but doctrinally invalid because failure_level is not a meaningful pivot reference."
+  },
   "artifacts": {
     "daily_focus_list_draft_with_defect": {
       "schema_version": "v4.1",
@@ -25,15 +28,19 @@
       "entries": [
         {
           "entry_id": "fle-cand-B-anon",
-          "ticket_ref": "tkt-20990102-cand-B-anon",
+          "watchlist_item_ref": "wl-cand-B-anon",
           "name": "Candidate B",
           "trade_class": "swing",
           "edges": ["HVE"],
           "setup": "BaseBreakout",
-          "entry_tactic_id": "ConsolidationPivotBreakout",
-          "trigger_level": "anon-pivot-B",
-          "failure_level": "MISSING_FAILURE_LEVEL_PLACEHOLDER",
-          "stop_logic_summary": "anon-stop-logic-B",
+          "entry_tactic": {
+            "tactic_id": "ConsolidationPivotBreakout",
+            "trigger_level": "anon-pivot-B",
+            "failure_level": "MISSING_FAILURE_LEVEL_PLACEHOLDER",
+            "stop_logic": "anon-stop-logic-B",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-B",
           "size_plan_summary": "anon-size-plan-B",
           "sell_plan_summary": "anon-sell-plan-B",
           "thesis": "Synthetic thesis for Candidate B; intentionally has missing failure_level to demonstrate hard veto.",
@@ -50,8 +57,7 @@
         "trade_signal": null,
         "automatic_execution_allowed": false,
         "human_gate_required": true
-      },
-      "fixture_note": "MISSING_FAILURE_LEVEL_PLACEHOLDER is a fixture-level marker. In a real focus list draft this entry would be syntactically present but doctrinally invalid because failure_level is not a meaningful pivot reference."
+      }
     },
     "audit_pack": {
       "schema_version": "v4.1",

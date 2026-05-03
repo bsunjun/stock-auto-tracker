@@ -10,6 +10,9 @@
     "../../schemas/audit_pack.schema.json"
   ],
   "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "daily_focus_list_pre_audit": "tor_pct=5.4, K*tor_ceiling_pct=6.0. Adding both A (R=0.4) and B (R=0.5) would push TOR to 6.3, breaching headroom. Auditor must compress to one entry."
+  },
   "artifacts": {
     "daily_focus_list_pre_audit": {
       "schema_version": "v4.1",
@@ -25,15 +28,19 @@
       "entries": [
         {
           "entry_id": "fle-cand-A-anon",
-          "ticket_ref": "tkt-20990104-cand-A-anon",
+          "watchlist_item_ref": "wl-cand-A-anon",
           "name": "Candidate A",
           "trade_class": "swing",
           "edges": ["HVE", "RelativeStrength"],
           "setup": "BaseBreakout",
-          "entry_tactic_id": "ConsolidationPivotBreakout",
-          "trigger_level": "anon-pivot-A",
-          "failure_level": "anon-failure-A",
-          "stop_logic_summary": "anon-stop-logic-A",
+          "entry_tactic": {
+            "tactic_id": "ConsolidationPivotBreakout",
+            "trigger_level": "anon-pivot-A",
+            "failure_level": "anon-failure-A",
+            "stop_logic": "anon-stop-logic-A",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-A",
           "size_plan_summary": "anon-size-plan-A; r_per_position 0.4 (lower priority)",
           "sell_plan_summary": "anon-sell-plan-A",
           "thesis": "Synthetic constructive thesis for Candidate A; lower priority because TOR headroom is tight.",
@@ -46,15 +53,19 @@
         },
         {
           "entry_id": "fle-cand-B-anon",
-          "ticket_ref": "tkt-20990104-cand-B-anon",
+          "watchlist_item_ref": "wl-cand-B-anon",
           "name": "Candidate B",
           "trade_class": "leader_grade_position",
           "edges": ["HVE", "RelativeStrength", "GrowthAcceleration"],
           "setup": "BreakoutFirstPullback",
-          "entry_tactic_id": "KeyMovingAveragePullback",
-          "trigger_level": "anon-pivot-B",
-          "failure_level": "anon-failure-B",
-          "stop_logic_summary": "anon-stop-logic-B",
+          "entry_tactic": {
+            "tactic_id": "KeyMovingAveragePullback",
+            "trigger_level": "anon-pivot-B",
+            "failure_level": "anon-failure-B",
+            "stop_logic": "anon-stop-logic-B",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-B",
           "size_plan_summary": "anon-size-plan-B; r_per_position 0.5 (higher priority leader candidate)",
           "sell_plan_summary": "anon-sell-plan-B",
           "thesis": "Synthetic leader-grade thesis for Candidate B; higher priority than Candidate A.",
@@ -71,8 +82,7 @@
         "trade_signal": null,
         "automatic_execution_allowed": false,
         "human_gate_required": true
-      },
-      "fixture_note": "tor_pct=5.4, K*tor_ceiling_pct=6.0. Adding both A (R=0.4) and B (R=0.5) would push TOR to 6.3, breaching headroom. Auditor must compress to one entry."
+      }
     },
     "audit_pack": {
       "schema_version": "v4.1",

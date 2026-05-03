@@ -105,15 +105,19 @@
       "entries": [
         {
           "entry_id": "fle-cand-A-anon",
-          "ticket_ref": "tkt-20990101-cand-A-anon",
+          "watchlist_item_ref": "wl-cand-A-anon",
           "name": "Candidate A",
           "trade_class": "swing",
           "edges": ["HVE", "RelativeStrength"],
           "setup": "BaseBreakout",
-          "entry_tactic_id": "ConsolidationPivotBreakout",
-          "trigger_level": "anon-pivot-A",
-          "failure_level": "anon-failure-A",
-          "stop_logic_summary": "anon-stop-logic-A",
+          "entry_tactic": {
+            "tactic_id": "ConsolidationPivotBreakout",
+            "trigger_level": "anon-pivot-A",
+            "failure_level": "anon-failure-A",
+            "stop_logic": "anon-stop-logic-A",
+            "kr_caveat": "Exclude opening (09:00-09:15) and closing auction (15:20-15:30) prints; void during sidecar / circuit-breaker."
+          },
+          "stop_plan_summary": "anon-stop-plan-A",
           "size_plan_summary": "anon-size-plan-A",
           "sell_plan_summary": "anon-sell-plan-A",
           "thesis": "Synthetic constructive thesis for Candidate A; observation, not recommendation.",

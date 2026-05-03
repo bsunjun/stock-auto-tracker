@@ -10,6 +10,9 @@
     "../../schemas/daily_focus_list.schema.json"
   ],
   "synthetic_disclaimer": "Synthetic illustrative payload. Not a real market output. No real ticker, price, quantity, order, news, or DART number.",
+  "fixture_notes": {
+    "daily_focus_list_empty": "Empty focus list is a valid daily outcome under stage_4. No candidate enters the snipe queue today."
+  },
   "artifacts": {
     "market_cycle": {
       "schema_version": "v4.1",
@@ -65,8 +68,7 @@
         "trade_signal": null,
         "automatic_execution_allowed": false,
         "human_gate_required": true
-      },
-      "fixture_note": "Empty focus list is a valid daily outcome under stage_4. No candidate enters the snipe queue today."
+      }
     },
     "no_action_journal_summary": {
       "fixture_journal_id": "naj-20990106-anon",
