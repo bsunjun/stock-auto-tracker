@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v4/candidate.schema.json",
+  "title": "PBKR v4 Candidate",
+  "description": "A screening-stage candidate. Educational. Not a trade signal. direct_trade_signal must be false. trade_signal must be null. human_gate_required must be true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "name",
+    "trade_class_proposed",
+    "edges",
+    "setup_proposed",
+    "growth_evidence",
+    "liquidity_tier",
+    "kr_designation_status",
+    "structural_filter",
+    "disclaimers"
+  ],
+  "properties": {
+    "schema_version": { "const": "v4.1" },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^cand-[A-Za-z0-9_-]{4,64}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Anonymized identifier; not a live ticker for acted-upon decisions."
+    },
+    "trade_class_proposed": {
+      "enum": ["short_term", "swing", "position", "leader_grade_position"]
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["HVE", "HVIPO", "HV1", "RelativeStrength", "NFactor", "GroupMove", "GrowthAcceleration"]
+      }
+    },
+    "setup_proposed": {
+      "enum": ["LaunchPad", "Gapper", "BaseBreakout", "BreakoutFirstPullback", "ContinuationFlag", "ReversalOfTrend"]
+    },
+    "growth_evidence": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "sales_growth",
+          "eps_growth",
+          "operating_profit_growth",
+          "margin_expansion",
+          "turnaround",
+          "asp_rise",
+          "shipment_growth",
+          "backlog_order_growth",
+          "consensus_revision_improvement",
+          "report_cluster",
+          "dart_surprise"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "liquidity_tier": {
+      "enum": ["tier_1", "tier_2", "tier_3", "tier_below_floor"]
+    },
+    "kr_designation_status": {
+      "enum": ["clean", "investment_attention", "investment_warning", "investment_risk", "administrative_issue", "trading_halt", "listing_review"]
+    },
+    "structural_filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name_stage", "pattern_proximity", "group_state"],
+      "properties": {
+        "name_stage": { "enum": ["stage_1", "stage_2", "stage_3", "stage_4"] },
+        "pattern_proximity": { "enum": ["far", "approaching", "tactic_ready"] },
+        "group_state": { "enum": ["constructive", "neutral", "deteriorating"] }
+      }
+    },
+    "soft_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rs_rank": { "type": "number", "minimum": 0, "maximum": 100 },
+        "group_leadership_note": { "type": "string", "maxLength": 280 },
+        "newspaper_flow_note": { "type": "string", "maxLength": 280 }
+      }
+    },
+    "disclaimers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "type": "null" },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

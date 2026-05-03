@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v4/modelbook.schema.json",
+  "title": "PBKR v4 Modelbook Entry",
+  "description": "One closed-trade record. Educational. Not a trade signal. direct_trade_signal must be false. trade_signal must be null. human_gate_required must be true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "modelbook_id",
+    "entry_session_date",
+    "exit_session_date",
+    "name",
+    "trade_class",
+    "edge",
+    "setup",
+    "entry_tactic_id",
+    "outcome_class",
+    "lesson",
+    "pattern_memory_note",
+    "disclaimers"
+  ],
+  "properties": {
+    "schema_version": { "const": "v4.1" },
+    "modelbook_id": {
+      "type": "string",
+      "pattern": "^mb-[0-9]{8}-[A-Za-z0-9_-]{2,32}$"
+    },
+    "entry_session_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "exit_session_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "trade_class": {
+      "enum": ["short_term", "swing", "position", "leader_grade_position"]
+    },
+    "edge": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["HVE", "HVIPO", "HV1", "RelativeStrength", "NFactor", "GroupMove", "GrowthAcceleration"]
+      }
+    },
+    "setup": {
+      "enum": ["LaunchPad", "Gapper", "BaseBreakout", "BreakoutFirstPullback", "ContinuationFlag", "ReversalOfTrend"]
+    },
+    "entry_tactic_id": {
+      "enum": [
+        "KeySupportLevelReclaim",
+        "ConsolidationPivotBreakout",
+        "KeyMovingAveragePullback",
+        "KeySupportLevelPullback",
+        "OopsReversal",
+        "OpeningRangeBreakout",
+        "IntradayBaseEntry",
+        "HighVolumeClosePivot",
+        "AddOnEntry"
+      ]
+    },
+    "exit_category": {
+      "enum": ["risk_stop", "structural", "trim_into_strength", "trim_into_weakness", "time_stop"]
+    },
+    "outcome_class": {
+      "enum": [
+        "winner_leader",
+        "winner_enhancer",
+        "winner_short_term",
+        "loser_stop",
+        "loser_structural",
+        "loser_time"
+      ]
+    },
+    "r_multiple_realized": {
+      "type": "number",
+      "minimum": -10,
+      "maximum": 50
+    },
+    "holding_sessions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 280,
+      "description": "One-line lesson; the operator's pattern memory."
+    },
+    "pattern_memory_note": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 600,
+      "description": "Did the pattern behave as the doctrine predicted? Be specific."
+    },
+    "linked_postmortem_id": { "type": "string", "maxLength": 64 },
+    "disclaimers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "type": "null" },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}
