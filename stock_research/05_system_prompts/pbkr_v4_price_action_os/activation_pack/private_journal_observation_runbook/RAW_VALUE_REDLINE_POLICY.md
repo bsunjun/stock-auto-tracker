@@ -18,9 +18,10 @@ them.
 
 ## Categories Subject to the Redline
 
-The following are subject to the redline. Each category must be
-strongly avoided in this repository and strongly minimized in the
-private journal:
+The following are subject to the redline. Each category must
+**never** appear in this repository and must **never** be captured
+into the private journal. If a category does enter a working
+artifact, the redline behavior in the next section applies:
 
 - Actual ticker code (Korean six-digit form or any other form).
 - Actual price (last, bid, ask, open, high, low, close, fill).
