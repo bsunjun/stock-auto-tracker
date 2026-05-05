@@ -15,11 +15,17 @@ observation.
 
 - [ ] The name's risk flag belongs to **분류 B** in
       `OFFICIAL_RISK_FLAG_TAXONOMY_KR.md` (투자주의 / 투자경고
-      지정예고 / 투자경고 / 단기과열).
-- [ ] The name does **not** belong to **분류 A** (관리종목, 거래정지,
-      상장폐지 단계, 불성실공시, 감사의견 비적정, 횡령/배임 정황 등).
-- [ ] The name does **not** belong to **분류 C** (투자위험,
-      매매거래정지 임박, 투자경고 후 정지 임박 단계).
+      지정예고 / 투자경고 / 단기과열 예고 / 단기과열 지정 / 공매도
+      과열).
+- [ ] The name does **not** belong to **분류 A**
+      (`HARD_EXCLUDE`: 관리종목, 상장폐지 실질심사, 거래정지,
+      불성실공시, 감사의견 문제, 횡령/배임, 회생/파산).
+- [ ] The name does **not** belong to **분류 C**
+      (`EXTREME_RISK_FLAG_WATCH`: 투자위험 지정예고, 투자위험종목,
+      투자경고 후 정지 임박 단계).
+- [ ] The name does **not** belong to **분류 D**
+      (`NO_ENTRY`: 매매거래정지, 상장폐지 실질심사 관련 정지,
+      공시불이행 등 거래정지).
 - [ ] The name is in a **leading sector / leading theme** during the
       relevant period.
 - [ ] Either an **upward estimate revision** or a **structural
@@ -65,10 +71,12 @@ observation.
 A name in `RISK_FLAG_PULLBACK_WATCH` is removed from the watch
 posture immediately if any of the following occurs:
 
-- The name reclassifies into 분류 A (fundamental / corporate hard
-  exclude).
-- The name reclassifies into 분류 C (extreme market-structure
-  risk).
+- The name reclassifies into 분류 A (`HARD_EXCLUDE`).
+- The name reclassifies into 분류 C (`EXTREME_RISK_FLAG_WATCH`).
+  In that case the watch posture is replaced by
+  `EXTREME_RISK_FLAG_WATCH` and new entry is held while that flag
+  is active.
+- The name reclassifies into 분류 D (`NO_ENTRY`).
 - Pullback volume expands abnormally with adverse supply-state
   label.
 - The short, logical stop level is broken intraday.

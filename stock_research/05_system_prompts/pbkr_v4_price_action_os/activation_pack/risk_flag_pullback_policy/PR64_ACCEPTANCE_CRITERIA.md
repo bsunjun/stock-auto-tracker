@@ -66,16 +66,27 @@ before it is merged.
 
 ## Status Misuse Criteria
 
-- [ ] `RISK_FLAG_PULLBACK_WATCH` is documented strictly as a watch
-      posture. It is **not** described as a `PB_TRIGGER`, a 본진
-      entry, an automatic alert source, or an execution authorization
-      anywhere in the added files.
-- [ ] No added file describes a 분류 A name (관리종목 / 거래정지 /
-      상장폐지 단계 / 불성실공시 / 감사의견 비적정 / 횡령/배임 정황)
-      as eligible for `RISK_FLAG_PULLBACK_WATCH`.
-- [ ] No added file describes a 분류 C name (투자위험 / 매매거래정지
-      임박 / 정지 임박 단계) as eligible for
-      `RISK_FLAG_PULLBACK_WATCH`.
+- [ ] `RISK_FLAG_PULLBACK_WATCH` and `EXTREME_RISK_FLAG_WATCH` are
+      documented strictly as watch postures. Neither is described
+      as a `PB_TRIGGER`, a 본진 entry, an automatic alert source,
+      or an execution authorization anywhere in the added files.
+- [ ] No added file describes a 분류 A name (`HARD_EXCLUDE`:
+      관리종목 / 상장폐지 실질심사 / 거래정지 / 불성실공시 /
+      감사의견 문제 / 횡령/배임 / 회생/파산) as eligible for
+      `RISK_FLAG_PULLBACK_WATCH` or `EXTREME_RISK_FLAG_WATCH`.
+- [ ] No added file describes a 분류 C name
+      (`EXTREME_RISK_FLAG_WATCH`: 투자위험 지정예고 / 투자위험종목
+      / 투자경고 후 정지 임박 단계) as directly eligible for
+      `RISK_FLAG_PULLBACK_WATCH` while the flag is active.
+      Re-classification to `RISK_FLAG_PULLBACK_WATCH` is allowed
+      only after the flag is formally lifted to 분류 B.
+- [ ] No added file describes a 분류 D name (`NO_ENTRY`:
+      매매거래정지 / 상장폐지 실질심사 관련 정지 / 공시불이행
+      거래정지) as eligible for any watch posture or candidate
+      posture.
+- [ ] The four status labels (`HARD_EXCLUDE`, `REGULAR_PB_EXCLUDE`,
+      `EXTREME_RISK_FLAG_WATCH`, `NO_ENTRY`) are used consistently
+      with the taxonomy in `OFFICIAL_RISK_FLAG_TAXONOMY_KR.md`.
 
 ## Forbidden Korean Wording Criteria
 

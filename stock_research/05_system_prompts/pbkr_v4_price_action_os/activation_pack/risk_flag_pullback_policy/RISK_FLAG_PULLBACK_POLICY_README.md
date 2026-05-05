@@ -4,23 +4,33 @@
 
 This PR introduces the **Risk-Flag Pullback Policy** — a doctrinal
 clarification on how PBKR v4 treats Korean exchange official risk
-flags such as 투자주의, 투자경고 지정예고, 투자경고, and 단기과열.
+flags such as 투자주의, 투자경고 지정예고, 투자경고, 단기과열,
+공매도 과열, 투자위험 지정예고, 투자위험종목, 매매거래정지, and
+related corporate-suspension states.
 
 The core observation is:
 
 - An official **risk flag is not automatically a corporate
   fundamental concern**.
-- Some risk flags (투자주의 / 투자경고 지정예고 / 투자경고 / 단기과열)
-  are primarily **market-structure cooling** indicators — the
-  exchange is signaling that price/volume action has overheated, not
-  that the issuer's business has deteriorated.
-- Other risk flags (관리종목, 거래정지, 상장폐지 단계, 불성실공시 등)
-  are **fundamental / corporate** concerns and remain hard exclude.
+- Some risk flags (투자주의 / 투자경고 지정예고 / 투자경고 /
+  단기과열 / 공매도 과열) are primarily **market-structure
+  cooling** indicators — the exchange is signaling that price /
+  volume / short-interest action has overheated, not that the
+  issuer's business has deteriorated.
+- Other risk flags (관리종목, 거래정지, 상장폐지 실질심사,
+  불성실공시, 감사의견 문제, 횡령/배임, 회생/파산, 매매거래정지)
+  are **fundamental / corporate or active-suspension** concerns and
+  remain hard exclude or no-entry.
 
-This PR documents that distinction, but it does **not** turn any
-risk flag into a buy idea. It creates a separate observation status
-called `RISK_FLAG_PULLBACK_WATCH`, used only as a high-risk watch
-posture, and explicitly **not** promoted to a normal `PB_TRIGGER`.
+This PR documents that distinction with a four-category taxonomy
+(A / B / C / D) and explicit status labels, but it does **not** turn
+any risk flag into a buy idea. It creates a separate observation
+status `RISK_FLAG_PULLBACK_WATCH`, used only as a high-risk watch
+posture for 분류 B, and explicitly **not** promoted to a normal
+`PB_TRIGGER`. 분류 C uses the distinct posture
+`EXTREME_RISK_FLAG_WATCH`, which holds new entry while the flag is
+active and may be re-classified to 분류 B's
+`RISK_FLAG_PULLBACK_WATCH` only if the flag is formally lifted.
 
 ## Position Within the PBKR v4 Activation Pack
 
@@ -40,11 +50,14 @@ posture, and explicitly **not** promoted to a normal `PB_TRIGGER`.
 - A markdown-only documentation PR.
 - Seven documents under
   `stock_research/05_system_prompts/pbkr_v4_price_action_os/activation_pack/risk_flag_pullback_policy/`.
-- A taxonomy of official risk flags (Fundamental / Cooling /
-  Extreme), the conditions for `RISK_FLAG_PULLBACK_WATCH`, the role
-  patches for GPT / Claude / Gemini / Codex, the daily audit prompt
-  patch (Korean), the Google Drive mirror note, and PR #64
-  acceptance criteria.
+- A four-category taxonomy of official risk flags (분류 A
+  Fundamental / 분류 B Market-Structure Cooling / 분류 C Extreme
+  Market-Structure Cooling / 분류 D Active Trading Halt) with
+  explicit status labels (`HARD_EXCLUDE`, `REGULAR_PB_EXCLUDE`,
+  `EXTREME_RISK_FLAG_WATCH`, `NO_ENTRY`), the conditions for
+  `RISK_FLAG_PULLBACK_WATCH`, the role patches for GPT / Claude /
+  Gemini / Codex, the daily audit prompt patch (Korean), the Google
+  Drive mirror note, and PR #64 acceptance criteria.
 
 ## What This PR Is NOT
 
