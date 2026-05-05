@@ -1,0 +1,69 @@
+# 일일 감사 프롬프트 패치 (Daily Audit Prompt Patch, KR)
+
+본 문서는 일일 운영 / 감사 프롬프트에 **추가**할 한국어 문구를
+정리한다. 기존 PBKR v4 doctrine 의 어떤 항목도 약화시키지 않으며,
+본 PR 이 새로 도입한 Risk-Flag Pullback Policy 를 운영 흐름에
+일관되게 반영하기 위한 patch 이다.
+
+본 문서는 실제 종목명, 실제 가격, 실제 공시번호, 실제 주문/계좌
+데이터를 포함하지 않는다.
+
+## 일일 프롬프트에 추가할 문구
+
+다음 다섯 줄을 일일 운영 프롬프트 / 감사 프롬프트에 그대로
+포함한다.
+
+> 공식 리스크 플래그는 먼저 taxonomy 로 분류한다.
+
+> 투자주의 / 투자경고는 기업 악재가 아니라 market-structure
+> cooling risk 일 수 있다.
+
+> 단, 일반 PB_TRIGGER 로 승격하지 않는다.
+
+> RISK_FLAG_PULLBACK_WATCH 는 별도 고위험 관찰 상태다.
+
+> 투자위험 / 거래정지 / 관리종목 / 불성실공시 / 회계 이슈는
+> hard exclude 다.
+
+## 감사 시 확인할 항목
+
+- [ ] 일일 후보 / 관찰 노트가 위 다섯 줄을 적용했는지 확인.
+- [ ] 분류 A (관리종목, 거래정지, 상장폐지 단계, 불성실공시,
+      감사의견 비적정, 횡령/배임 정황) 에 해당하는 이름이 watch /
+      candidate 어디에도 포함되지 않았는지 확인.
+- [ ] 분류 C (투자위험, 매매거래정지 임박, 정지 임박 단계) 에
+      해당하는 이름이 watch / candidate 어디에도 포함되지 않았는지
+      확인.
+- [ ] 분류 B 에 해당하는 이름이 `PB_TRIGGER`, 본진, 매수 신호,
+      자동 실행 어휘로 표현되어 있지 않은지 확인.
+- [ ] 분류 B 의 이름이 `RISK_FLAG_PULLBACK_WATCH` 라는
+      labelled status 로만 다뤄지는지 확인.
+- [ ] 자동 실행 (`automatic_execution_allowed` truthy), truthy 한
+      `trade_signal` / `direct_trade_signal`, 또는 `operator_decision`
+      필드가 execute 리터럴로 설정된 경로가 어디에도 등장하지
+      않는지 확인.
+- [ ] private journal 외부 (본 repo, Drive, Telegram, mail 등)
+      로 새 observation output 이 흘러가지 않았는지 확인.
+
+## 적용 우선순위
+
+1. 분류 A → 즉시 배제. 그 이상의 풀백 / 관찰 검토를 하지 않는다.
+2. 분류 C → 신규 진입 / 관찰 후보 배제. 정상화 발표 전까지 다루지
+   않는다.
+3. 분류 B → `RISK_FLAG_PULLBACK_WATCH_CHECKLIST.md` 의 모든 사전
+   조건이 PASS 한 경우에만 `RISK_FLAG_PULLBACK_WATCH` 로
+   labelled. 그 이상으로 승격하지 않는다.
+
+## 절대 금지
+
+- 분류 B 를 매수 신호로 해석하는 한국어 문구 추가.
+- 분류 B 를 자동 실행 / 자동 알림 경로에 연결.
+- 분류 A / 분류 C 를 watch posture 로 끌어올리는 표현.
+- `RISK_FLAG_PULLBACK_WATCH` 를 `PB_TRIGGER` 와 동의어처럼 사용.
+- 본 patch 가 doctrine 을 약화시킨다는 해석.
+
+## 범위 밖
+
+- 자동 prompt 주입 도구.
+- 실제 종목 / 실제 가격 / 실제 공시 데이터.
+- 자동 실행 / 자동 알림 / 외부 시스템 write.
