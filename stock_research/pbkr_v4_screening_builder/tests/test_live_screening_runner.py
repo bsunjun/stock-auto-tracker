@@ -159,15 +159,6 @@ def test_verification_report_validates_against_schema(tmp_path):
 
 
 def test_cli_main_returns_2_when_no_execution_flag_missing(tmp_path):
-    args = argparse.Namespace(**{
-        **_live_kwargs(tmp_path, no_execution=False),
-        "rs_weight_m1":  DEFAULT_RS_WEIGHTS["m1"],
-        "rs_weight_m3":  DEFAULT_RS_WEIGHTS["m3"],
-        "rs_weight_m6":  DEFAULT_RS_WEIGHTS["m6"],
-        "rs_weight_m12": DEFAULT_RS_WEIGHTS["m12"],
-    })
-    # cli_main expects the rs_weights as separate args, plus --output-dir
-    # already named correctly. Build the namespace manually:
     args = argparse.Namespace(
         date="2026-05-06",
         tradingview=str(FIXTURES / "tradingview_scan_synthetic.json"),
