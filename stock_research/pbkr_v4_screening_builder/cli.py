@@ -1,21 +1,27 @@
 """CLI for the PBKR v4 Screening Builder.
 
-Two subcommands:
+Three subcommands:
 
-    screen        — run the screening pipeline against any inputs
-                    (offline / fixture / dev).  Output may live under
-                    $PBKR_SCREENING_OUT or /tmp/pbkr_v4_screening_out
-                    by default; the CLI refuses any --out-dir inside
-                    the repository.
+    screen          — run the screening pipeline against any inputs
+                      (offline / fixture / dev).  Output may live under
+                      $PBKR_SCREENING_OUT or /tmp/pbkr_v4_screening_out
+                      by default; the CLI refuses any --out-dir inside
+                      the repository.
 
-    live-screen   — run the screening pipeline against *real* live
-                    inputs.  This subcommand is read-only:
-                      * --no-execution is required;
-                      * inputs must exist and be non-empty (no
-                        silent synthetic fallback);
-                      * output must live outside the repository;
-                      * a verification_report.json is emitted that
-                        asserts every doctrinal counter is zero.
+    live-screen     — run the screening pipeline against *real* live
+                      inputs.  This subcommand is read-only:
+                        * --no-execution is required;
+                        * inputs must exist and be non-empty (no
+                          silent synthetic fallback);
+                        * output must live outside the repository;
+                        * a verification_report.json is emitted that
+                          asserts every doctrinal counter is zero.
+
+    kiwoom-collect  — read-only Kiwoom REST today-universe collector.
+                      Produces ``kiwoom_features_latest.json`` and
+                      ``kiwoom_universe_latest.json`` (plus an audit
+                      report) under $PBKR_PROCESSED_ROOT/live_screen_inputs.
+                      Order / account endpoints are out of scope.
 
 For backward compatibility, when invoked with no subcommand the CLI
 defaults to ``screen``.
@@ -30,6 +36,11 @@ from pathlib import Path
 
 from .builder import build_screening_run
 from .constants import DEFAULT_MIN_TRADING_VALUE, DEFAULT_RS_THRESHOLD, DEFAULT_RS_WEIGHTS
+from .kiwoom_today_universe_collector import (
+    DEFAULT_OUTPUT_BASE as COLLECTOR_DEFAULT_OUTPUT_BASE,
+    LIVE_SCREEN_INPUTS_SUBDIR,
+    cli_main as collector_cli_main,
+)
 from .live_screening_runner import (
     DEFAULT_OUTPUT_BASE,
     cli_main as live_cli_main,
@@ -37,7 +48,7 @@ from .live_screening_runner import (
 from .validator import verify_run_directory
 
 
-_SUBCOMMANDS = ("screen", "live-screen")
+_SUBCOMMANDS = ("screen", "live-screen", "kiwoom-collect")
 
 
 def _add_rs_weight_flags(p: argparse.ArgumentParser) -> None:
@@ -54,7 +65,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="pbkr_v4_screening_builder",
         description="PBKR v4 Screening Builder — candidate generation only.",
     )
-    sub = parser.add_subparsers(dest="command", required=True, metavar="{screen,live-screen}")
+    sub = parser.add_subparsers(
+        dest="command", required=True,
+        metavar="{screen,live-screen,kiwoom-collect}",
+    )
 
     p_screen = sub.add_parser(
         "screen",
@@ -97,6 +111,31 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_rs_weight_flags(p_live)
+
+    p_collect = sub.add_parser(
+        "kiwoom-collect",
+        help="Read-only Kiwoom REST today-universe collector for live-screen inputs.",
+    )
+    p_collect.add_argument("--date", required=True, help="As-of trading date, YYYY-MM-DD")
+    p_collect.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "Local Kiwoom REST config JSON path (must live outside the repo). "
+            "Falls back to $KIWOOM_REST_CONFIG when omitted."
+        ),
+    )
+    default_collect_out = (
+        f"{COLLECTOR_DEFAULT_OUTPUT_BASE}/{LIVE_SCREEN_INPUTS_SUBDIR}"
+    )
+    p_collect.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Local/private output directory for live_screen_inputs. MUST live "
+            f"outside the repository.  Default: {default_collect_out}"
+        ),
+    )
 
     return parser
 
@@ -205,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
         return _screen_main(args, repo_root)
     if args.command == "live-screen":
         return live_cli_main(args, repo_root)
+    if args.command == "kiwoom-collect":
+        return collector_cli_main(args, repo_root)
     print(f"unknown command: {args.command}", file=sys.stderr)
     return 2
 
