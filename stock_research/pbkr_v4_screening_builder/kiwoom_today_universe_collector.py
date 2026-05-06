@@ -68,18 +68,41 @@ KIWOOM_COLLECTION_REPORT_FILENAME = "kiwoom_collection_report_latest.json"
 MIN_CLOSE_SERIES_LEN = 252
 
 # Allow-list of Kiwoom OpenAPI REST TR ids the collector is willing to
-# call.  These are read-only market data lookups; nothing here touches
-# accounts or orders.  The exact TR ids depend on the deployed Kiwoom
-# environment, so the collector also accepts an explicit override via
-# config (``allowed_tr_ids``).  The values below are the documented
-# market-data ids used in the phase3 reference snapshot and adapter
-# (universe listing, daily OHLCV, daily investor / foreigner flows).
+# call.  These are the **documented** read-only market-data TRs;
+# nothing here touches accounts or orders.  The list is **hard-coded**
+# at the module level — adding a TR id requires a code PR.  The
+# operator's local config may *narrow* this set (subset-only), but it
+# may **never** extend it.
+#
+# Documented TRs (per the official Kiwoom REST API docs):
+#   ka10099 — 종목정보 리스트          (universe listing) → /api/dostk/stkinfo
+#   ka10081 — 주식일봉차트조회요청     (daily OHLCV)      → /api/dostk/chart
+#   ka10060 — 종목별투자자기관별차트요청 (supply / flows)  → /api/dostk/chart
 DEFAULT_ALLOWED_TR_IDS: tuple[str, ...] = (
-    "ka10099",  # 종목정보 리스트 (universe listing)
-    "ka10081",  # 일봉 차트 조회 (daily OHLCV)
-    "ka10086",  # 일별주가
-    "ka10059",  # 종목별 투자자 / 기관 / 외국인 매매 동향
-    "ka10063",  # 외국인 / 기관 일별 매매
+    "ka10099",
+    "ka10081",
+    "ka10060",
+)
+
+# Well-known account / order TR ids, listed explicitly so the error
+# message is informative when an operator's config tries to include
+# one.  The subset-of-DEFAULT enforcement plus the substring guard
+# below already reject anything outside DEFAULT_ALLOWED_TR_IDS — this
+# constant exists for documentation and clearer test failures.
+#
+#   ka00001 — 계좌번호조회           (account list)
+#   kt10000 — 주식 매수주문
+#   kt10001 — 주식 매도주문
+#   kt10002 — 주식 정정주문
+#   kt10003 — 주식 취소주문
+#   kt00011 — 주문가능수량
+WELL_KNOWN_FORBIDDEN_TR_IDS: tuple[str, ...] = (
+    "ka00001",
+    "kt10000",
+    "kt10001",
+    "kt10002",
+    "kt10003",
+    "kt00011",
 )
 
 # Hard-deny substrings.  If a TR id (or any endpoint path) contains one
@@ -108,6 +131,10 @@ class KiwoomConfigMissingError(KiwoomCollectorError):
     """Required Kiwoom REST config / token was not supplied."""
 
 
+class KiwoomConfigPathInRepoError(KiwoomCollectorError):
+    """The Kiwoom REST config file is located inside the repository."""
+
+
 class KiwoomOutputPathInRepoError(KiwoomCollectorError):
     """The requested output directory is inside the repository."""
 
@@ -123,13 +150,32 @@ class KiwoomCollectionFailed(KiwoomCollectorError):
 class KiwoomRestClient(Protocol):
     """Minimal market-data-only client surface.
 
-    A real implementation wraps the Kiwoom OpenAPI REST endpoints; the
-    test suite passes ``MockKiwoomRestClient``.  Both implementations
-    must:
+    A real implementation wraps the Kiwoom OpenAPI REST endpoints
+    (ka10099 / ka10081 / ka10060); the test suite passes
+    ``MockKiwoomRestClient``.  Both implementations must:
 
-      * never expose order / account TRs;
-      * never echo the OAuth token in a returned payload;
+      * never expose order / account TRs (kt10000-kt10003, ka00001,
+        kt00011 …);
+      * never echo the OAuth token (au10001 response) in a returned
+        payload;
       * raise on transport / auth failure rather than returning empty.
+
+    **Pagination contract.** The Kiwoom REST responses use the
+    ``cont-yn`` and ``next-key`` response headers to signal that more
+    rows are available.  The client wrapper is responsible for
+    transparently following pagination: while the response header
+    ``cont-yn == "Y"``, it must re-issue the same TR with the
+    ``cont-yn: Y`` request header and the previous response's
+    ``next-key`` set on the request, concatenating rows in the
+    natural (chronological for chart TRs, listing-order for ka10099)
+    order.  The collector consumes the **already aggregated** result
+    and trusts the wrapper to have honoured pagination — there is
+    no cont-yn affordance at this layer.
+
+    The wrapper is also responsible for parsing the official response
+    shapes; ``normalize_ka10081_response`` / ``normalize_ka10060_response``
+    / ``normalize_ka10099_response`` are exposed in this module so
+    the wrapper can stay thin.
     """
 
     def list_universe(self, *, market: str) -> list[dict[str, Any]]:
@@ -166,16 +212,22 @@ class CollectorConfig:
     request_pause_seconds: float = 0.0
 
 
-def load_config(config_path: str | Path) -> dict[str, Any]:
+def load_config(config_path: str | Path, *, repo_root: Path | None = None) -> dict[str, Any]:
     """Read the local Kiwoom REST config file.
 
-    The config is expected to live outside the repo (e.g. under the
-    operator's home dir).  It carries the OAuth credentials and the
-    REST endpoint base URL.  This loader **does not** validate the
-    secret material — it only checks that the structurally-required
-    keys are present.
+    The config is expected to live **outside** the repo (e.g. under
+    the operator's home dir).  It carries the OAuth credentials and
+    the REST endpoint base URL.  This loader **does not** validate
+    the secret material — it only checks that the structurally
+    required keys are present.
+
+    When ``repo_root`` is supplied, the loader refuses to open a
+    config that resolves *inside* the repo and raises
+    ``KiwoomConfigPathInRepoError`` before any byte is read.
     """
     p = Path(config_path).expanduser()
+    if repo_root is not None:
+        _assert_config_outside_repo(p, repo_root)
     if not p.exists():
         raise KiwoomConfigMissingError(
             f"Kiwoom REST config file not found: {p}\n"
@@ -232,35 +284,83 @@ def _assert_tr_allowed(tr_id: str, allowed: Iterable[str]) -> None:
             )
 
 
-def _is_excluded_security(row: Mapping[str, Any], cfg: CollectorConfig) -> bool:
-    """Return True if the row should be dropped from today's universe.
+def _resolve_allowed_tr_ids(config_allowlist: Iterable[str] | None) -> tuple[str, ...]:
+    """Validate and return the effective TR allow-list.
+
+    The base allow-list is hard-coded as ``DEFAULT_ALLOWED_TR_IDS``.
+    The config may *narrow* this set (subset-only) but **never**
+    extend it.  Any TR id outside ``DEFAULT_ALLOWED_TR_IDS`` raises
+    ``KiwoomForbiddenEndpointError`` — and well-known account / order
+    TR ids surface a more pointed error message.
+    """
+    if config_allowlist is None:
+        return DEFAULT_ALLOWED_TR_IDS
+    overrides = tuple(str(x).strip() for x in config_allowlist if str(x).strip())
+    if not overrides:
+        return DEFAULT_ALLOWED_TR_IDS
+
+    extras = [t for t in overrides if t not in DEFAULT_ALLOWED_TR_IDS]
+    if extras:
+        well_known = [t for t in extras if t in WELL_KNOWN_FORBIDDEN_TR_IDS]
+        if well_known:
+            raise KiwoomForbiddenEndpointError(
+                f"config allowed_tr_ids contains forbidden account / order TR ids: "
+                f"{well_known}.  These endpoints are explicitly out of scope and "
+                f"cannot be enabled via config."
+            )
+        raise KiwoomForbiddenEndpointError(
+            f"config allowed_tr_ids tries to extend the hard-coded allow-list with "
+            f"{extras!r}.  The collector pins DEFAULT_ALLOWED_TR_IDS = "
+            f"{DEFAULT_ALLOWED_TR_IDS}; adding new TRs requires a code PR."
+        )
+    # belt-and-braces substring guard
+    for tr_id in overrides:
+        lowered = tr_id.lower()
+        for tok in FORBIDDEN_TR_TOKENS:
+            if tok in lowered:
+                raise KiwoomForbiddenEndpointError(
+                    f"refusing TR id {tr_id!r}: matches forbidden token {tok!r}."
+                )
+    return overrides
+
+
+def _assert_config_outside_repo(path: Path, repo_root: Path) -> None:
+    """Refuse to read a config file that lives inside the repository."""
+    try:
+        path.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return
+    raise KiwoomConfigPathInRepoError(
+        f"refusing to read Kiwoom REST config from inside the repository: {path}\n"
+        "place the config file under a private path (e.g. ~/.config/kiwoom_rest.json)."
+    )
+
+
+def _is_excluded_security(row: Mapping[str, Any], cfg: CollectorConfig) -> tuple[bool, str | None]:
+    """Return ``(excluded, reason)`` for a normalized universe row.
 
     Reasons are coarse and conservative.  The detailed risk taxonomy
     is the responsibility of the official-risk pack — this filter
     only enforces the "보통주 중심 KOSPI/KOSDAQ" universe contract.
     """
     sec_type = str(row.get("sec_type") or "").lower()
-    name = str(row.get("name") or "")
 
-    if not cfg.include_etf and ("etf" in sec_type or name.startswith("KODEX") or name.startswith("TIGER")):
-        return True
-    if not cfg.include_etn and "etn" in sec_type:
-        return True
-    if not cfg.include_spac and ("spac" in sec_type or "스팩" in name):
-        return True
-    if not cfg.include_preferred and ("preferred" in sec_type or "우" in name[-1:]):
-        # naive preferred-share heuristic; the canonical adapter is
-        # expected to set sec_type explicitly.
-        if "preferred" in sec_type:
-            return True
+    if not cfg.include_etf and sec_type == "etf":
+        return True, "etf_excluded"
+    if not cfg.include_etn and sec_type == "etn":
+        return True, "etn_excluded"
+    if not cfg.include_spac and sec_type == "spac":
+        return True, "spac_excluded"
+    if not cfg.include_preferred and sec_type == "preferred":
+        return True, "preferred_excluded"
     if not cfg.include_admin_issue and bool(row.get("admin_issue")):
-        return True
+        return True, "admin_issue_excluded"
     if not cfg.include_trading_halt and bool(row.get("trading_halt")):
-        return True
+        return True, "trading_halt_excluded"
     market = str(row.get("market") or "").upper()
     if market not in {m.upper() for m in cfg.markets}:
-        return True
-    return False
+        return True, f"market_not_in_scope:{market or 'UNKNOWN'}"
+    return False, None
 
 
 def _to_close_series(daily_rows: list[Mapping[str, Any]]) -> list[float]:
@@ -387,6 +487,279 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def _publish_atomic(triples: list[tuple[Path, dict[str, Any]]]) -> None:
+    """Two-phase atomic publish for a run's _latest.json files.
+
+    Phase 1: write each payload to ``<path>.tmp``.
+    Phase 2: rename every ``.tmp`` onto its destination.
+
+    If any Phase-1 write fails, every ``.tmp`` already created is
+    unlinked and **no** destination is touched — the previous
+    ``_latest.json`` files survive untouched.  Phase-2 renames are
+    sequential; on most filesystems they are individually atomic, so
+    a Phase-2 failure leaves at most a partial publish across the
+    set, which the operator can detect by reading
+    ``kiwoom_collection_report_latest.json`` (which is renamed last).
+    """
+    tmps: list[tuple[Path, Path]] = []
+    try:
+        for path, payload in triples:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            tmps.append((tmp, path))
+    except Exception:
+        for tmp, _ in tmps:
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+        raise
+
+    for tmp, path in tmps:
+        os.replace(tmp, path)
+
+
+# ---------------------------------------------------------------------
+# Official Kiwoom REST response normalizers.
+#
+# These helpers convert raw JSON returned by the documented market-data
+# TRs into the canonical row shapes the collector consumes.  They
+# exist so the operator's local client wrapper can stay thin: it
+# performs the HTTP call (with cont-yn / next-key pagination, see
+# KiwoomRestClient docstring), forwards the JSON body to the
+# corresponding ``normalize_*_response`` function, and returns the
+# resulting list.
+# ---------------------------------------------------------------------
+
+
+def _abs_numeric(v: Any) -> float | None:
+    """Parse a price field whose ``+/-`` prefix is a *direction* indicator.
+
+    Kiwoom's daily-chart response uses ``cur_prc = "+65800"`` /
+    ``"-65800"`` to signal up / down vs. the previous close — the
+    actual price is always the absolute value of the digits.
+    """
+    if v is None:
+        return None
+    try:
+        s = str(v).strip().replace(",", "")
+    except Exception:
+        return None
+    if not s:
+        return None
+    try:
+        return abs(float(s))
+    except (TypeError, ValueError):
+        return None
+
+
+def _signed_numeric(v: Any) -> float | None:
+    """Parse a numeric field whose sign is meaningful (volume, flows)."""
+    if v is None:
+        return None
+    try:
+        s = str(v).strip().replace(",", "")
+    except Exception:
+        return None
+    if not s:
+        return None
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_ka10081_response(payload: Any) -> list[dict[str, Any]]:
+    """Normalize a ka10081 (주식일봉차트조회요청) response into OHLCV rows.
+
+    Official response shape::
+
+        {
+          "stk_dt_pole_chart_qry": [
+            {"dt": "20260506",
+             "cur_prc":  "+65800",
+             "open_pric": "65500",
+             "high_pric": "+65900",
+             "low_pric":  "-65300",
+             "trde_qty":   "1234567",
+             "trde_prica": "812345600000",
+             ...},
+            ...
+          ]
+        }
+
+    Returned rows are sorted ascending by ``date`` so downstream
+    moving-average / ATR helpers see chronological data.  Prices are
+    abs-numeric (the +/- prefix is a direction indicator, not a sign
+    on the price itself).
+    """
+    items = _extract_list(
+        payload,
+        keys=("stk_dt_pole_chart_qry", "output", "list"),
+    )
+    rows: list[dict[str, Any]] = []
+    for r in items:
+        if not isinstance(r, dict):
+            continue
+        rows.append({
+            "date":           str(r.get("dt") or r.get("date") or "").strip(),
+            "close":          _abs_numeric(r.get("cur_prc")  if "cur_prc"  in r else r.get("close")),
+            "open":           _abs_numeric(r.get("open_pric") if "open_pric" in r else r.get("open")),
+            "high":           _abs_numeric(r.get("high_pric") if "high_pric" in r else r.get("high")),
+            "low":            _abs_numeric(r.get("low_pric")  if "low_pric"  in r else r.get("low")),
+            "volume":         _signed_numeric(r.get("trde_qty")    if "trde_qty"    in r else r.get("volume")),
+            "trading_value":  _signed_numeric(r.get("trde_prica") if "trde_prica" in r else r.get("trading_value")),
+        })
+    if rows and all(r.get("date") for r in rows):
+        rows.sort(key=lambda r: r["date"])
+    return rows
+
+
+def normalize_ka10060_response(payload: Any) -> list[dict[str, Any]]:
+    """Normalize a ka10060 (종목별투자자기관별차트요청) response into flow rows.
+
+    Official response shape::
+
+        {
+          "stk_invsr_orgn_chart": [
+            {"dt": "20260506",
+             "ind_invsr":  "-1712493409",
+             "frgnr_invsr": "+2923859607",
+             "orgn":         "+389981923",
+             "fnnc_invt":    "-883511469",
+             ...},
+            ...
+          ]
+        }
+
+    Flow values keep their sign — a negative ``foreigner_flow`` is
+    net selling.
+    """
+    items = _extract_list(
+        payload,
+        keys=("stk_invsr_orgn_chart", "output", "list"),
+    )
+    rows: list[dict[str, Any]] = []
+    for r in items:
+        if not isinstance(r, dict):
+            continue
+        rows.append({
+            "date":                       str(r.get("dt") or r.get("date") or "").strip(),
+            "investor_flow":              _signed_numeric(r.get("ind_invsr",   r.get("investor_flow"))),
+            "foreigner_flow":             _signed_numeric(r.get("frgnr_invsr", r.get("foreigner_flow"))),
+            "institution_flow":           _signed_numeric(r.get("orgn",        r.get("institution_flow"))),
+            "financial_investment_flow":  _signed_numeric(r.get("fnnc_invt",   r.get("financial_investment_flow"))),
+        })
+    if rows and all(r.get("date") for r in rows):
+        rows.sort(key=lambda r: r["date"])
+    return rows
+
+
+def normalize_ka10099_response(payload: Any) -> list[dict[str, Any]]:
+    """Normalize a ka10099 (종목정보 리스트) response into universe rows.
+
+    Per-row fields (per the official docs):
+      * ``code``         → ``ticker``
+      * ``name``         → ``name``
+      * ``marketCode`` / ``marketName`` → ``market`` (KOSPI / KOSDAQ)
+      * ``auditInfo``    — 감리 정보 (e.g. "정상", "투자주의환기")
+      * ``state``        — 상태 (e.g. "관리종목", "거래정지")
+      * ``orderWarning`` — 주문 경고 (e.g. "투자유의")
+
+    The normalizer projects the raw row into the shape
+    ``_is_excluded_security`` understands: ``ticker``, ``name``,
+    ``market``, ``sec_type``, ``admin_issue``, ``trading_halt``, and
+    keeps the raw audit / state / order-warning strings on the row so
+    the report can record *why* a ticker was rejected.
+    """
+    items = _extract_list(
+        payload,
+        keys=("list", "stk_info_list", "output"),
+    )
+    rows: list[dict[str, Any]] = []
+    for r in items:
+        if not isinstance(r, dict):
+            continue
+        code = str(r.get("code") or r.get("stk_cd") or "").strip()
+        if not code:
+            continue
+        market_code = str(r.get("marketCode") or r.get("mrkt_id") or "").strip()
+        market_name = str(r.get("marketName") or r.get("mrkt_nm") or "").strip()
+        market = (market_name or _market_from_code(market_code)).upper() or "UNKNOWN"
+
+        state = str(r.get("state") or "").strip()
+        audit_info = str(r.get("auditInfo") or "").strip()
+        order_warning = str(r.get("orderWarning") or "").strip()
+        name = str(r.get("name") or "").strip()
+        sec_type = _detect_sec_type(name, r)
+
+        admin_issue = ("관리종목" in state) or ("관리" in audit_info)
+        trading_halt = ("거래정지" in state) or ("정지" in state)
+        attention = ("투자주의" in audit_info) or ("투자주의" in order_warning) \
+                    or ("환기" in audit_info)
+
+        rows.append({
+            "ticker": code,
+            "name": name,
+            "market": market,
+            "sec_type": sec_type,
+            "admin_issue": admin_issue,
+            "trading_halt": trading_halt,
+            "attention_issue": attention,
+            "audit_info": audit_info or None,
+            "order_warning": order_warning or None,
+            "state_raw": state or None,
+        })
+    return rows
+
+
+def _extract_list(payload: Any, *, keys: tuple[str, ...]) -> list[Any]:
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+    for k in keys:
+        v = payload.get(k)
+        if isinstance(v, list):
+            return v
+    return []
+
+
+def _market_from_code(market_code: str) -> str:
+    code = (market_code or "").strip()
+    if code in {"0", "STK", "KOSPI", "kospi"}:
+        return "KOSPI"
+    if code in {"10", "KSQ", "KOSDAQ", "kosdaq"}:
+        return "KOSDAQ"
+    return ""
+
+
+_PREFERRED_SUFFIXES = ("우", "우B", "1우", "2우B", "3우B")
+_ETF_PREFIXES = ("KODEX", "TIGER", "ARIRANG", "HANARO", "ACE", "PLUS", "SOL", "KOSEF", "KBSTAR")
+
+
+def _detect_sec_type(name: str, raw: Mapping[str, Any]) -> str:
+    """Infer sec_type from raw ka10099 row fields when not explicit."""
+    explicit = str(raw.get("sec_type") or raw.get("stk_cls") or "").strip().lower()
+    if explicit:
+        return explicit
+    nm = (name or "").strip()
+    upper = nm.upper()
+    if any(upper.startswith(p) for p in _ETF_PREFIXES):
+        return "etf"
+    if "스팩" in nm or "SPAC" in upper:
+        return "spac"
+    if "ETN" in upper:
+        return "etn"
+    if any(nm.endswith(s) for s in _PREFERRED_SUFFIXES):
+        return "preferred"
+    return "common"
+
+
 def _utc_iso_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -438,7 +811,8 @@ def collect_today_universe(
     )
     _assert_outside_repo(output_dir, repo_root)
 
-    allowed_tr_ids = tuple(config.get("allowed_tr_ids") or cfg.allowed_tr_ids)
+    allowed_tr_ids = _resolve_allowed_tr_ids(config.get("allowed_tr_ids"))
+    # belt-and-braces: still run the substring guard on every entry.
     for tr_id in allowed_tr_ids:
         _assert_tr_allowed(tr_id, allowed_tr_ids)
 
@@ -456,8 +830,9 @@ def collect_today_universe(
     rejected: dict[str, str] = {}
     kept_universe: list[dict[str, Any]] = []
     for row in raw_universe:
-        if _is_excluded_security(row, cfg):
-            rejected[str(row["ticker"])] = "non_common_or_suspended"
+        excluded, reason = _is_excluded_security(row, cfg)
+        if excluded:
+            rejected[str(row["ticker"])] = reason or "excluded"
             continue
         kept_universe.append(row)
 
@@ -475,7 +850,7 @@ def collect_today_universe(
 
         closes = _to_close_series(daily)
         if len(closes) < cfg.min_close_series_len:
-            rejected[ticker] = f"close_series_too_short:{len(closes)}"
+            rejected[ticker] = f"insufficient_history:{len(closes)}"
             continue
 
         try:
@@ -555,9 +930,15 @@ def collect_today_universe(
     universe_path = output_dir / KIWOOM_UNIVERSE_FILENAME
     report_path = output_dir / KIWOOM_COLLECTION_REPORT_FILENAME
 
-    _atomic_write_json(features_path, features_payload)
-    _atomic_write_json(universe_path, universe_payload)
-    _atomic_write_json(report_path, report_payload)
+    # Run-level atomic publish: write all three to <name>.tmp first;
+    # only rename onto the _latest paths once every tmp write
+    # succeeded.  A mid-run failure never replaces the previous
+    # _latest files.
+    _publish_atomic([
+        (features_path, features_payload),
+        (universe_path, universe_payload),
+        (report_path,   report_payload),
+    ])
 
     return CollectionResult(
         asof_date=asof_date,
@@ -666,8 +1047,8 @@ def cli_main(args: Any, repo_root: Path) -> int:
         return 2
 
     try:
-        config = load_config(config_path)
-    except KiwoomConfigMissingError as exc:
+        config = load_config(config_path, repo_root=repo_root)
+    except (KiwoomConfigMissingError, KiwoomConfigPathInRepoError) as exc:
         print(f"[kiwoom-collect] {exc}", file=sys.stderr)
         return 2
 
