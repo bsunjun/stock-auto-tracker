@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://pbkr.local/v4/screening/official_risk_flags_pack.schema.json",
   "title": "PBKR v4 — Official Risk Flags Pack",
-  "description": "KRX / KIND / DART designation taxonomy mapped to PBKR v4 risk buckets.",
+  "description": "KRX / KIND / DART designation taxonomy mapped to PBKR v4 risk buckets. The risk buckets are the *input layer* taxonomy; the screening layer collapses them into one of the five allowed states (see screening_candidates_pack.schema.json).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "asof", "rows", "market_structure", "signal_safety"],
@@ -48,12 +48,22 @@
     "signal_safety": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["screening_only", "direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
       "properties": {
         "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
         "direct_trade_signal": { "const": false },
         "trade_signal": { "enum": [null, false] },
         "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
         "human_gate_required": { "const": true }
       }
     }

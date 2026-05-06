@@ -36,6 +36,22 @@ The validator (`validator.py::sanitize_payload`) raises
 * `password`, `secret`
 * `broker_response`
 
+The post-write verifier (`validator.py::verify_run_directory`)
+additionally counts and asserts zero for every forbidden artifact
+token in JSON keys / values:
+
+* `PB_TRIGGER`, `PB_READY`, `PB_SCOUT`
+* `trade_ticket`, `order_intent`, `order_preparation`
+* `execution_artifact`, `automatic_alert`, `automatic_execution_hook`
+
+It also asserts:
+
+* `direct_trade_signal_true_count == 0`
+* `trade_signal_true_count == 0`
+* `automatic_execution_allowed_true_count == 0`
+* `trade_ticket_generation_allowed_true_count == 0`
+* `operator_decision_execute_count == 0`
+
 Real OHLCV, real KR designation rows, real broker responses, and
 real ticker names belong outside the repo. The fixtures shipped in
 `fixtures/` are synthetic by construction (anonymized tickers,

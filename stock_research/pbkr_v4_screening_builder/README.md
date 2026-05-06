@@ -1,23 +1,26 @@
 # PBKR v4 — Screening Builder
 
 > Educational doctrine support tooling. **Not a trade signal.**
-> `screening_only = true`. `direct_trade_signal = false`.
-> `automatic_execution_allowed = false`. Human gate is required.
+> `screening_only = true`. `candidate_generation_only = true`.
+> `direct_trade_signal = false`. `automatic_execution_allowed = false`.
+> `trade_ticket_generation_allowed = false`. `human_gate_required = true`.
 
 This module implements the **first stage** of PBKR v4: a candidate
 generation engine that combines
 
-1. TradingView (MCP / Screener) scan results,
-2. Kiwoom REST API daily features (OHLCV, flows, MAs, ATR…),
-3. KRX / KIND / DART **official risk-flag taxonomy**, and
-4. A locally computed **PBKR_RS_RANK** (0–100 percentile rank),
+1. A **primary** Kiwoom REST feature pack (daily OHLCV + flows + MAs +
+   ATR) and the locally computed **`pbkr_rs_rank`** (0–100 percentile)
+   sourced from the **Kiwoom daily-OHLCV universe**, and
+2. An **auxiliary** TradingView MCP scan supplying EMA / price-action /
+   pullback / RS-proxy *labels* only, plus
+3. KRX / KIND / DART **official risk-flag taxonomy**,
 
 into a single `DAILY_INPUT_PACKET` that the GPT Orchestrator consumes.
 
-This stage **does not** produce `PB_READY`, `PB_SCOUT`, `PB_TRIGGER`, or
-trade tickets. It produces *candidates that may, on a given session,
-satisfy `ENTRY_TACTICS_SPEC.md`* (see
-`05_system_prompts/pbkr_v4_price_action_os/SCREENING_WATCHLIST_SYSTEM.md`).
+This stage **never** produces `PB_READY`, `PB_SCOUT`, `PB_TRIGGER`,
+`trade_ticket`, `order_intent`, `order_preparation`,
+`execution_artifact`, `automatic_alert`, or
+`automatic_execution_hook`.
 
 ---
 
@@ -28,13 +31,13 @@ pbkr_v4_screening_builder/
   builder.py                  # end-to-end orchestrator
   cli.py                      # CLI entry point
   pbkr_rs_rank.py             # 1M/3M/6M/12M weighted percentile
-  state_classifier.py         # 7-state classification
+  state_classifier.py         # 5-state classification + state_reason
   screening_filters.py        # filter rules + label generators
   packet_emitter.py           # DAILY_INPUT_PACKET (.json + .md)
   validator.py                # output safety + schema validation
   adapters/
-    tradingview_mcp.py        # TradingView scan normalization
-    kiwoom_rest.py            # Kiwoom feature normalization
+    tradingview_mcp.py        # AUXILIARY scan normalization
+    kiwoom_rest.py            # PRIMARY feature normalization
     official_risk.py          # KR designation taxonomy mapping
   schemas/
     tradingview_scan_pack.schema.json
@@ -47,36 +50,56 @@ pbkr_v4_screening_builder/
 
 ## 2. Hard rules (enforced)
 
-* `screening_only = true` on every output.
+* `screening_only = true` and `candidate_generation_only = true` on
+  every output pack.
 * `direct_trade_signal = false`, `trade_signal = false|null`,
-  `automatic_execution_allowed = false`, `human_gate_required = true`.
-* No `PB_TRIGGER` / `PB_READY` / `PB_SCOUT` is ever emitted by this stage.
-* No trade ticket is emitted by this stage.
+  `automatic_execution_allowed = false`,
+  `trade_ticket_generation_allowed = false`,
+  `human_gate_required = true`.
+* The screening builder **never** emits any of:
+  `PB_TRIGGER`, `PB_READY`, `PB_SCOUT`, `trade_ticket`,
+  `order_intent`, `order_preparation`, `execution_artifact`,
+  `automatic_alert`, `automatic_execution_hook`. The post-write
+  verifier counts each of these and asserts zero.
 * Outputs land in a local/private directory; the default is
-  `$PBKR_SCREENING_OUT` or `/tmp/pbkr_v4_screening_out/<date>`.
+  `$PBKR_SCREENING_OUT` or `/tmp/pbkr_v4_screening_out/<date>`. The
+  CLI refuses `--out-dir` paths inside the repo.
 * Repo contains code, schemas, docs, and **synthetic** fixtures only.
   No real OHLCV / no real ticker name / no real designation row /
   no broker response / no API key may be committed.
-* `account_no`, `order_no`, `api_key`, `token`, `password`, and
-  broker-response fields are rejected by `validator.py`.
+* `account_no`, `order_no`, `api_key`, `token`, `password`,
+  `broker_response` are rejected by `validator.py::sanitize_payload`.
 
 ## 3. Inputs
 
-### 3.1 TradingView MCP scan
-Per row: `ticker`, `name` (anonymized in fixtures), `TARGET_EMA`,
-`ema_state`, `price_action_label`, `pullback_label`, optional
-`rs_proxy`. RS_PROXY is *optional* — TradingView's free Screener does
-not always expose RS_SCORE, so the engine never assumes it.
+### 3.1 TradingView MCP scan — **AUXILIARY**
+TradingView's free Screener does not always expose `RS_SCORE`, so the
+engine **never requires** RS_SCORE / RS_PROXY. The adapter normalizes
+each row into four auxiliary fields:
 
-### 3.2 Kiwoom REST features
+| Field | Meaning |
+|---|---|
+| `tv_ema_state` | categorical (`above_21ema`, `at_21ema`, `below_21ema`, `alignment_up`, `alignment_down`, `mixed`) |
+| `tv_price_action_label` | short label (≤ 64 chars) |
+| `tv_pullback_state` | categorical (`none`, `shallow`, `deep`, `broken`) |
+| `tv_rs_proxy_label` | categorical (`high`, `mid`, `low`, `absent`) |
+
+`tv_rs_proxy_label` is **never** used as a hard filter. If the MCP
+server provides a numeric RS_SCORE, the adapter buckets it
+(`>=80 → "high"`, `>=50 → "mid"`, `<50 → "low"`); otherwise the label
+is `"absent"`.
+
+### 3.2 Kiwoom REST features — **PRIMARY**
 Per ticker: daily OHLCV, `trading_value`, `volume_ratio`,
 `investor_flow`, `foreigner_flow`, `institution_flow`,
 `financial_investment_flow`, `ma9`, `ma21`, `ma50`, `ma120`,
-`atr14`, `recent_low`, `stop_distance`.
+`atr14`, `recent_low`, `stop_distance`. Plus a separate universe
+close-series file used by the RS calculator.
 
-### 3.3 PBKR_RS_RANK (computed locally)
-See `pbkr_rs_rank.py`. 0–100 percentile rank from Kiwoom OHLCV
-universe. Default weights:
+### 3.3 PBKR_RS_RANK — **PRIMARY relative-strength feature**
+Computed locally from the Kiwoom daily-OHLCV universe.
+`pbkr_rs_rank_source = "kiwoom_daily_universe"` is asserted on every
+output that carries the rank.
 
 | Horizon | Weight |
 |---|---|
@@ -85,14 +108,26 @@ universe. Default weights:
 | 6M  | 0.30 |
 | 12M | 0.20 |
 
-Optional benchmark-relative return is added when a `benchmark_close`
-series is supplied. Threshold for the first relative-strength
-condition is `pbkr_rs_rank >= 80`. TradingView `rs_proxy` is only
-used as a secondary field when present.
+Optional benchmark-relative blend when a benchmark close-series is
+supplied. The first relative-strength condition is
+`pbkr_rs_rank >= 80`. There is no `RS_SCORE >= 80` filter and the
+engine refuses to gate on TradingView RS_SCORE.
 
 ### 3.4 Official risk flags
-KRX / KIND / DART taxonomy. See `adapters/official_risk.py` for the
-mapping between Korean designation strings and the four risk buckets.
+KRX / KIND / DART taxonomy. See `adapters/official_risk.py`. Risk
+buckets at the input layer:
+
+* `HARD_EXCLUDE` — administrative / delisting / halt / unfaithful
+  disclosure / non-standard audit / capital impairment.
+* `EXTREME_RISK_FLAG_WATCH` — `투자위험` / `투자위험 지정예고`.
+* `REGULAR_PB_EXCLUDE` — `투자주의` / `투자경고` / `단기과열`.
+* `RISK_FLAG_PULLBACK_WATCH` — same designations as
+  `REGULAR_PB_EXCLUDE` but the tape is constructive enough to *watch*
+  (still **not** a `PB_TRIGGER`).
+
+Market-structure events (sidecar / circuit breaker / opening-or-closing
+auction window) feed the `SCREENING_EXCLUDE` state at the screening
+layer (reason: `market_structure`).
 
 ## 4. Screening filters
 
@@ -100,10 +135,10 @@ A candidate must satisfy:
 
 * `pbkr_rs_rank >= 80`
 * `trading_value >= min_trading_value` (configurable; default 5e9 KRW)
-* `price >= ma21` **or** `ma9 >= ma21 >= ma50` (alignment)
+* `close >= ma21` **or** `ma9 >= ma21 >= ma50` (alignment)
 * `ma50 >= ma120` (long trend up)
 * recent strong trend / breakout / first-pullback evidence
-  (price action or pullback label set, and 20–60d high proximity)
+  (price action or pullback label is non-empty, or close near 20–60d high)
 
 Generated labels:
 
@@ -111,38 +146,44 @@ Generated labels:
 * `pullback_state_label` — `none`, `shallow`, `deep`, `broken`
 * `stop_distance_label` — `tight`, `normal`, `wide`
 
-## 5. State classification (priority order)
+## 5. Screening-layer states (5-state contract)
 
-1. `HARD_EXCLUDE`  — administrative / delisting / halt / unfaithful
-   disclosure / non-standard audit opinion.
-2. `NO_ENTRY_MARKET_STRUCTURE_ACTIVE` — sidecar / circuit breaker /
-   limit-up·down compression / opening or closing auction window.
-3. `EXTREME_RISK_FLAG_WATCH` — `투자위험` / `투자위험 지정예고`
-   (watch only; **no new entry**).
-4. `REGULAR_PB_EXCLUDE` — `투자주의` / `투자경고` / `단기과열`
-   (regular pullback excluded; high-risk-watch may still apply).
-5. `RISK_FLAG_PULLBACK_WATCH` — same designations as above, but the
-   tape is constructive enough to *watch* (still **not** a PB_TRIGGER).
-6. `WATCH_CANDIDATE` — all clean, all filters pass.
-7. `WATCH_ONLY` — most filters pass, RS or trend not yet aligned.
+The candidate's `state` field is **always** one of:
 
-`HARD_EXCLUDE` and `NO_ENTRY_MARKET_STRUCTURE_ACTIVE` short-circuit
-all further processing.
+| State | Meaning |
+|---|---|
+| `WATCH_CANDIDATE` | clean, all five filters pass |
+| `WATCH_ONLY` | clean, partial filters |
+| `RISK_FLAG_PULLBACK_WATCH` | `REGULAR_PB_EXCLUDE` designation + constructive tape (rs_pass + trend_pass + ema_pass). **Watch only.** Never promotes to `PB_TRIGGER`. |
+| `REGULAR_PB_EXCLUDE` | `투자주의` / `투자경고` / `단기과열` without constructive tape |
+| `SCREENING_EXCLUDE` | hard designation, market structure active, or extreme risk flag |
+
+A separate `state_reason` enum (`hard_designation`, `market_structure`,
+`extreme_risk_flag`, `regular_pb_designation_watch`,
+`regular_pb_designation`, `all_filters_pass`, `partial_filters`)
+preserves traceability without expanding the state set.
+
+The risk-flag bucket taxonomy at the input layer
+(`HARD_EXCLUDE` / `EXTREME_RISK_FLAG_WATCH` / `REGULAR_PB_EXCLUDE` /
+`RISK_FLAG_PULLBACK_WATCH`) is preserved on the official-risk pack
+and on each candidate's `risk.buckets` field.
 
 ## 6. Outputs
 
 Written to `$PBKR_SCREENING_OUT/<YYYY-MM-DD>/`:
 
-* `tradingview_scan_pack.json`
-* `kiwoom_feature_pack.json`
+* `tradingview_scan_pack.json`    (auxiliary)
+* `kiwoom_feature_pack.json`      (primary)
 * `official_risk_flags_pack.json`
 * `screening_candidates_pack.json`
-* `daily_input_packet.json`
-* `daily_input_packet.md`
+* `daily_input_packet.json`       (canonical for GPT Orchestrator)
+* `daily_input_packet.md`         (human-readable summary)
 
-`daily_input_packet.md` is the human-readable summary. Both the JSON
-and the MD assert `screening_only=true`,
-`direct_trade_signal=false`, `automatic_execution_allowed=false`.
+Both the JSON and the MD assert
+`screening_only=true`, `candidate_generation_only=true`,
+`direct_trade_signal=false`, `automatic_execution_allowed=false`,
+`trade_ticket_generation_allowed=false`. The post-write verifier
+asserts zero counts for every forbidden artifact token.
 
 ## 7. Run (dev / synthetic)
 

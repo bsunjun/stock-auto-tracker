@@ -95,10 +95,17 @@ def main(argv: list[str] | None = None) -> int:
         "direct_trade_signal_true_count",
         "trade_signal_true_count",
         "automatic_execution_allowed_true_count",
+        "trade_ticket_generation_allowed_true_count",
         "operator_decision_execute_count",
         "pb_trigger_count",
         "pb_ready_count",
         "pb_scout_count",
+        "trade_ticket_count",
+        "order_intent_count",
+        "order_preparation_count",
+        "execution_artifact_count",
+        "automatic_alert_count",
+        "automatic_execution_hook_count",
         "trade_ticket_file_count",
     )
     for k in keys:

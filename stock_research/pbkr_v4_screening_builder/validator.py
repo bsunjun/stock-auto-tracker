@@ -9,13 +9,17 @@ Two purposes:
 2. **Verify.** Walk a written run directory, load every JSON, and
    assert the doctrinal invariants:
 
-       direct_trade_signal == false        (count of true == 0)
-       trade_signal == false or null       (count of true == 0)
-       automatic_execution_allowed == false
+       direct_trade_signal == false                (count of true == 0)
+       trade_signal == false or null               (count of true == 0)
+       automatic_execution_allowed == false        (count of true == 0)
+       trade_ticket_generation_allowed == false    (count of true == 0)
        human_gate_required == true
        operator_decision != "execute"
        no PB_TRIGGER / PB_READY / PB_SCOUT keywords anywhere
-       no trade ticket file anywhere
+       no trade_ticket / order_intent / order_preparation /
+          execution_artifact / automatic_alert /
+          automatic_execution_hook keys or values anywhere
+       no trade-ticket-shaped file in the run directory
 """
 from __future__ import annotations
 
@@ -23,10 +27,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from .constants import FORBIDDEN_KEYS
-
-
-FORBIDDEN_TOKENS = ("PB_TRIGGER", "PB_READY", "PB_SCOUT", "trade_ticket")
+from .constants import FORBIDDEN_ARTIFACT_TOKENS, FORBIDDEN_KEYS
 
 
 class SafetyViolation(Exception):
@@ -63,19 +64,27 @@ def verify_run_directory(run_dir: str | Path) -> dict[str, Any]:
     if not base.exists():
         raise FileNotFoundError(f"run directory not found: {base}")
 
-    report = {
+    report: dict[str, Any] = {
         "out_dir": str(base),
         "checked_files": [],
         "direct_trade_signal_true_count": 0,
         "trade_signal_true_count": 0,
         "automatic_execution_allowed_true_count": 0,
+        "trade_ticket_generation_allowed_true_count": 0,
         "operator_decision_execute_count": 0,
+        "screening_only_missing_count": 0,
+        "candidate_generation_only_missing_count": 0,
+        "human_gate_missing_count": 0,
         "pb_trigger_count": 0,
         "pb_ready_count": 0,
         "pb_scout_count": 0,
+        "trade_ticket_count": 0,
+        "order_intent_count": 0,
+        "order_preparation_count": 0,
+        "execution_artifact_count": 0,
+        "automatic_alert_count": 0,
+        "automatic_execution_hook_count": 0,
         "trade_ticket_file_count": 0,
-        "human_gate_missing_count": 0,
-        "screening_only_missing_count": 0,
         "errors": [],
     }
 
@@ -83,7 +92,10 @@ def verify_run_directory(run_dir: str | Path) -> dict[str, Any]:
         if not f.is_file():
             continue
         report["checked_files"].append(str(f.relative_to(base)))
-        if "trade_ticket" in f.name.lower():
+        if any(tok in f.name.lower() for tok in (
+            "trade_ticket", "order_intent", "order_preparation",
+            "execution_artifact", "automatic_alert", "automatic_execution_hook",
+        )):
             report["trade_ticket_file_count"] += 1
         if f.suffix.lower() == ".json":
             try:
@@ -92,7 +104,7 @@ def verify_run_directory(run_dir: str | Path) -> dict[str, Any]:
                 report["errors"].append(f"{f.name}: {e}")
                 continue
             _check_payload(payload, report)
-            _check_json_for_tokens(payload, report)
+            _check_json_for_artifact_tokens(payload, report)
         # *.md files are educational documentation. They are allowed
         # to *name* the prohibitions ("no PB_TRIGGER is emitted") but
         # cannot, by construction, emit a JSON record. We therefore
@@ -102,10 +114,17 @@ def verify_run_directory(run_dir: str | Path) -> dict[str, Any]:
         report["direct_trade_signal_true_count"] == 0
         and report["trade_signal_true_count"] == 0
         and report["automatic_execution_allowed_true_count"] == 0
+        and report["trade_ticket_generation_allowed_true_count"] == 0
         and report["operator_decision_execute_count"] == 0
         and report["pb_trigger_count"] == 0
         and report["pb_ready_count"] == 0
         and report["pb_scout_count"] == 0
+        and report["trade_ticket_count"] == 0
+        and report["order_intent_count"] == 0
+        and report["order_preparation_count"] == 0
+        and report["execution_artifact_count"] == 0
+        and report["automatic_alert_count"] == 0
+        and report["automatic_execution_hook_count"] == 0
         and report["trade_ticket_file_count"] == 0
         and not report["errors"]
     )
@@ -123,30 +142,52 @@ def _check_payload(payload: Any, report: dict[str, Any]) -> None:
             report["trade_signal_true_count"] += 1
         elif leaf == "automatic_execution_allowed" and value is True:
             report["automatic_execution_allowed_true_count"] += 1
+        elif leaf == "trade_ticket_generation_allowed" and value is True:
+            report["trade_ticket_generation_allowed_true_count"] += 1
         elif leaf == "operator_decision" and isinstance(value, str) and value.lower() == "execute":
             report["operator_decision_execute_count"] += 1
 
 
-def _check_json_for_tokens(payload: Any, report: dict[str, Any]) -> None:
-    """Count exact-match forbidden tokens as keys or string values.
+_TOKEN_TO_REPORT_KEY = {
+    "PB_TRIGGER": "pb_trigger_count",
+    "PB_READY": "pb_ready_count",
+    "PB_SCOUT": "pb_scout_count",
+    "trade_ticket": "trade_ticket_count",
+    "order_intent": "order_intent_count",
+    "order_preparation": "order_preparation_count",
+    "execution_artifact": "execution_artifact_count",
+    "automatic_alert": "automatic_alert_count",
+    "automatic_execution_hook": "automatic_execution_hook_count",
+}
 
-    A JSON record that *emits* a PB_TRIGGER would either name it as a
-    key (e.g., ``"PB_TRIGGER": {...}``) or set a field's value to the
-    token (e.g., ``"state": "PB_TRIGGER"``).
+# Field names that legitimately *deny* a forbidden artifact (e.g.
+# `trade_ticket_generation_allowed: false`). These are the only places
+# the substring is tolerated as a key.
+_DENIAL_KEY_ALLOWLIST = {
+    "trade_ticket_generation_allowed",
+}
+
+
+def _check_json_for_artifact_tokens(payload: Any, report: dict[str, Any]) -> None:
+    """Count exact-match forbidden artifact tokens as keys or values.
+
+    A JSON record that *emits* a forbidden artifact would either name
+    it as a key (e.g. ``"trade_ticket": {...}``) or set a field's
+    value to the token (e.g. ``"state": "PB_TRIGGER"``).
+
+    Field names whose substring matches a forbidden token solely
+    because they *deny* it (``trade_ticket_generation_allowed``) are
+    explicitly allowlisted so this counter does not flag them.
     """
     for path, value in _walk(payload):
         for seg in path:
             base = seg.lstrip("[").rstrip("]")
-            if base == "PB_TRIGGER":
-                report["pb_trigger_count"] += 1
-            elif base == "PB_READY":
-                report["pb_ready_count"] += 1
-            elif base == "PB_SCOUT":
-                report["pb_scout_count"] += 1
+            if base in _DENIAL_KEY_ALLOWLIST:
+                continue
+            for token in FORBIDDEN_ARTIFACT_TOKENS:
+                if base == token:
+                    report[_TOKEN_TO_REPORT_KEY[token]] += 1
         if isinstance(value, str):
-            if value == "PB_TRIGGER":
-                report["pb_trigger_count"] += 1
-            elif value == "PB_READY":
-                report["pb_ready_count"] += 1
-            elif value == "PB_SCOUT":
-                report["pb_scout_count"] += 1
+            for token in FORBIDDEN_ARTIFACT_TOKENS:
+                if value == token:
+                    report[_TOKEN_TO_REPORT_KEY[token]] += 1

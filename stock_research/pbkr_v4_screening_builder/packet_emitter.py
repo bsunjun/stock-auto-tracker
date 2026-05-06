@@ -31,22 +31,30 @@ def _render_daily_input_packet_md(packet: dict[str, Any]) -> str:
     lines.append("# DAILY_INPUT_PACKET (PBKR v4)")
     lines.append("")
     lines.append("> Educational. **Not advice. Not a trade signal.**")
-    lines.append(f"> `screening_only = true`. `direct_trade_signal = false`.")
-    lines.append(f"> `automatic_execution_allowed = false`. `human_gate_required = true`.")
-    lines.append(f"> `operator_decision != execute`.")
+    lines.append("> `screening_only = true`. `candidate_generation_only = true`.")
+    lines.append("> `direct_trade_signal = false`. `automatic_execution_allowed = false`.")
+    lines.append("> `trade_ticket_generation_allowed = false`. `human_gate_required = true`.")
+    lines.append("> `operator_decision != execute`.")
     lines.append("")
     lines.append(f"- **as-of:** {packet['asof']}")
     lines.append(f"- **schema_version:** {packet['schema_version']}")
+    lines.append(f"- **pbkr_rs_rank_source:** `{packet['pbkr_rs_rank_source']}` (primary)")
+    lines.append(f"- **tradingview_role:** `{packet['tradingview_role']}` (auxiliary; never a hard filter)")
     lines.append("")
     lines.append("## Market regime placeholder")
     lines.append(f"- regime: `{packet['market_regime_placeholder']['regime']}`")
     lines.append(f"- note: {packet['market_regime_placeholder']['note']}")
     lines.append("")
-    lines.append("## TradingView scan pack")
+    lines.append("## TradingView scan pack (auxiliary)")
     lines.append(f"- row_count: {packet['tradingview_scan_pack_summary']['row_count']}")
-    lines.append(f"- rs_proxy_present_count: {packet['tradingview_scan_pack_summary']['rs_proxy_present_count']}")
+    dist = packet['tradingview_scan_pack_summary']['rs_proxy_label_distribution']
+    lines.append(
+        "- tv_rs_proxy_label distribution: "
+        f"high={dist.get('high', 0)}, mid={dist.get('mid', 0)}, "
+        f"low={dist.get('low', 0)}, absent={dist.get('absent', 0)}"
+    )
     lines.append("")
-    lines.append("## Kiwoom feature pack")
+    lines.append("## Kiwoom feature pack (primary)")
     lines.append(f"- row_count: {packet['kiwoom_feature_pack_summary']['row_count']}")
     lines.append(f"- median_trading_value: {packet['kiwoom_feature_pack_summary']['median_trading_value']:,.0f} KRW")
     lines.append("")
@@ -59,6 +67,7 @@ def _render_daily_input_packet_md(packet: dict[str, Any]) -> str:
             lines.append(f"  - {k}: {v}")
     lines.append("")
     lines.append("## PBKR_RS_RANK summary")
+    lines.append(f"- source: `{rs['source']}` (primary relative-strength feature)")
     lines.append(f"- universe_size: {rs['universe_size']}")
     lines.append(f"- threshold: {rs['threshold']}")
     lines.append(f"- passed_threshold_count: {rs['passed_threshold_count']}")
@@ -74,10 +83,8 @@ def _render_daily_input_packet_md(packet: dict[str, Any]) -> str:
             "WATCH_CANDIDATE",
             "WATCH_ONLY",
             "RISK_FLAG_PULLBACK_WATCH",
-            "EXTREME_RISK_FLAG_WATCH",
             "REGULAR_PB_EXCLUDE",
-            "NO_ENTRY_MARKET_STRUCTURE_ACTIVE",
-            "HARD_EXCLUDE",
+            "SCREENING_EXCLUDE",
         ):
             if k in summary["by_state"]:
                 lines.append(f"  - {k}: {summary['by_state'][k]}")
@@ -88,10 +95,13 @@ def _render_daily_input_packet_md(packet: dict[str, Any]) -> str:
             rs_s = f"{rs_v:.1f}" if isinstance(rs_v, (int, float)) else "n/a"
             lines.append(f"  - `{c['ticker']}` ({c['name']}) — pbkr_rs_rank={rs_s}, state={c['state']}")
     lines.append("")
-    lines.append("## Hard rules re-stated")
+    lines.append("## Hard rules re-stated (educational)")
     lines.append("- This packet does **not** authorize an entry.")
-    lines.append("- No `PB_TRIGGER`, no `PB_READY`, no `PB_SCOUT`, no trade ticket is contained here.")
-    lines.append("- `RISK_FLAG_PULLBACK_WATCH` is a watch-only label, **not** a `PB_TRIGGER`.")
+    lines.append("- The screening builder never emits `PB_TRIGGER`, `PB_READY`, `PB_SCOUT`,")
+    lines.append("  `trade_ticket`, `order_intent`, `order_preparation`, `execution_artifact`,")
+    lines.append("  `automatic_alert`, or `automatic_execution_hook`.")
+    lines.append("- `RISK_FLAG_PULLBACK_WATCH` is a watch-only label and **never** promotes to `PB_TRIGGER`.")
+    lines.append("- TradingView is **auxiliary**: `tv_rs_proxy_label` is informational, never a hard filter.")
     lines.append("- Operator decision must be `review` or `defer`. `execute` is forbidden at this stage.")
     return "\n".join(lines) + "\n"
 

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://pbkr.local/v4/screening/kiwoom_feature_pack.schema.json",
-  "title": "PBKR v4 — Kiwoom Feature Pack",
-  "description": "Per-ticker daily features computed from Kiwoom REST OHLCV + flow data. screening_only=true.",
+  "title": "PBKR v4 — Kiwoom Feature Pack (primary)",
+  "description": "Per-ticker daily features computed from Kiwoom REST OHLCV + flow data. The Kiwoom universe is also the primary source of PBKR_RS_RANK. screening_only=true, candidate_generation_only=true.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "asof", "rows", "signal_safety"],
@@ -43,12 +43,22 @@
     "signal_safety": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["screening_only", "direct_trade_signal", "trade_signal", "automatic_execution_allowed", "human_gate_required"],
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
       "properties": {
         "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
         "direct_trade_signal": { "const": false },
         "trade_signal": { "enum": [null, false] },
         "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
         "human_gate_required": { "const": true }
       }
     }

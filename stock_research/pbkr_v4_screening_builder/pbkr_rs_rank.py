@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from .constants import DEFAULT_RS_WEIGHTS, RS_WINDOW_DAYS
+from .constants import DEFAULT_RS_WEIGHTS, PBKR_RS_RANK_SOURCE, RS_WINDOW_DAYS
 
 
 def _trailing_return(closes: list[float], window: int) -> float | None:
@@ -124,5 +124,6 @@ def summarize_rs_rank(
         "threshold": threshold,
         "passed_threshold_count": passed,
         "benchmark_relative_used": bool(benchmark_used),
+        "source": PBKR_RS_RANK_SOURCE,
         "weights": {k: float(weights[k]) for k in ("m1", "m3", "m6", "m12")},
     }

@@ -19,6 +19,7 @@ from .constants import (
     DEFAULT_MIN_TRADING_VALUE,
     DEFAULT_RS_THRESHOLD,
     DEFAULT_RS_WEIGHTS,
+    PBKR_RS_RANK_SOURCE,
     SCHEMA_VERSION,
     SIGNAL_SAFETY_BLOCK,
 )
@@ -76,7 +77,7 @@ def _build_screening_candidates(
             tv_row=tv_row,
         )
 
-        state = classify_state(
+        state, state_reason = classify_state(
             risk_buckets=list(risk_row.get("buckets") or []),
             market_structure_active=market_active,
             filters=filters,
@@ -92,8 +93,9 @@ def _build_screening_candidates(
             "ticker": tkr,
             "name": (tv_row or {}).get("name") or tkr,
             "state": state,
+            "state_reason": state_reason,
             "pbkr_rs_rank": rs_rank,
-            "rs_proxy": (tv_row or {}).get("rs_proxy"),
+            "tv_rs_proxy_label": (tv_row or {}).get("tv_rs_proxy_label", "absent"),
             "filters": filters,
             "labels": labels,
             "risk": {
@@ -110,6 +112,7 @@ def _build_screening_candidates(
     return {
         "schema_version": SCHEMA_VERSION,
         "asof": asof,
+        "pbkr_rs_rank_source": PBKR_RS_RANK_SOURCE,
         "summary": {
             "total": len(candidates),
             "by_state": by_state,
@@ -127,7 +130,10 @@ def _build_daily_input_packet(
     candidates_pack: dict[str, Any],
     rs_summary: dict[str, Any],
 ) -> dict[str, Any]:
-    rs_proxy_count = sum(1 for r in tv_pack["rows"] if r.get("rs_proxy") is not None)
+    rs_label_dist: dict[str, int] = {"high": 0, "mid": 0, "low": 0, "absent": 0}
+    for r in tv_pack["rows"]:
+        lbl = r.get("tv_rs_proxy_label") or "absent"
+        rs_label_dist[lbl] = rs_label_dist.get(lbl, 0) + 1
 
     trading_values = [r["trading_value"] for r in kw_pack["rows"] if r.get("trading_value")]
     median_tv = statistics.median(trading_values) if trading_values else 0.0
@@ -154,13 +160,15 @@ def _build_daily_input_packet(
     return {
         "schema_version": SCHEMA_VERSION,
         "asof": asof,
+        "pbkr_rs_rank_source": PBKR_RS_RANK_SOURCE,
+        "tradingview_role": "auxiliary",
         "market_regime_placeholder": {
             "regime": "unknown",
             "note": "MARKET_CYCLE_SYSTEM_KR posture not yet wired in. Operator must assess MCS-KR before promoting to weekly universe.",
         },
         "tradingview_scan_pack_summary": {
             "row_count": len(tv_pack["rows"]),
-            "rs_proxy_present_count": rs_proxy_count,
+            "rs_proxy_label_distribution": rs_label_dist,
         },
         "kiwoom_feature_pack_summary": {
             "row_count": len(kw_pack["rows"]),

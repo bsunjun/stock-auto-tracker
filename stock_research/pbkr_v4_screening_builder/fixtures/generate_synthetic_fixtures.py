@@ -23,38 +23,39 @@ HERE = Path(__file__).resolve().parent
 # to control 1M/3M ranking.
 PROFILES = [
     # (ticker, name, drift, vol, trend_tilt, base_price, designations,
-    #  trading_value_krw, ema_state, price_action, pullback, rs_proxy)
+    #  trading_value_krw, tv_ema_state, tv_price_action_label,
+    #  tv_pullback_state, tv_rs_proxy_label)
     # AAA: dominant momentum, clean — should land WATCH_CANDIDATE (RS top).
     ("AAA.KS", "Synthetic Alpha",  0.0030, 0.010, 0.0020, 25_000.0, [],
-     8_000_000_000.0, "above_21ema",  "post_breakout_continuation", "shallow", 92.0),
+     8_000_000_000.0, "above_21ema",  "post_breakout_continuation", "shallow", "high"),
     # BBB: mid momentum, EMA mixed — control row, falls into WATCH_ONLY.
     ("BBB.KQ", "Synthetic Bravo",  0.0006, 0.018, 0.0004, 12_000.0, [],
-     6_500_000_000.0, "mixed",        "consolidation",              "none",    65.0),
+     6_500_000_000.0, "mixed",        "consolidation",              "none",    "mid"),
     # CCC: weak momentum + 투자주의 — REGULAR_PB_EXCLUDE.
     ("CCC.KS", "Synthetic Charlie", 0.0004, 0.020, 0.0001, 18_000.0, ["투자주의"],
-     5_500_000_000.0, "below_21ema",  "rolling_over",               "deep",    None),
+     5_500_000_000.0, "below_21ema",  "rolling_over",               "deep",    "absent"),
     # DDD: strong momentum + 투자경고 — RISK_FLAG_PULLBACK_WATCH (RS top-3 + good trend).
     ("DDD.KQ", "Synthetic Delta",   0.0024, 0.013, 0.0017, 22_000.0, ["투자경고"],
-     7_200_000_000.0, "above_21ema",  "first_pullback",             "shallow", 88.0),
-    # EEE: middling momentum + 투자위험 — EXTREME_RISK_FLAG_WATCH.
+     7_200_000_000.0, "above_21ema",  "first_pullback",             "shallow", "high"),
+    # EEE: middling momentum + 투자위험 — SCREENING_EXCLUDE (extreme_risk_flag).
     ("EEE.KS", "Synthetic Echo",    0.0010, 0.022, 0.0006, 30_000.0, ["투자위험"],
-     6_800_000_000.0, "above_21ema",  "high_volatility_rally",      "shallow", 81.0),
-    # FFF: 관리종목 + 거래정지 — HARD_EXCLUDE.
+     6_800_000_000.0, "above_21ema",  "high_volatility_rally",      "shallow", "high"),
+    # FFF: 관리종목 + 거래정지 — SCREENING_EXCLUDE (hard_designation).
     ("FFF.KQ", "Synthetic Foxtrot", -0.0030, 0.030, -0.0020, 9_000.0, ["관리종목", "거래정지"],
-     4_500_000_000.0, "below_21ema",  "broken",                     "broken",  None),
+     4_500_000_000.0, "below_21ema",  "broken",                     "broken",  "absent"),
     # GGG: strong momentum, clean, alignment_up — WATCH_CANDIDATE (RS top-2).
     ("GGG.KS", "Synthetic Golf",    0.0027, 0.010, 0.0019, 35_000.0, [],
-     9_500_000_000.0, "alignment_up", "stage2_advance",             "shallow", 95.0),
+     9_500_000_000.0, "alignment_up", "stage2_advance",             "shallow", "high"),
     # HHH..KKK: low-momentum filler so the universe size lets top-3
     # ranks clear the 80 percentile threshold cleanly.
     ("HHH.KQ", "Synthetic Hotel",   -0.0008, 0.022, -0.0006, 7_500.0, [],
-     4_200_000_000.0, "below_21ema",  "downtrend",                  "broken",  None),
+     4_200_000_000.0, "below_21ema",  "downtrend",                  "broken",  "absent"),
     ("III.KS", "Synthetic India",   -0.0006, 0.018, -0.0004, 11_000.0, [],
-     3_800_000_000.0, "below_21ema",  "downtrend",                  "broken",  None),
+     3_800_000_000.0, "below_21ema",  "downtrend",                  "broken",  "absent"),
     ("JJJ.KQ", "Synthetic Juliett", -0.0002, 0.016, -0.0001, 14_000.0, [],
-     5_000_000_000.0, "mixed",        "range_bound",                "none",    None),
+     5_000_000_000.0, "mixed",        "range_bound",                "none",    "absent"),
     ("KKK.KS", "Synthetic Kilo",     0.0001, 0.014,  0.0000, 20_000.0, [],
-     5_200_000_000.0, "mixed",        "range_bound",                "none",    None),
+     5_200_000_000.0, "mixed",        "range_bound",                "none",    "absent"),
 ]
 
 LEN = 280  # > 252 + 1 to support 12M look-back
@@ -103,7 +104,7 @@ def main() -> None:
 
     for (
         tkr, name, drift, vol, tilt, base, designations, trading_value,
-        ema_state, price_action, pullback, rs_proxy,
+        tv_ema_state, tv_price_action_label, tv_pullback_state, tv_rs_proxy_label,
     ) in PROFILES:
         closes = _series(rng, drift=drift, vol=vol, tilt=tilt, base=base)
         universe_tickers[tkr] = {"closes": closes}
@@ -143,10 +144,10 @@ def main() -> None:
             "ticker": tkr,
             "name": name,
             "target_ema": 21,
-            "ema_state": ema_state,
-            "price_action_label": price_action,
-            "pullback_label": pullback,
-            "rs_proxy": rs_proxy,
+            "tv_ema_state": tv_ema_state,
+            "tv_price_action_label": tv_price_action_label,
+            "tv_pullback_state": tv_pullback_state,
+            "tv_rs_proxy_label": tv_rs_proxy_label,
         })
 
         risk_rows.append({

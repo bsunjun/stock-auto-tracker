@@ -2,12 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://pbkr.local/v4/screening/daily_input_packet.schema.json",
   "title": "PBKR v4 — DAILY_INPUT_PACKET",
-  "description": "GPT Orchestrator input. Aggregates the four upstream packs and the PBKR_RS_RANK summary. screening_only=true.",
+  "description": "GPT Orchestrator input. Aggregates the four upstream packs and the PBKR_RS_RANK summary. screening_only=true, candidate_generation_only=true. The relative-strength primary feature is PBKR_RS_RANK, sourced from the Kiwoom daily-OHLCV universe; TradingView is auxiliary only.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "asof",
+    "pbkr_rs_rank_source",
+    "tradingview_role",
     "market_regime_placeholder",
     "tradingview_scan_pack_summary",
     "kiwoom_feature_pack_summary",
@@ -19,6 +21,8 @@
   "properties": {
     "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
     "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "pbkr_rs_rank_source": { "const": "kiwoom_daily_universe" },
+    "tradingview_role": { "const": "auxiliary" },
     "market_regime_placeholder": {
       "type": "object",
       "additionalProperties": false,
@@ -31,10 +35,13 @@
     "tradingview_scan_pack_summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["row_count", "rs_proxy_present_count"],
+      "required": ["row_count", "rs_proxy_label_distribution"],
       "properties": {
         "row_count": { "type": "integer", "minimum": 0 },
-        "rs_proxy_present_count": { "type": "integer", "minimum": 0 }
+        "rs_proxy_label_distribution": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
       }
     },
     "kiwoom_feature_pack_summary": {
@@ -82,13 +89,11 @@
               "pbkr_rs_rank": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
               "state": {
                 "enum": [
-                  "HARD_EXCLUDE",
-                  "NO_ENTRY_MARKET_STRUCTURE_ACTIVE",
-                  "EXTREME_RISK_FLAG_WATCH",
-                  "REGULAR_PB_EXCLUDE",
-                  "RISK_FLAG_PULLBACK_WATCH",
+                  "WATCH_CANDIDATE",
                   "WATCH_ONLY",
-                  "WATCH_CANDIDATE"
+                  "RISK_FLAG_PULLBACK_WATCH",
+                  "REGULAR_PB_EXCLUDE",
+                  "SCREENING_EXCLUDE"
                 ]
               }
             }
@@ -99,12 +104,13 @@
     "pbkr_rs_rank_summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["universe_size", "weights", "passed_threshold_count", "threshold"],
+      "required": ["universe_size", "weights", "passed_threshold_count", "threshold", "source"],
       "properties": {
         "universe_size": { "type": "integer", "minimum": 0 },
         "threshold": { "type": "number", "minimum": 0, "maximum": 100 },
         "passed_threshold_count": { "type": "integer", "minimum": 0 },
         "benchmark_relative_used": { "type": "boolean" },
+        "source": { "const": "kiwoom_daily_universe" },
         "weights": {
           "type": "object",
           "additionalProperties": false,
@@ -123,17 +129,21 @@
       "additionalProperties": false,
       "required": [
         "screening_only",
+        "candidate_generation_only",
         "direct_trade_signal",
         "trade_signal",
         "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
         "human_gate_required",
         "operator_decision"
       ],
       "properties": {
         "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
         "direct_trade_signal": { "const": false },
         "trade_signal": { "enum": [null, false] },
         "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
         "human_gate_required": { "const": true },
         "operator_decision": { "enum": [null, "review", "defer"] }
       }

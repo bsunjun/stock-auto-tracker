@@ -64,9 +64,11 @@ def evaluate_filters(
 
     label_evidence = False
     if tv_row:
-        if (tv_row.get("price_action_label") or "").strip():
+        if (tv_row.get("tv_price_action_label") or "").strip():
             label_evidence = True
-        if (tv_row.get("pullback_label") or "").strip():
+        pullback = (tv_row.get("tv_pullback_state") or "").strip().lower()
+        # any non-empty, non-"none" pullback label is evidence
+        if pullback and pullback != "none":
             label_evidence = True
 
     structure_pass = bool(near_high or label_evidence)
@@ -96,7 +98,7 @@ def label_volume(feature: dict[str, Any]) -> str:
 def label_pullback(feature: dict[str, Any], tv_row: dict[str, Any] | None) -> str:
     """Combine TradingView's pullback hint with MA-based fallback."""
     if tv_row:
-        raw = (tv_row.get("pullback_label") or "").strip().lower()
+        raw = (tv_row.get("tv_pullback_state") or "").strip().lower()
         if raw in ("none", "shallow", "deep", "broken"):
             return raw
 
