@@ -185,10 +185,14 @@ Both the JSON and the MD assert
 `trade_ticket_generation_allowed=false`. The post-write verifier
 asserts zero counts for every forbidden artifact token.
 
-## 7. Run (dev / synthetic)
+## 7. Run
+
+The CLI exposes two subcommands.
+
+### 7.1 `screen` — offline / fixture / dev
 
 ```bash
-python -m stock_research.pbkr_v4_screening_builder.cli \
+python -m stock_research.pbkr_v4_screening_builder.cli screen \
     --tradingview stock_research/pbkr_v4_screening_builder/fixtures/tradingview_scan_synthetic.json \
     --kiwoom-features stock_research/pbkr_v4_screening_builder/fixtures/kiwoom_features_synthetic.json \
     --kiwoom-universe stock_research/pbkr_v4_screening_builder/fixtures/kiwoom_universe_synthetic.json \
@@ -196,6 +200,39 @@ python -m stock_research.pbkr_v4_screening_builder.cli \
     --asof 2026-05-06 \
     --out-dir /tmp/pbkr_v4_screening_out
 ```
+
+(For backward compatibility, omitting the `screen` subcommand and
+passing the flags directly is still accepted.)
+
+### 7.2 `live-screen` — real live inputs (read-only)
+
+```bash
+python -m stock_research.pbkr_v4_screening_builder.cli live-screen \
+    --date 2026-05-06 \
+    --kiwoom-features /Users/bsunjun/trading/phase3/input/kiwoom_features_latest.json \
+    --kiwoom-universe /Users/bsunjun/trading/phase3/input/kiwoom_universe_latest.json \
+    --tradingview    /Users/bsunjun/trading/phase3/input/tradingview_scan_latest.json \
+    --official-risk  /Users/bsunjun/trading/phase3/input/official_risk_flags_latest.json \
+    --output-dir     /Users/bsunjun/trading/phase3/output/pbkr_screening/20260506 \
+    --no-execution
+```
+
+Runner contract (enforced):
+
+* `--no-execution` is **required**. There is no execution mode; the
+  flag is a forcing function.
+* `--output-dir` defaults to `${PBKR_LIVE_SCREENING_OUT_BASE}/<YYYYMMDD>`
+  (default base `/Users/bsunjun/trading/phase3/output/pbkr_screening`)
+  and **must** resolve outside the repository.
+* Every input source must be an existing, non-empty file. The runner
+  **never** silently substitutes a synthetic / mock input on missing
+  source — it fails loudly.
+* In addition to the four standard packs and the
+  `daily_input_packet.{json,md}`, a `verification_report.json` is
+  emitted that records every doctrinal counter and asserts
+  `pass: true`. The schema for the report
+  (`schemas/verification_report.schema.json`) constrains every
+  forbidden-token counter to `const: 0`.
 
 In production the four input JSONs come from real adapters
 (TradingView MCP server, Kiwoom OpenAPI REST, KRX / KIND / DART feeds).

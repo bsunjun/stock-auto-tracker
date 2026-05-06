@@ -1,7 +1,24 @@
 """CLI for the PBKR v4 Screening Builder.
 
-Defaults route outputs to ``$PBKR_SCREENING_OUT`` or
-``/tmp/pbkr_v4_screening_out`` to keep raw real data out of the repo.
+Two subcommands:
+
+    screen        — run the screening pipeline against any inputs
+                    (offline / fixture / dev).  Output may live under
+                    $PBKR_SCREENING_OUT or /tmp/pbkr_v4_screening_out
+                    by default; the CLI refuses any --out-dir inside
+                    the repository.
+
+    live-screen   — run the screening pipeline against *real* live
+                    inputs.  This subcommand is read-only:
+                      * --no-execution is required;
+                      * inputs must exist and be non-empty (no
+                        silent synthetic fallback);
+                      * output must live outside the repository;
+                      * a verification_report.json is emitted that
+                        asserts every doctrinal counter is zero.
+
+For backward compatibility, when invoked with no subcommand the CLI
+defaults to ``screen``.
 """
 from __future__ import annotations
 
@@ -13,36 +30,100 @@ from pathlib import Path
 
 from .builder import build_screening_run
 from .constants import DEFAULT_MIN_TRADING_VALUE, DEFAULT_RS_THRESHOLD, DEFAULT_RS_WEIGHTS
+from .live_screening_runner import (
+    DEFAULT_OUTPUT_BASE,
+    cli_main as live_cli_main,
+)
 from .validator import verify_run_directory
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        prog="pbkr_v4_screening_builder",
-        description="PBKR v4 Screening Builder — candidate generation only.",
-    )
-    p.add_argument("--tradingview", required=True, help="TradingView MCP scan JSON path")
-    p.add_argument("--kiwoom-features", required=True, help="Kiwoom daily-feature JSON path")
-    p.add_argument("--kiwoom-universe", required=True, help="Kiwoom universe close-series JSON path")
-    p.add_argument("--official-risk", required=True, help="KRX/KIND/DART risk-flags JSON path")
-    p.add_argument("--asof", required=True, help="As-of trading date, YYYY-MM-DD")
-    default_out = os.getenv("PBKR_SCREENING_OUT") or "/tmp/pbkr_v4_screening_out"
-    p.add_argument("--out-dir", default=default_out, help="Local/private output directory (NOT in repo)")
+_SUBCOMMANDS = ("screen", "live-screen")
+
+
+def _add_rs_weight_flags(p: argparse.ArgumentParser) -> None:
     p.add_argument("--rs-threshold", type=float, default=DEFAULT_RS_THRESHOLD)
     p.add_argument("--min-trading-value", type=float, default=DEFAULT_MIN_TRADING_VALUE)
     p.add_argument("--rs-weight-m1",  type=float, default=DEFAULT_RS_WEIGHTS["m1"])
     p.add_argument("--rs-weight-m3",  type=float, default=DEFAULT_RS_WEIGHTS["m3"])
     p.add_argument("--rs-weight-m6",  type=float, default=DEFAULT_RS_WEIGHTS["m6"])
     p.add_argument("--rs-weight-m12", type=float, default=DEFAULT_RS_WEIGHTS["m12"])
-    p.add_argument("--no-verify", action="store_true", help="Skip post-write verification")
-    return p.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv if argv is not None else sys.argv[1:])
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="pbkr_v4_screening_builder",
+        description="PBKR v4 Screening Builder — candidate generation only.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True, metavar="{screen,live-screen}")
 
+    p_screen = sub.add_parser(
+        "screen",
+        help="Run the screening pipeline (offline / fixture / dev).",
+    )
+    p_screen.add_argument("--tradingview", required=True, help="TradingView MCP scan JSON path")
+    p_screen.add_argument("--kiwoom-features", required=True, help="Kiwoom daily-feature JSON path")
+    p_screen.add_argument("--kiwoom-universe", required=True, help="Kiwoom universe close-series JSON path")
+    p_screen.add_argument("--official-risk", required=True, help="KRX/KIND/DART risk-flags JSON path")
+    p_screen.add_argument("--asof", required=True, help="As-of trading date, YYYY-MM-DD")
+    default_out = os.getenv("PBKR_SCREENING_OUT") or "/tmp/pbkr_v4_screening_out"
+    p_screen.add_argument("--out-dir", default=default_out, help="Local/private output directory (NOT in repo)")
+    _add_rs_weight_flags(p_screen)
+    p_screen.add_argument("--no-verify", action="store_true", help="Skip post-write verification")
+
+    p_live = sub.add_parser(
+        "live-screen",
+        help="Run the screening pipeline against real live inputs (read-only).",
+    )
+    p_live.add_argument("--date", required=True, help="As-of trading date, YYYY-MM-DD")
+    p_live.add_argument("--tradingview", required=True, help="TradingView MCP scan JSON path (real)")
+    p_live.add_argument("--kiwoom-features", required=True, help="Kiwoom daily-feature JSON path (real)")
+    p_live.add_argument("--kiwoom-universe", required=True, help="Kiwoom universe close-series JSON path (real)")
+    p_live.add_argument("--official-risk", required=True, help="KRX/KIND/DART risk-flags JSON path (real)")
+    p_live.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Local/private output directory. MUST live outside the repository. "
+            f"Default: {DEFAULT_OUTPUT_BASE}/<YYYYMMDD>"
+        ),
+    )
+    p_live.add_argument(
+        "--no-execution",
+        action="store_true",
+        default=False,
+        help=(
+            "Required acknowledgement: this runner is read-only and never authorizes "
+            "broker orders, automatic execution, or trade tickets."
+        ),
+    )
+    _add_rs_weight_flags(p_live)
+
+    return parser
+
+
+def _normalize_argv(argv: list[str]) -> list[str]:
+    """Insert a default ``screen`` subcommand for backward compatibility.
+
+    If the first non-flag token is not a known subcommand and the
+    user did not ask for help, prepend ``screen`` so legacy
+    invocations (``--tradingview ... --asof ...``) keep working.
+    """
+    if not argv:
+        return argv
+    first = argv[0]
+    if first in _SUBCOMMANDS:
+        return argv
+    if first in ("-h", "--help"):
+        return argv
+    return ["screen", *argv]
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    return build_parser().parse_args(_normalize_argv(argv))
+
+
+def _screen_main(args: argparse.Namespace, repo_root: Path) -> int:
     out_dir = Path(args.out_dir).expanduser().resolve()
-    repo_root = Path(__file__).resolve().parents[2]
     try:
         out_dir.relative_to(repo_root)
         print(
@@ -60,8 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         "m6": args.rs_weight_m6,
         "m12": args.rs_weight_m12,
     }
-    total_w = sum(weights.values())
-    if total_w <= 0:
+    if sum(weights.values()) <= 0:
         print("rs weights must sum to a positive number", file=sys.stderr)
         return 2
 
@@ -115,6 +195,18 @@ def main(argv: list[str] | None = None) -> int:
         for e in report["errors"]:
             print(f"  error: {e}", file=sys.stderr)
     return 0 if report["pass"] else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv if argv is not None else sys.argv[1:])
+    repo_root = Path(__file__).resolve().parents[2]
+
+    if args.command == "screen":
+        return _screen_main(args, repo_root)
+    if args.command == "live-screen":
+        return live_cli_main(args, repo_root)
+    print(f"unknown command: {args.command}", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":
