@@ -136,6 +136,34 @@ def build_parser() -> argparse.ArgumentParser:
             f"outside the repository.  Default: {default_collect_out}"
         ),
     )
+    p_collect.add_argument(
+        "--no-execution",
+        action="store_true",
+        default=False,
+        help=(
+            "Required acknowledgement: this subcommand is read-only and never "
+            "authorizes broker orders, automatic execution, or trade tickets."
+        ),
+    )
+    p_collect.add_argument(
+        "--max-tickers",
+        type=int,
+        default=None,
+        help=(
+            "Smoke-mode cap: truncate the kept universe to the first N tickers. "
+            "Default: collect the full universe.  Recorded as `max_tickers` and "
+            "`truncated_universe` in the collection report."
+        ),
+    )
+    p_collect.add_argument(
+        "--tickers-file",
+        default=None,
+        help=(
+            "Optional private file (one ticker per line; '#' comments OK) that "
+            "restricts the universe to the listed tickers.  MUST live outside "
+            "the repository."
+        ),
+    )
 
     return parser
 

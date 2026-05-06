@@ -135,6 +135,10 @@ class KiwoomConfigPathInRepoError(KiwoomCollectorError):
     """The Kiwoom REST config file is located inside the repository."""
 
 
+class KiwoomTickersFilePathInRepoError(KiwoomCollectorError):
+    """The --tickers-file argument resolves inside the repository."""
+
+
 class KiwoomOutputPathInRepoError(KiwoomCollectorError):
     """The requested output directory is inside the repository."""
 
@@ -145,6 +149,10 @@ class KiwoomForbiddenEndpointError(KiwoomCollectorError):
 
 class KiwoomCollectionFailed(KiwoomCollectorError):
     """The collector failed before all required outputs were produced."""
+
+
+class NoExecutionFlagRequiredError(KiwoomCollectorError):
+    """The --no-execution acknowledgement flag was not supplied."""
 
 
 class KiwoomRestClient(Protocol):
@@ -210,6 +218,14 @@ class CollectorConfig:
     min_close_series_len: int = MIN_CLOSE_SERIES_LEN
     allowed_tr_ids: tuple[str, ...] = DEFAULT_ALLOWED_TR_IDS
     request_pause_seconds: float = 0.0
+    # Smoke / first-run guards.  ``max_tickers`` truncates the kept
+    # universe to the first N entries (after the exclusion filter
+    # runs), so an operator can validate the pipeline against a tiny
+    # slice before paying for a full universe pull.  ``tickers_file``
+    # restricts the universe to the explicit list of ticker codes
+    # contained in the file; the file MUST live outside the repo.
+    max_tickers: int | None = None
+    tickers_file: Path | None = None
 
 
 def load_config(config_path: str | Path, *, repo_root: Path | None = None) -> dict[str, Any]:
@@ -334,6 +350,45 @@ def _assert_config_outside_repo(path: Path, repo_root: Path) -> None:
         f"refusing to read Kiwoom REST config from inside the repository: {path}\n"
         "place the config file under a private path (e.g. ~/.config/kiwoom_rest.json)."
     )
+
+
+def _assert_tickers_file_outside_repo(path: Path, repo_root: Path) -> None:
+    """Refuse to read a tickers file that lives inside the repository."""
+    try:
+        path.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return
+    raise KiwoomTickersFilePathInRepoError(
+        f"refusing to read --tickers-file from inside the repository: {path}\n"
+        "place the tickers file under a private path."
+    )
+
+
+def _load_tickers_file_set(path: str | Path, repo_root: Path | None = None) -> set[str]:
+    """Read a private tickers list (one ticker per line; ``#`` comments OK).
+
+    Lines may be ``"AAA.KS"`` or ``"AAA.KS,Synthetic Alpha"`` — only
+    the first whitespace / comma column is used.  Blank lines and
+    lines whose first non-blank char is ``#`` are skipped.
+    """
+    p = Path(path).expanduser()
+    if repo_root is not None:
+        _assert_tickers_file_outside_repo(p, repo_root)
+    if not p.exists():
+        raise KiwoomCollectorError(f"--tickers-file not found: {p}")
+    if not p.is_file():
+        raise KiwoomCollectorError(f"--tickers-file is not a regular file: {p}")
+    out: set[str] = set()
+    for line in p.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        token = s.split(",")[0].split()[0].strip()
+        if token:
+            out.add(token)
+    if not out:
+        raise KiwoomCollectorError(f"--tickers-file is empty (no tickers parsed): {p}")
+    return out
 
 
 def _is_excluded_security(row: Mapping[str, Any], cfg: CollectorConfig) -> tuple[bool, str | None]:
@@ -818,6 +873,10 @@ def collect_today_universe(
 
     started_at = _utc_iso_now()
 
+    tickers_filter: set[str] | None = None
+    if cfg.tickers_file is not None:
+        tickers_filter = _load_tickers_file_set(cfg.tickers_file, repo_root)
+
     raw_universe: list[dict[str, Any]] = []
     for market in cfg.markets:
         rows = client.list_universe(market=market)
@@ -825,6 +884,8 @@ def collect_today_universe(
             if not r.get("ticker"):
                 continue
             r.setdefault("market", market)
+            if tickers_filter is not None and str(r["ticker"]) not in tickers_filter:
+                continue
             raw_universe.append(r)
 
     rejected: dict[str, str] = {}
@@ -835,6 +896,18 @@ def collect_today_universe(
             rejected[str(row["ticker"])] = reason or "excluded"
             continue
         kept_universe.append(row)
+
+    # Smoke-mode truncation.  Truncated tickers are NOT recorded in
+    # ``rejected_tickers`` (they were valid candidates), but are
+    # surfaced in the report as ``truncated_count`` for traceability.
+    truncated_count = 0
+    universe_was_truncated = False
+    pre_truncate_size = len(kept_universe)
+    if cfg.max_tickers is not None and cfg.max_tickers >= 0 \
+            and len(kept_universe) > cfg.max_tickers:
+        truncated_count = len(kept_universe) - cfg.max_tickers
+        kept_universe = kept_universe[: cfg.max_tickers]
+        universe_was_truncated = True
 
     feature_rows: list[dict[str, Any]] = []
     universe_tickers: dict[str, dict[str, Any]] = {}
@@ -885,6 +958,11 @@ def collect_today_universe(
             allowed_tr_ids=allowed_tr_ids,
             success=False,
             failure_reason="no feature rows produced",
+            max_tickers=cfg.max_tickers,
+            truncated_universe=universe_was_truncated,
+            truncated_count=truncated_count,
+            pre_truncate_size=pre_truncate_size,
+            tickers_file=cfg.tickers_file,
         )
         report_path = output_dir / KIWOOM_COLLECTION_REPORT_FILENAME
         _atomic_write_json(report_path, report)
@@ -924,6 +1002,11 @@ def collect_today_universe(
         allowed_tr_ids=allowed_tr_ids,
         success=True,
         failure_reason=None,
+        max_tickers=cfg.max_tickers,
+        truncated_universe=universe_was_truncated,
+        truncated_count=truncated_count,
+        pre_truncate_size=pre_truncate_size,
+        tickers_file=cfg.tickers_file,
     )
 
     features_path = output_dir / KIWOOM_FEATURES_FILENAME
@@ -968,6 +1051,11 @@ def _build_report(
     allowed_tr_ids: tuple[str, ...],
     success: bool,
     failure_reason: str | None,
+    max_tickers: int | None,
+    truncated_universe: bool,
+    truncated_count: int,
+    pre_truncate_size: int,
+    tickers_file: Path | None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -983,6 +1071,11 @@ def _build_report(
         "rejected_tickers": rejected,
         "missing_fields_per_ticker": missing_fields,
         "allowed_tr_ids": list(allowed_tr_ids),
+        "max_tickers": max_tickers,
+        "truncated_universe": bool(truncated_universe),
+        "truncated_count": int(truncated_count),
+        "pre_truncate_universe_size": int(pre_truncate_size),
+        "tickers_file": str(tickers_file) if tickers_file is not None else None,
         "no_execution": True,
         "broker_order_path_present": False,
         "account_endpoint_used": False,
@@ -1030,6 +1123,20 @@ class MockKiwoomRestClient:
 
 def cli_main(args: Any, repo_root: Path) -> int:
     """argparse entry point shared by the top-level CLI."""
+    # The --no-execution flag is a forcing function: this collector
+    # is read-only, never authorizes a broker order, never emits a
+    # trade ticket / order intent / automatic execution hook, and
+    # the operator has to acknowledge that contract every invocation.
+    if not getattr(args, "no_execution", False):
+        print(
+            "[kiwoom-collect] --no-execution is required.\n"
+            "this subcommand is read-only and never authorizes broker orders, "
+            "automatic execution, or trade tickets.  re-invoke with --no-execution "
+            "to acknowledge.",
+            file=sys.stderr,
+        )
+        return 2
+
     output_dir = _resolve_output_dir(args.output_dir)
     try:
         _assert_outside_repo(output_dir, repo_root)
@@ -1050,6 +1157,24 @@ def cli_main(args: Any, repo_root: Path) -> int:
         config = load_config(config_path, repo_root=repo_root)
     except (KiwoomConfigMissingError, KiwoomConfigPathInRepoError) as exc:
         print(f"[kiwoom-collect] {exc}", file=sys.stderr)
+        return 2
+
+    # Resolve smoke-mode guards.  --tickers-file MUST live outside
+    # the repo; the check fires before we open the file.
+    tickers_file: Path | None = None
+    raw_tickers_file = getattr(args, "tickers_file", None)
+    if raw_tickers_file:
+        tf_path = Path(raw_tickers_file).expanduser()
+        try:
+            _assert_tickers_file_outside_repo(tf_path, repo_root)
+        except KiwoomTickersFilePathInRepoError as exc:
+            print(f"[kiwoom-collect] {exc}", file=sys.stderr)
+            return 2
+        tickers_file = tf_path
+
+    max_tickers: int | None = getattr(args, "max_tickers", None)
+    if max_tickers is not None and max_tickers < 0:
+        print(f"[kiwoom-collect] --max-tickers must be >= 0 (got {max_tickers})", file=sys.stderr)
         return 2
 
     # The CLI does not silently fall back to a mock client.  Real
@@ -1074,6 +1199,13 @@ def cli_main(args: Any, repo_root: Path) -> int:
         print(f"[kiwoom-collect] {exc}", file=sys.stderr)
         return 2
 
+    cfg = CollectorConfig(
+        config_path=Path(config_path).expanduser(),
+        output_dir=output_dir,
+        max_tickers=max_tickers,
+        tickers_file=tickers_file,
+    )
+
     try:
         result = collect_today_universe(
             asof_date=args.date,
@@ -1081,6 +1213,7 @@ def cli_main(args: Any, repo_root: Path) -> int:
             client=client,
             output_dir=output_dir,
             repo_root=repo_root,
+            cfg=cfg,
         )
     except KiwoomCollectionFailed as exc:
         print(f"[kiwoom-collect] {exc}", file=sys.stderr)
@@ -1093,6 +1226,8 @@ def cli_main(args: Any, repo_root: Path) -> int:
     print(f"[kiwoom-collect] wrote: {result.universe_path}")
     print(f"[kiwoom-collect] wrote: {result.report_path}")
     print(f"[kiwoom-collect] universe={result.universe_size} feature_rows={result.feature_rows}")
+    if max_tickers is not None:
+        print(f"[kiwoom-collect] max_tickers={max_tickers} (smoke mode)")
     return 0
 
 

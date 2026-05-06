@@ -189,11 +189,23 @@ def test_load_config_missing_required_keys(tmp_path):
         load_config(bad)
 
 
+def _ns(**overrides):
+    """Build a Namespace with all kiwoom-collect args defaulted."""
+    base = dict(
+        date="2026-05-06",
+        config=None,
+        output_dir=None,
+        no_execution=True,
+        max_tickers=None,
+        tickers_file=None,
+    )
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
 def test_cli_kiwoom_collect_requires_config(tmp_path, monkeypatch):
     monkeypatch.delenv("KIWOOM_REST_CONFIG", raising=False)
-    args = argparse.Namespace(
-        date="2026-05-06", config=None, output_dir=str(tmp_path),
-    )
+    args = _ns(output_dir=str(tmp_path))
     rc = collector_cli_main(args, REPO_ROOT)
     assert rc == 2
 
@@ -206,10 +218,7 @@ def test_cli_kiwoom_collect_refuses_repo_output(tmp_path, monkeypatch):
         "appsecret":     "TEST_APPSECRET_NOT_REAL",
     }), encoding="utf-8")
     monkeypatch.setenv("KIWOOM_REST_CONFIG", str(cfg_path))
-    args = argparse.Namespace(
-        date="2026-05-06", config=None,
-        output_dir=str(REPO_ROOT / "should_not_write_either"),
-    )
+    args = _ns(output_dir=str(REPO_ROOT / "should_not_write_either"))
     rc = collector_cli_main(args, REPO_ROOT)
     assert rc == 2
     assert not (REPO_ROOT / "should_not_write_either").exists()
@@ -470,7 +479,27 @@ def test_outputs_contain_no_doctrinal_artifact_tokens_or_truthy_execution_flags(
 # ---------------------------------------------------------------------
 
 
-def test_cli_parser_lists_kiwoom_collect_subcommand():
+def test_cli_parser_lists_kiwoom_collect_subcommand_with_safety_flags():
+    parser = build_parser()
+    ns = parser.parse_args([
+        "kiwoom-collect",
+        "--date", "2026-05-06",
+        "--config", "/private/path/kiwoom_config.json",
+        "--output-dir", "/private/path/live_screen_inputs",
+        "--no-execution",
+        "--max-tickers", "5",
+        "--tickers-file", "/private/path/tickers.txt",
+    ])
+    assert ns.command == "kiwoom-collect"
+    assert ns.date == "2026-05-06"
+    assert ns.config == "/private/path/kiwoom_config.json"
+    assert ns.output_dir == "/private/path/live_screen_inputs"
+    assert ns.no_execution is True
+    assert ns.max_tickers == 5
+    assert ns.tickers_file == "/private/path/tickers.txt"
+
+
+def test_cli_parser_kiwoom_collect_defaults_no_execution_to_false():
     parser = build_parser()
     ns = parser.parse_args([
         "kiwoom-collect",
@@ -478,10 +507,9 @@ def test_cli_parser_lists_kiwoom_collect_subcommand():
         "--config", "/private/path/kiwoom_config.json",
         "--output-dir", "/private/path/live_screen_inputs",
     ])
-    assert ns.command == "kiwoom-collect"
-    assert ns.date == "2026-05-06"
-    assert ns.config == "/private/path/kiwoom_config.json"
-    assert ns.output_dir == "/private/path/live_screen_inputs"
+    assert ns.no_execution is False
+    assert ns.max_tickers is None
+    assert ns.tickers_file is None
 
 
 # ---------------------------------------------------------------------
@@ -560,9 +588,7 @@ def test_cli_kiwoom_collect_refuses_config_inside_repo(tmp_path, monkeypatch):
     }), encoding="utf-8")
     monkeypatch.setenv("KIWOOM_REST_CONFIG", str(in_repo))
     try:
-        args = argparse.Namespace(
-            date="2026-05-06", config=None, output_dir=str(tmp_path),
-        )
+        args = _ns(output_dir=str(tmp_path))
         rc = collector_cli_main(args, REPO_ROOT)
         assert rc == 2
     finally:
@@ -766,3 +792,244 @@ def test_run_level_atomic_publish_keeps_previous_latest_on_tmp_failure(
     # No leftover .tmp files in the directory.
     leftover = [p.name for p in out.iterdir() if p.name.endswith(".tmp")]
     assert leftover == [], f"unexpected leftover tmp files: {leftover}"
+
+
+# ---------------------------------------------------------------------
+# 16. --no-execution acknowledgement is required.
+# ---------------------------------------------------------------------
+
+
+def _install_fake_factory(monkeypatch, client):
+    """Register a synthetic client_factory module for CLI smoke tests."""
+    import sys
+    import types
+
+    mod_name = "_test_kiwoom_factory"
+    mod = types.ModuleType(mod_name)
+
+    def factory(_config):
+        return client
+
+    mod.factory = factory
+    monkeypatch.setitem(sys.modules, mod_name, mod)
+    return f"{mod_name}:factory"
+
+
+def _wired_config(tmp_path: Path, factory_dotted: str) -> Path:
+    cfg_path = tmp_path / "kiwoom_config.json"
+    cfg_path.write_text(json.dumps({
+        "rest_base_url":   "https://example.invalid",
+        "appkey":          "TEST_APPKEY_NOT_REAL",
+        "appsecret":       "TEST_APPSECRET_NOT_REAL",
+        "client_factory":  factory_dotted,
+        "benchmark_ticker": "BENCHMARK_KOSPI_PROXY",
+        "benchmark_closes": [2700.0 + i * 0.5 for i in range(280)],
+    }), encoding="utf-8")
+    return cfg_path
+
+
+def test_cli_kiwoom_collect_requires_no_execution_flag(tmp_path, monkeypatch):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+    factory_dotted = _install_fake_factory(monkeypatch, client)
+    cfg_path = _wired_config(tmp_path, factory_dotted)
+    monkeypatch.setenv("KIWOOM_REST_CONFIG", str(cfg_path))
+
+    args = _ns(output_dir=str(tmp_path / "out"), no_execution=False)
+    rc = collector_cli_main(args, REPO_ROOT)
+    assert rc == 2
+    # No outputs were written -- the guard fires before any disk work.
+    assert not (tmp_path / "out").exists() or not list((tmp_path / "out").glob("*.json"))
+
+
+def test_cli_kiwoom_collect_succeeds_with_no_execution(tmp_path, monkeypatch):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+    factory_dotted = _install_fake_factory(monkeypatch, client)
+    cfg_path = _wired_config(tmp_path, factory_dotted)
+    monkeypatch.setenv("KIWOOM_REST_CONFIG", str(cfg_path))
+
+    out = tmp_path / "out"
+    args = _ns(output_dir=str(out), no_execution=True)
+    rc = collector_cli_main(args, REPO_ROOT)
+    assert rc == 0
+    assert (out / KIWOOM_FEATURES_FILENAME).exists()
+    assert (out / KIWOOM_UNIVERSE_FILENAME).exists()
+    assert (out / KIWOOM_COLLECTION_REPORT_FILENAME).exists()
+
+    # Despite the --no-execution flag being on the CLI, the collection
+    # report still asserts no_execution: true (that field does not
+    # come from the flag — it comes from the doctrinal contract).
+    report = json.loads((out / KIWOOM_COLLECTION_REPORT_FILENAME).read_text(encoding="utf-8"))
+    assert report["no_execution"] is True
+    assert report["broker_order_path_present"] is False
+    assert report["account_endpoint_used"] is False
+    assert report["order_endpoint_used"] is False
+
+
+# ---------------------------------------------------------------------
+# 17. --max-tickers smoke cap.
+# ---------------------------------------------------------------------
+
+
+def test_collect_max_tickers_truncates_kept_universe(tmp_path):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+    out = tmp_path / "out"
+    cfg = CollectorConfig(
+        config_path=tmp_path / "kiwoom_config.json",
+        output_dir=out,
+        max_tickers=2,
+    )
+    result = collect_today_universe(
+        asof_date="2026-05-06",
+        config=_config_dict(tmp_path / "kiwoom_config.json"),
+        client=client,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+        cfg=cfg,
+    )
+    # 5 common-share profiles in the synthetic universe; max_tickers=2 truncates.
+    assert result.feature_rows == 2
+    assert result.universe_size == 2
+
+    report = json.loads((out / KIWOOM_COLLECTION_REPORT_FILENAME).read_text(encoding="utf-8"))
+    assert report["max_tickers"] == 2
+    assert report["truncated_universe"] is True
+    # 5 common-share profiles survived the exclusion filter; truncated to 2 -> 3 cut.
+    assert report["truncated_count"] == 3
+    assert report["pre_truncate_universe_size"] == 5
+
+
+def test_collect_max_tickers_none_means_full_universe(tmp_path):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+    out = tmp_path / "out"
+    result = collect_today_universe(
+        asof_date="2026-05-06",
+        config=_config_dict(tmp_path / "kiwoom_config.json"),
+        client=client,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+    )
+    report = json.loads((out / KIWOOM_COLLECTION_REPORT_FILENAME).read_text(encoding="utf-8"))
+    assert report["max_tickers"] is None
+    assert report["truncated_universe"] is False
+    assert report["truncated_count"] == 0
+    assert result.feature_rows == 5  # all 5 common-share profiles
+
+
+def test_collect_max_tickers_larger_than_universe_does_not_truncate(tmp_path):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+    out = tmp_path / "out"
+    cfg = CollectorConfig(
+        config_path=tmp_path / "kiwoom_config.json",
+        output_dir=out,
+        max_tickers=99,
+    )
+    result = collect_today_universe(
+        asof_date="2026-05-06",
+        config=_config_dict(tmp_path / "kiwoom_config.json"),
+        client=client,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+        cfg=cfg,
+    )
+    report = json.loads((out / KIWOOM_COLLECTION_REPORT_FILENAME).read_text(encoding="utf-8"))
+    assert report["max_tickers"] == 99
+    assert report["truncated_universe"] is False
+    assert report["truncated_count"] == 0
+    assert result.feature_rows == 5
+
+
+# ---------------------------------------------------------------------
+# 18. --tickers-file restriction (path must be outside repo).
+# ---------------------------------------------------------------------
+
+
+def test_collect_tickers_file_restricts_universe(tmp_path):
+    universe, ohlcv, flows = _build_synthetic_universe()
+    client = _mock_client_for(universe, ohlcv, flows)
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text(
+        "# private smoke list\nAAA.KS\nDDD.KQ\n",
+        encoding="utf-8",
+    )
+
+    out = tmp_path / "out"
+    cfg = CollectorConfig(
+        config_path=tmp_path / "kiwoom_config.json",
+        output_dir=out,
+        tickers_file=tickers_file,
+    )
+    result = collect_today_universe(
+        asof_date="2026-05-06",
+        config=_config_dict(tmp_path / "kiwoom_config.json"),
+        client=client,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+        cfg=cfg,
+    )
+    assert result.feature_rows == 2
+    assert set(json.loads((out / KIWOOM_FEATURES_FILENAME).read_text())["rows"][0]) >= {"ticker"}
+    payload = json.loads((out / KIWOOM_FEATURES_FILENAME).read_text())
+    assert {r["ticker"] for r in payload["rows"]} == {"AAA.KS", "DDD.KQ"}
+
+    report = json.loads((out / KIWOOM_COLLECTION_REPORT_FILENAME).read_text())
+    assert report["tickers_file"] == str(tickers_file)
+
+
+def test_collect_tickers_file_inside_repo_is_rejected(tmp_path):
+    in_repo = REPO_ROOT / "stock_research" / "pbkr_v4_screening_builder" / "test_inrepo_tickers.txt"
+    in_repo.write_text("AAA.KS\nDDD.KQ\n", encoding="utf-8")
+    try:
+        universe, ohlcv, flows = _build_synthetic_universe()
+        client = _mock_client_for(universe, ohlcv, flows)
+        out = tmp_path / "out"
+        cfg = CollectorConfig(
+            config_path=tmp_path / "kiwoom_config.json",
+            output_dir=out,
+            tickers_file=in_repo,
+        )
+        with pytest.raises(KiwoomTickersFilePathInRepoError):
+            collect_today_universe(
+                asof_date="2026-05-06",
+                config=_config_dict(tmp_path / "kiwoom_config.json"),
+                client=client,
+                output_dir=out,
+                repo_root=REPO_ROOT,
+                cfg=cfg,
+            )
+    finally:
+        in_repo.unlink(missing_ok=True)
+
+
+def test_cli_kiwoom_collect_refuses_tickers_file_inside_repo(tmp_path, monkeypatch):
+    in_repo = REPO_ROOT / "stock_research" / "pbkr_v4_screening_builder" / "test_inrepo_tickers.txt"
+    in_repo.write_text("AAA.KS\nDDD.KQ\n", encoding="utf-8")
+    try:
+        universe, ohlcv, flows = _build_synthetic_universe()
+        client = _mock_client_for(universe, ohlcv, flows)
+        factory_dotted = _install_fake_factory(monkeypatch, client)
+        cfg_path = _wired_config(tmp_path, factory_dotted)
+        monkeypatch.setenv("KIWOOM_REST_CONFIG", str(cfg_path))
+
+        args = _ns(
+            output_dir=str(tmp_path / "out"),
+            no_execution=True,
+            tickers_file=str(in_repo),
+        )
+        rc = collector_cli_main(args, REPO_ROOT)
+        assert rc == 2
+    finally:
+        in_repo.unlink(missing_ok=True)
+
+
+# Make KiwoomTickersFilePathInRepoError importable at the top of the test
+# file too.  We re-import here to keep the failure noise localised if a
+# future refactor moves the symbol.
+from stock_research.pbkr_v4_screening_builder.kiwoom_today_universe_collector import (  # noqa: E402
+    KiwoomTickersFilePathInRepoError,
+)
