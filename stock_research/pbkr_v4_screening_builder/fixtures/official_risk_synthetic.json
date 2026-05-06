@@ -1,0 +1,62 @@
+{
+  "market_structure": {
+    "circuit_breaker_active": false,
+    "sidecar_active": false,
+    "auction_window": "none"
+  },
+  "rows": [
+    {
+      "ticker": "AAA.KS",
+      "raw_designations": []
+    },
+    {
+      "ticker": "BBB.KQ",
+      "raw_designations": []
+    },
+    {
+      "ticker": "CCC.KS",
+      "raw_designations": [
+        "투자주의"
+      ]
+    },
+    {
+      "ticker": "DDD.KQ",
+      "raw_designations": [
+        "투자경고"
+      ]
+    },
+    {
+      "ticker": "EEE.KS",
+      "raw_designations": [
+        "투자위험"
+      ]
+    },
+    {
+      "ticker": "FFF.KQ",
+      "raw_designations": [
+        "관리종목",
+        "거래정지"
+      ]
+    },
+    {
+      "ticker": "GGG.KS",
+      "raw_designations": []
+    },
+    {
+      "ticker": "HHH.KQ",
+      "raw_designations": []
+    },
+    {
+      "ticker": "III.KS",
+      "raw_designations": []
+    },
+    {
+      "ticker": "JJJ.KQ",
+      "raw_designations": []
+    },
+    {
+      "ticker": "KKK.KS",
+      "raw_designations": []
+    }
+  ]
+}

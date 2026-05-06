@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/screening/official_risk_flags_pack.schema.json",
+  "title": "PBKR v4 — Official Risk Flags Pack",
+  "description": "KRX / KIND / DART designation taxonomy mapped to PBKR v4 risk buckets. The risk buckets are the *input layer* taxonomy; the screening layer collapses them into one of the five allowed states (see screening_candidates_pack.schema.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "asof", "rows", "market_structure", "signal_safety"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "market_structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "circuit_breaker_active": { "type": "boolean" },
+        "sidecar_active": { "type": "boolean" },
+        "auction_window": { "type": "string", "enum": ["none", "opening", "closing"] }
+      },
+      "required": ["circuit_breaker_active", "sidecar_active", "auction_window"]
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "raw_designations", "buckets"],
+        "properties": {
+          "ticker": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "raw_designations": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 80 }
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "HARD_EXCLUDE",
+                "REGULAR_PB_EXCLUDE",
+                "EXTREME_RISK_FLAG_WATCH",
+                "RISK_FLAG_PULLBACK_WATCH"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
+      "properties": {
+        "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

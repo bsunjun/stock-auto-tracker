@@ -27,3 +27,10 @@ __pycache__/
 **/pr11_realdata/
 /_pipeline_workdir/
 **/_pipeline_workdir/
+
+# PBKR v4 Screening Builder local outputs. The CLI defaults to
+# /tmp/pbkr_v4_screening_out and refuses --out-dir paths inside the
+# repo. This pattern is a defense-in-depth backstop for the case
+# where someone creates such a directory inside the repo by mistake.
+/pbkr_v4_screening_out/
+**/pbkr_v4_screening_out/

@@ -1,0 +1,104 @@
+{
+  "source": "synthetic_tradingview_scan",
+  "rows": [
+    {
+      "ticker": "AAA.KS",
+      "name": "Synthetic Alpha",
+      "target_ema": 21,
+      "tv_ema_state": "above_21ema",
+      "tv_price_action_label": "post_breakout_continuation",
+      "tv_pullback_state": "shallow",
+      "tv_rs_proxy_label": "high"
+    },
+    {
+      "ticker": "BBB.KQ",
+      "name": "Synthetic Bravo",
+      "target_ema": 21,
+      "tv_ema_state": "mixed",
+      "tv_price_action_label": "consolidation",
+      "tv_pullback_state": "none",
+      "tv_rs_proxy_label": "mid"
+    },
+    {
+      "ticker": "CCC.KS",
+      "name": "Synthetic Charlie",
+      "target_ema": 21,
+      "tv_ema_state": "below_21ema",
+      "tv_price_action_label": "rolling_over",
+      "tv_pullback_state": "deep",
+      "tv_rs_proxy_label": "absent"
+    },
+    {
+      "ticker": "DDD.KQ",
+      "name": "Synthetic Delta",
+      "target_ema": 21,
+      "tv_ema_state": "above_21ema",
+      "tv_price_action_label": "first_pullback",
+      "tv_pullback_state": "shallow",
+      "tv_rs_proxy_label": "high"
+    },
+    {
+      "ticker": "EEE.KS",
+      "name": "Synthetic Echo",
+      "target_ema": 21,
+      "tv_ema_state": "above_21ema",
+      "tv_price_action_label": "high_volatility_rally",
+      "tv_pullback_state": "shallow",
+      "tv_rs_proxy_label": "high"
+    },
+    {
+      "ticker": "FFF.KQ",
+      "name": "Synthetic Foxtrot",
+      "target_ema": 21,
+      "tv_ema_state": "below_21ema",
+      "tv_price_action_label": "broken",
+      "tv_pullback_state": "broken",
+      "tv_rs_proxy_label": "absent"
+    },
+    {
+      "ticker": "GGG.KS",
+      "name": "Synthetic Golf",
+      "target_ema": 21,
+      "tv_ema_state": "alignment_up",
+      "tv_price_action_label": "stage2_advance",
+      "tv_pullback_state": "shallow",
+      "tv_rs_proxy_label": "high"
+    },
+    {
+      "ticker": "HHH.KQ",
+      "name": "Synthetic Hotel",
+      "target_ema": 21,
+      "tv_ema_state": "below_21ema",
+      "tv_price_action_label": "downtrend",
+      "tv_pullback_state": "broken",
+      "tv_rs_proxy_label": "absent"
+    },
+    {
+      "ticker": "III.KS",
+      "name": "Synthetic India",
+      "target_ema": 21,
+      "tv_ema_state": "below_21ema",
+      "tv_price_action_label": "downtrend",
+      "tv_pullback_state": "broken",
+      "tv_rs_proxy_label": "absent"
+    },
+    {
+      "ticker": "JJJ.KQ",
+      "name": "Synthetic Juliett",
+      "target_ema": 21,
+      "tv_ema_state": "mixed",
+      "tv_price_action_label": "range_bound",
+      "tv_pullback_state": "none",
+      "tv_rs_proxy_label": "absent"
+    },
+    {
+      "ticker": "KKK.KS",
+      "name": "Synthetic Kilo",
+      "target_ema": 21,
+      "tv_ema_state": "mixed",
+      "tv_price_action_label": "range_bound",
+      "tv_pullback_state": "none",
+      "tv_rs_proxy_label": "absent"
+    }
+  ]
+}

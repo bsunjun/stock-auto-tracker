@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/screening/kiwoom_feature_pack.schema.json",
+  "title": "PBKR v4 — Kiwoom Feature Pack (primary)",
+  "description": "Per-ticker daily features computed from Kiwoom REST OHLCV + flow data. The Kiwoom universe is also the primary source of PBKR_RS_RANK. screening_only=true, candidate_generation_only=true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "asof", "rows", "signal_safety"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "close", "trading_value"],
+        "properties": {
+          "ticker": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "close": { "type": "number", "minimum": 0 },
+          "open": { "type": ["number", "null"], "minimum": 0 },
+          "high": { "type": ["number", "null"], "minimum": 0 },
+          "low": { "type": ["number", "null"], "minimum": 0 },
+          "volume": { "type": ["number", "null"], "minimum": 0 },
+          "trading_value": { "type": "number", "minimum": 0 },
+          "volume_ratio": { "type": ["number", "null"], "minimum": 0 },
+          "investor_flow": { "type": ["number", "null"] },
+          "foreigner_flow": { "type": ["number", "null"] },
+          "institution_flow": { "type": ["number", "null"] },
+          "financial_investment_flow": { "type": ["number", "null"] },
+          "ma9":   { "type": ["number", "null"], "minimum": 0 },
+          "ma21":  { "type": ["number", "null"], "minimum": 0 },
+          "ma50":  { "type": ["number", "null"], "minimum": 0 },
+          "ma120": { "type": ["number", "null"], "minimum": 0 },
+          "atr14": { "type": ["number", "null"], "minimum": 0 },
+          "recent_low": { "type": ["number", "null"], "minimum": 0 },
+          "stop_distance": { "type": ["number", "null"], "minimum": 0 },
+          "high_60d": { "type": ["number", "null"], "minimum": 0 },
+          "high_20d": { "type": ["number", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
+      "properties": {
+        "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}
