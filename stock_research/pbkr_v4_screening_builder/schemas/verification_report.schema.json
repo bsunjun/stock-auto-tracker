@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v4/screening/verification_report.schema.json",
+  "title": "PBKR v4 — Live Screening Verification Report",
+  "description": "Audit artifact emitted by the read-only live-screening runner. Records every doctrinal counter, the input-source fingerprints, and the safety block. Existence of this file with pass=true is proof that no execution path was taken during the run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runner",
+    "asof_date",
+    "no_execution",
+    "broker_order_path_present",
+    "auto_execution_allowed",
+    "input_sources",
+    "output_dir",
+    "output_files",
+    "doctrinal_counters",
+    "screening_candidates_counts",
+    "pbkr_rs_rank_summary",
+    "pass",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
+    "runner": { "const": "live_screening_runner" },
+    "asof_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "no_execution": { "const": true },
+    "broker_order_path_present": { "const": false },
+    "auto_execution_allowed": { "const": false },
+    "input_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tradingview", "kiwoom_features", "kiwoom_universe", "official_risk"],
+      "properties": {
+        "tradingview":     { "$ref": "#/definitions/input_source" },
+        "kiwoom_features": { "$ref": "#/definitions/input_source" },
+        "kiwoom_universe": { "$ref": "#/definitions/input_source" },
+        "official_risk":   { "$ref": "#/definitions/input_source" }
+      }
+    },
+    "output_dir": { "type": "string", "minLength": 1 },
+    "output_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "doctrinal_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direct_trade_signal_true_count",
+        "trade_signal_true_count",
+        "automatic_execution_allowed_true_count",
+        "trade_ticket_generation_allowed_true_count",
+        "operator_decision_execute_count",
+        "pb_trigger_count",
+        "pb_ready_count",
+        "pb_scout_count",
+        "trade_ticket_count",
+        "order_intent_count",
+        "order_preparation_count",
+        "execution_artifact_count",
+        "automatic_alert_count",
+        "automatic_execution_hook_count",
+        "trade_ticket_file_count"
+      ],
+      "properties": {
+        "direct_trade_signal_true_count":            { "const": 0 },
+        "trade_signal_true_count":                   { "const": 0 },
+        "automatic_execution_allowed_true_count":    { "const": 0 },
+        "trade_ticket_generation_allowed_true_count":{ "const": 0 },
+        "operator_decision_execute_count":           { "const": 0 },
+        "pb_trigger_count":                          { "const": 0 },
+        "pb_ready_count":                            { "const": 0 },
+        "pb_scout_count":                            { "const": 0 },
+        "trade_ticket_count":                        { "const": 0 },
+        "order_intent_count":                        { "const": 0 },
+        "order_preparation_count":                   { "const": 0 },
+        "execution_artifact_count":                  { "const": 0 },
+        "automatic_alert_count":                     { "const": 0 },
+        "automatic_execution_hook_count":            { "const": 0 },
+        "trade_ticket_file_count":                   { "const": 0 }
+      }
+    },
+    "screening_candidates_counts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "pbkr_rs_rank_summary": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "pass": { "const": true },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required",
+        "operator_decision"
+      ],
+      "properties": {
+        "screening_only":                  { "const": true },
+        "candidate_generation_only":       { "const": true },
+        "direct_trade_signal":             { "const": false },
+        "trade_signal":                    { "enum": [null, false] },
+        "automatic_execution_allowed":     { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
+        "human_gate_required":             { "const": true },
+        "operator_decision":               { "enum": [null, "review", "defer"] }
+      }
+    }
+  },
+  "definitions": {
+    "input_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size_bytes", "mtime_iso", "sha256_first_mib", "exists"],
+      "properties": {
+        "path":             { "type": "string", "minLength": 1 },
+        "size_bytes":       { "type": "integer", "minimum": 1 },
+        "mtime_iso":        { "type": "string" },
+        "sha256_first_mib": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "exists":           { "const": true }
+      }
+    }
+  }
+}

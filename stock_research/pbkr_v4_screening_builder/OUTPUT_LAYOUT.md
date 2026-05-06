@@ -4,15 +4,23 @@
 
 ## 1. Default location
 
-The CLI writes to `${PBKR_SCREENING_OUT}/<YYYY-MM-DD>/`, falling
-back to `/tmp/pbkr_v4_screening_out/<YYYY-MM-DD>/` when the env var
-is unset.
+### 1.1 `screen` subcommand (offline / dev)
 
-The CLI refuses to write outputs inside the repository: if
-`--out-dir` is a path under the repo root, the run aborts before
-any file is created.
+Writes to `${PBKR_SCREENING_OUT}/<YYYY-MM-DD>/`, falling back to
+`/tmp/pbkr_v4_screening_out/<YYYY-MM-DD>/` when the env var is
+unset. The CLI refuses any `--out-dir` under the repo root.
+
+### 1.2 `live-screen` subcommand (real live inputs, read-only)
+
+Writes to `${PBKR_LIVE_SCREENING_OUT_BASE}/<YYYYMMDD>/<YYYY-MM-DD>/`,
+falling back to
+`/Users/bsunjun/trading/phase3/output/pbkr_screening/<YYYYMMDD>/<YYYY-MM-DD>/`
+when the env var is unset. The runner refuses any `--output-dir`
+under the repo root and refuses to start without `--no-execution`.
 
 ## 2. Files per run
+
+`screen`:
 
 ```
 <OUT_DIR>/<YYYY-MM-DD>/
@@ -23,6 +31,37 @@ any file is created.
   daily_input_packet.json     # canonical for GPT Orchestrator
   daily_input_packet.md       # human-readable summary
 ```
+
+`live-screen` writes the same six files plus an audit artifact:
+
+```
+<OUTPUT_DIR>/<YYYYMMDD>/<YYYY-MM-DD>/
+  tradingview_scan_pack.json
+  kiwoom_feature_pack.json
+  official_risk_flags_pack.json
+  screening_candidates_pack.json
+  daily_input_packet.json
+  daily_input_packet.md
+  verification_report.json    # NEW: read-only proof artifact
+```
+
+`verification_report.json` records:
+
+* the runner identifier (`live_screening_runner`),
+* the as-of date,
+* fingerprints of every input source (path, size, mtime,
+  SHA-256 of first 1 MiB),
+* the resolved output dir and the list of emitted files,
+* every doctrinal counter (15 of them) — each constrained to
+  `const: 0` by `schemas/verification_report.schema.json`,
+* the screening counts and the PBKR_RS_RANK summary,
+* the full signal-safety block plus
+  `no_execution: true`, `broker_order_path_present: false`,
+  `auto_execution_allowed: false`,
+* a top-level `pass: true`.
+
+The presence of this file with `pass: true` is the audit proof
+that no execution path was taken during the run.
 
 ## 3. Forbidden content
 
