@@ -93,7 +93,7 @@ def _normalize_row(raw: dict[str, Any]) -> dict[str, Any]:
         except (TypeError, ValueError):
             target_ema = None
 
-    return {
+    out: dict[str, Any] = {
         "ticker": str(raw["ticker"]).strip(),
         "name": str(raw.get("name") or raw["ticker"]).strip(),
         "target_ema": target_ema,
@@ -102,6 +102,12 @@ def _normalize_row(raw: dict[str, Any]) -> dict[str, Any]:
         "tv_pullback_state": tv_pullback_state,
         "tv_rs_proxy_label": tv_rs_proxy_label,
     }
+    ts = raw.get("tv_source_timestamp")
+    if ts is not None:
+        ts_str = str(ts).strip()[:40]
+        if ts_str:
+            out["tv_source_timestamp"] = ts_str
+    return out
 
 
 def load_tradingview_scan(path: str | Path, asof: str) -> dict[str, Any]:
@@ -116,6 +122,7 @@ def load_tradingview_scan(path: str | Path, asof: str) -> dict[str, Any]:
         "asof": asof,
         "source": str(payload.get("source", "tradingview_mcp_scan") if isinstance(payload, dict) else "tradingview_mcp_scan"),
         "auxiliary_only": True,  # TradingView is never the RS primary source
+        "screening_input_only": True,  # row labels are evidence, never trade signals
         "rows": rows,
         "signal_safety": dict(SIGNAL_SAFETY_BLOCK),
     }
