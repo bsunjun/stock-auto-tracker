@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v1/full-system/market_breadth_pack.schema.json",
+  "title": "PBKR Full System v1 — Market Breadth / Regime Pack",
+  "description": "Funnel stage 1. Captures market regime + breadth signals derived from the Kiwoom daily-OHLCV universe and KOSPI / KOSDAQ index series. screening_only=true; candidate_generation_only=true; never emits PB_TRIGGER / PB_READY / PB_SCOUT / trade_ticket / order_intent / order_preparation / execution_artifact / automatic_alert / automatic_execution_hook.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "pbkr_rs_rank_source",
+    "regime",
+    "regime_reason",
+    "breadth",
+    "indices",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v1\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "pbkr_rs_rank_source": { "const": "kiwoom_daily_universe" },
+    "regime": { "enum": ["unknown", "stage1", "stage2", "stage3", "stage4"] },
+    "regime_reason": { "type": "string", "maxLength": 240 },
+    "breadth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "universe_size",
+        "pct_above_ma50",
+        "pct_above_ma200",
+        "advance_decline_ratio",
+        "new_highs_20d",
+        "new_lows_20d"
+      ],
+      "properties": {
+        "universe_size": { "type": "integer", "minimum": 0 },
+        "pct_above_ma50": { "type": "number", "minimum": 0, "maximum": 100 },
+        "pct_above_ma200": { "type": "number", "minimum": 0, "maximum": 100 },
+        "advance_decline_ratio": { "type": "number", "minimum": 0 },
+        "new_highs_20d": { "type": "integer", "minimum": 0 },
+        "new_lows_20d": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "indices": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index_id", "index_name", "trend_label"],
+        "properties": {
+          "index_id": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "index_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "trend_label": {
+            "enum": [
+              "uptrend",
+              "downtrend",
+              "range",
+              "transition_up",
+              "transition_down",
+              "unknown"
+            ]
+          },
+          "above_ma50": { "type": "boolean" },
+          "above_ma200": { "type": "boolean" },
+          "ma50_above_ma200": { "type": "boolean" }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
+      "properties": {
+        "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}
