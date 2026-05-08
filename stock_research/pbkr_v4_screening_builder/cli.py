@@ -1,27 +1,44 @@
 """CLI for the PBKR v4 Screening Builder.
 
-Three subcommands:
+Five subcommands:
 
-    screen          — run the screening pipeline against any inputs
-                      (offline / fixture / dev).  Output may live under
-                      $PBKR_SCREENING_OUT or /tmp/pbkr_v4_screening_out
-                      by default; the CLI refuses any --out-dir inside
-                      the repository.
+    screen                   — run the screening pipeline against any
+                               inputs (offline / fixture / dev).
+                               Output may live under $PBKR_SCREENING_OUT
+                               or /tmp/pbkr_v4_screening_out by default;
+                               the CLI refuses any --out-dir inside the
+                               repository.
 
-    live-screen     — run the screening pipeline against *real* live
-                      inputs.  This subcommand is read-only:
-                        * --no-execution is required;
-                        * inputs must exist and be non-empty (no
-                          silent synthetic fallback);
-                        * output must live outside the repository;
-                        * a verification_report.json is emitted that
-                          asserts every doctrinal counter is zero.
+    live-screen              — run the screening pipeline against *real*
+                               live inputs.  Read-only:
+                                 * --no-execution is required;
+                                 * inputs must exist and be non-empty
+                                   (no silent synthetic fallback);
+                                 * output must live outside the repo;
+                                 * a verification_report.json is emitted
+                                   that asserts every doctrinal counter
+                                   is zero.
 
-    kiwoom-collect  — read-only Kiwoom REST today-universe collector.
-                      Produces ``kiwoom_features_latest.json`` and
-                      ``kiwoom_universe_latest.json`` (plus an audit
-                      report) under $PBKR_PROCESSED_ROOT/live_screen_inputs.
-                      Order / account endpoints are out of scope.
+    kiwoom-collect           — read-only Kiwoom REST today-universe
+                               collector.  Produces
+                               ``kiwoom_features_latest.json`` and
+                               ``kiwoom_universe_latest.json`` (plus an
+                               audit report) under
+                               $PBKR_PROCESSED_ROOT/live_screen_inputs.
+                               Order / account endpoints are out of scope.
+
+    tradingview-collect      — TradingView auxiliary scan collector.
+                               Produces ``tradingview_scan_latest.json``
+                               from a TradingView desktop / MCP export.
+                               Auxiliary input only — RS_SCORE is never
+                               a hard gate; PBKR_RS_RANK is computed
+                               from the Kiwoom daily-OHLCV universe.
+
+    official-risk-collect    — KRX / KIND / DART official-risk collector.
+                               Produces ``official_risk_flags_latest.json``.
+                               Telegram / news / blog / social-media
+                               mentions are NEVER promoted to an official
+                               risk flag.
 
 For backward compatibility, when invoked with no subcommand the CLI
 defaults to ``screen``.
@@ -45,10 +62,18 @@ from .live_screening_runner import (
     DEFAULT_OUTPUT_BASE,
     cli_main as live_cli_main,
 )
+from .official_risk_today_collector import cli_main as official_risk_cli_main
+from .tradingview_today_scan_collector import cli_main as tradingview_cli_main
 from .validator import verify_run_directory
 
 
-_SUBCOMMANDS = ("screen", "live-screen", "kiwoom-collect")
+_SUBCOMMANDS = (
+    "screen",
+    "live-screen",
+    "kiwoom-collect",
+    "tradingview-collect",
+    "official-risk-collect",
+)
 
 
 def _add_rs_weight_flags(p: argparse.ArgumentParser) -> None:
@@ -67,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(
         dest="command", required=True,
-        metavar="{screen,live-screen,kiwoom-collect}",
+        metavar="{screen,live-screen,kiwoom-collect,tradingview-collect,official-risk-collect}",
     )
 
     p_screen = sub.add_parser(
@@ -162,6 +187,87 @@ def build_parser() -> argparse.ArgumentParser:
             "Optional private file (one ticker per line; '#' comments OK) that "
             "restricts the universe to the listed tickers.  MUST live outside "
             "the repository."
+        ),
+    )
+
+    p_tv = sub.add_parser(
+        "tradingview-collect",
+        help=(
+            "TradingView auxiliary scan collector. Produces "
+            "tradingview_scan_latest.json from a TradingView desktop / MCP export."
+        ),
+    )
+    p_tv.add_argument("--date", required=True, help="As-of trading date, YYYY-MM-DD")
+    p_tv.add_argument(
+        "--source-export",
+        default=None,
+        dest="source_export",
+        help=(
+            "TradingView desktop / MCP export JSON path (must live outside the "
+            "repo).  Required: the collector never falls back to a synthetic / "
+            "mock fixture in production."
+        ),
+    )
+    p_tv.add_argument(
+        "--source-label",
+        default=None,
+        dest="source_label",
+        help=(
+            "Optional free-text label recorded as the pack's `source` field "
+            "(e.g. 'tradingview_mcp_2026-05-08').  Truncated to 120 chars."
+        ),
+    )
+    p_tv.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Local/private output directory for live_screen_inputs.  MUST live "
+            f"outside the repository.  Default: {default_collect_out}"
+        ),
+    )
+    p_tv.add_argument(
+        "--no-execution",
+        action="store_true",
+        default=False,
+        help=(
+            "Required acknowledgement: this subcommand is read-only and never "
+            "authorizes broker orders, automatic execution, or trade tickets."
+        ),
+    )
+
+    p_orisk = sub.add_parser(
+        "official-risk-collect",
+        help=(
+            "KRX / KIND / DART official-risk collector. Produces "
+            "official_risk_flags_latest.json."
+        ),
+    )
+    p_orisk.add_argument("--date", required=True, help="As-of trading date, YYYY-MM-DD")
+    p_orisk.add_argument(
+        "--source-bundle",
+        default=None,
+        dest="source_bundle",
+        help=(
+            "KRX/KIND/DART bundle JSON path (must live outside the repo).  "
+            "Required: the collector never falls back to a synthetic / mock "
+            "fixture in production.  The bundle MUST list `sources_checked`."
+        ),
+    )
+    p_orisk.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Local/private output directory for live_screen_inputs.  MUST live "
+            f"outside the repository.  Default: {default_collect_out}"
+        ),
+    )
+    p_orisk.add_argument(
+        "--no-execution",
+        action="store_true",
+        default=False,
+        help=(
+            "Required acknowledgement: this subcommand is read-only and never "
+            "authorizes broker orders, automatic execution, or trade tickets."
         ),
     )
 
@@ -274,6 +380,10 @@ def main(argv: list[str] | None = None) -> int:
         return live_cli_main(args, repo_root)
     if args.command == "kiwoom-collect":
         return collector_cli_main(args, repo_root)
+    if args.command == "tradingview-collect":
+        return tradingview_cli_main(args, repo_root)
+    if args.command == "official-risk-collect":
+        return official_risk_cli_main(args, repo_root)
     print(f"unknown command: {args.command}", file=sys.stderr)
     return 2
 

@@ -97,6 +97,38 @@ def _row_buckets(designations: list[str]) -> list[str]:
     return sorted(out)
 
 
+def derive_market_structure_state(market_structure: dict[str, Any]) -> str:
+    """Derive ``NO_ENTRY_MARKET_STRUCTURE_ACTIVE`` vs ``OPEN``.
+
+    Active sidecar / circuit breaker / opening or closing auction window
+    all collapse to ``NO_ENTRY_MARKET_STRUCTURE_ACTIVE``.  Anything
+    else (the regular continuous-trading session) returns ``OPEN``.
+    """
+    if market_structure.get("circuit_breaker_active"):
+        return "NO_ENTRY_MARKET_STRUCTURE_ACTIVE"
+    if market_structure.get("sidecar_active"):
+        return "NO_ENTRY_MARKET_STRUCTURE_ACTIVE"
+    if market_structure.get("auction_window") in ("opening", "closing"):
+        return "NO_ENTRY_MARKET_STRUCTURE_ACTIVE"
+    return "OPEN"
+
+
+def derive_audit_status(rows: list[dict[str, Any]]) -> str:
+    """Return ``NO_OFFICIAL_RISK_FLAG_CONFIRMED`` when sources were
+    checked and *no* row carries any bucket; otherwise return
+    ``OFFICIAL_RISK_FLAGS_PRESENT``.
+
+    The collector calls this only after it has verified that
+    ``sources_checked`` is non-empty.  Without that guard, an empty
+    ``rows`` list would be ambiguous (no source consulted vs. all rows
+    clean).
+    """
+    for r in rows:
+        if r.get("buckets"):
+            return "OFFICIAL_RISK_FLAGS_PRESENT"
+    return "NO_OFFICIAL_RISK_FLAG_CONFIRMED"
+
+
 def load_official_risk_flags(path: str | Path, asof: str) -> dict[str, Any]:
     """Load and normalize a KRX / KIND / DART risk-flags JSON file."""
     p = Path(path)

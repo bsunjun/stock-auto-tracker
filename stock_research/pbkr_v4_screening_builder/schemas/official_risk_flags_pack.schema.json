@@ -9,13 +9,27 @@
   "properties": {
     "schema_version": { "type": "string", "pattern": "^v4\\.[0-9]+(\\.[0-9]+)?$" },
     "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "sources_checked": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["KRX", "KIND", "DART"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "audit_status": {
+      "type": "string",
+      "enum": ["NO_OFFICIAL_RISK_FLAG_CONFIRMED", "OFFICIAL_RISK_FLAGS_PRESENT"]
+    },
     "market_structure": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "circuit_breaker_active": { "type": "boolean" },
         "sidecar_active": { "type": "boolean" },
-        "auction_window": { "type": "string", "enum": ["none", "opening", "closing"] }
+        "auction_window": { "type": "string", "enum": ["none", "opening", "closing"] },
+        "market_structure_state": {
+          "type": "string",
+          "enum": ["NO_ENTRY_MARKET_STRUCTURE_ACTIVE", "OPEN"]
+        }
       },
       "required": ["circuit_breaker_active", "sidecar_active", "auction_window"]
     },
