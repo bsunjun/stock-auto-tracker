@@ -98,6 +98,20 @@ FORBIDDEN_NON_OFFICIAL_SOURCES: tuple[str, ...] = (
     "naver_cafe",
 )
 
+# Per-row source-claim fields.  When a row carries any of these and
+# names a non-official channel, the bundle is rejected — even if the
+# top-level ``sources_checked`` only lists KRX/KIND/DART.  This blocks
+# bundles that claim to consult an official source but try to launder
+# a Telegram / news / blog row through anyway.
+ROW_SOURCE_FIELDS: tuple[str, ...] = (
+    "source",
+    "source_type",
+    "source_name",
+    "origin",
+    "channel",
+    "evidence_source",
+)
+
 
 class OfficialRiskCollectorError(Exception):
     """Base class for official-risk collector errors."""
@@ -262,6 +276,59 @@ def _validate_bundle_shape(raw_payload: Any, source_path: Path) -> None:
         )
 
 
+def _validate_row_sources(raw_payload: dict[str, Any], source_path: Path) -> None:
+    """Enforce per-row source claims, when present.
+
+    Top-level ``sources_checked`` says *which* official feeds the
+    operator consulted; per-row source fields claim *which* source
+    surfaced the row.  A bundle with ``sources_checked = ["KRX"]`` but
+    a row whose ``source_type = "telegram"`` is trying to launder a
+    non-official mention through an official-looking pack — the
+    collector refuses such a bundle.
+
+    Recognised row-level fields (any of them is sufficient): see
+    ``ROW_SOURCE_FIELDS``.  When *none* of these fields is set on a
+    row, the row inherits the top-level ``sources_checked`` claim and
+    no further check is required.
+    """
+    rows = raw_payload.get("rows") or []
+    for idx, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        for field_name in ROW_SOURCE_FIELDS:
+            value = row.get(field_name)
+            if value is None:
+                continue
+            # Row source fields are expected to be string scalars.  A
+            # list / dict shape is structurally invalid: we surface a
+            # specific error rather than silently ignoring it.
+            if not isinstance(value, str):
+                raise OfficialRiskBundleInvalidError(
+                    f"official-risk bundle {source_path} row[{idx}] field "
+                    f"{field_name!r} must be a string, got {type(value).__name__}."
+                )
+            token = value.strip()
+            if not token:
+                continue
+            ticker = str(row.get("ticker") or f"<row[{idx}]>")
+            lowered = token.lower()
+            uppered = token.upper()
+            if lowered in FORBIDDEN_NON_OFFICIAL_SOURCES:
+                raise OfficialRiskUnauthorizedSourceError(
+                    f"official-risk bundle {source_path} row {ticker!r} field "
+                    f"{field_name!r}={token!r} is a non-official source.  "
+                    f"Telegram / news / blog / social-media mentions are NEVER "
+                    f"promoted to an official risk flag.  Only "
+                    f"{list(ALLOWED_OFFICIAL_SOURCES)} are accepted at the row level."
+                )
+            if uppered not in ALLOWED_OFFICIAL_SOURCES:
+                raise OfficialRiskUnauthorizedSourceError(
+                    f"official-risk bundle {source_path} row {ticker!r} field "
+                    f"{field_name!r}={token!r} is not an allowed official source.  "
+                    f"Allowed at the row level: {list(ALLOWED_OFFICIAL_SOURCES)}."
+                )
+
+
 @dataclass
 class OfficialRiskCollectionResult:
     asof_date: str
@@ -313,6 +380,7 @@ def collect_today_official_risk(
 
     _validate_bundle_shape(raw_payload, src)
     sources_checked = _validate_sources_checked(raw_payload, src)
+    _validate_row_sources(raw_payload, src)
 
     pack = load_official_risk_flags(src, asof=_asof_iso(asof_date))
 
@@ -356,7 +424,7 @@ def collect_today_official_risk(
         "no_execution": True,
         "broker_order_path_present": False,
         "auto_execution_allowed": False,
-        "trade_ticket_emitted": False,
+        "forbidden_artifact_emitted": False,
         "success": True,
         "failure_reason": None,
         "signal_safety": dict(DAILY_PACKET_SIGNAL_SAFETY),

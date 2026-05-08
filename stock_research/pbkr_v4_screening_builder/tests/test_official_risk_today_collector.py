@@ -582,3 +582,156 @@ def test_collector_consumes_existing_synthetic_fixture_with_sources_added(tmp_pa
         repo_root=REPO_ROOT,
     )
     assert result.audit_status == "OFFICIAL_RISK_FLAGS_PRESENT"
+
+
+# ---------------------------------------------------------------------
+# 12. Row-level source validation: a row that names a non-official
+#     source (telegram / news / blog / …) is rejected even when the
+#     top-level ``sources_checked`` only lists KRX/KIND/DART.
+# ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("row_field", [
+    "source", "source_type", "source_name",
+    "origin", "channel", "evidence_source",
+])
+def test_row_level_telegram_source_in_otherwise_clean_bundle_is_rejected(tmp_path, row_field):
+    bundle = _flagged_bundle()
+    # Top-level claim is OK: only KRX listed.
+    bundle["sources_checked"] = ["KRX"]
+    # But one row launders a Telegram mention as an "official" risk.
+    bundle["rows"][1] = {
+        "ticker": "BBB.KQ",
+        "raw_designations": ["투자주의"],
+        row_field: "telegram",
+    }
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    with pytest.raises(OfficialRiskUnauthorizedSourceError):
+        collect_today_official_risk(
+            asof_date="2026-05-08",
+            bundle_path=p,
+            output_dir=tmp_path / "out",
+            repo_root=REPO_ROOT,
+        )
+
+
+@pytest.mark.parametrize("forbidden", [
+    "telegram", "Telegram", "TELEGRAM",
+    "news", "blog", "twitter", "x", "youtube",
+    "kakao", "discord", "reddit", "naver_cafe",
+])
+def test_row_level_any_forbidden_source_is_rejected(tmp_path, forbidden):
+    bundle = _flagged_bundle()
+    bundle["sources_checked"] = ["KRX", "KIND", "DART"]
+    bundle["rows"][2] = {
+        "ticker": "CCC.KS",
+        "raw_designations": ["투자위험"],
+        "source_type": forbidden,
+    }
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    with pytest.raises(OfficialRiskUnauthorizedSourceError):
+        collect_today_official_risk(
+            asof_date="2026-05-08",
+            bundle_path=p,
+            output_dir=tmp_path / "out",
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_row_level_official_source_passes(tmp_path):
+    bundle = _flagged_bundle()
+    bundle["sources_checked"] = ["KRX"]
+    # All rows declare a row-level official source.
+    for row in bundle["rows"]:
+        row["source_type"] = "KRX"
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    out = tmp_path / "out"
+    result = collect_today_official_risk(
+        asof_date="2026-05-08",
+        bundle_path=p,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+    )
+    assert result.audit_status == "OFFICIAL_RISK_FLAGS_PRESENT"
+    assert result.flagged_row_count >= 1
+
+
+def test_row_level_unknown_source_is_rejected(tmp_path):
+    bundle = _flagged_bundle()
+    bundle["sources_checked"] = ["KRX"]
+    bundle["rows"][1] = {
+        "ticker": "BBB.KQ",
+        "raw_designations": ["투자주의"],
+        "channel": "made_up_channel",
+    }
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    with pytest.raises(OfficialRiskUnauthorizedSourceError):
+        collect_today_official_risk(
+            asof_date="2026-05-08",
+            bundle_path=p,
+            output_dir=tmp_path / "out",
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_row_level_source_field_with_non_string_is_invalid(tmp_path):
+    bundle = _clean_bundle()
+    bundle["rows"][0]["source_type"] = ["KRX"]  # list instead of string
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    with pytest.raises(OfficialRiskBundleInvalidError):
+        collect_today_official_risk(
+            asof_date="2026-05-08",
+            bundle_path=p,
+            output_dir=tmp_path / "out",
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_row_level_empty_or_absent_source_field_is_allowed(tmp_path):
+    """Backward-compat: a bundle without per-row source fields keeps
+    inheriting the top-level ``sources_checked`` claim and publishes."""
+    bundle = _flagged_bundle()
+    bundle["sources_checked"] = ["KRX", "KIND", "DART"]
+    # Mix: some rows have no source fields, one has an empty-string source.
+    bundle["rows"][0]["source"] = ""
+    bundle["rows"][3]["source_name"] = "   "
+    p = _write_bundle(tmp_path / "bundle.json", bundle)
+    out = tmp_path / "out"
+    result = collect_today_official_risk(
+        asof_date="2026-05-08",
+        bundle_path=p,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+    )
+    assert result.audit_status == "OFFICIAL_RISK_FLAGS_PRESENT"
+
+
+# ---------------------------------------------------------------------
+# 13. Audit reports do NOT contain any field whose name contains the
+#     substring "trade_ticket".  The only allowed substring match is
+#     ``trade_ticket_generation_allowed`` inside the canonical
+#     signal_safety block.
+# ---------------------------------------------------------------------
+
+
+def test_report_contains_no_trade_ticket_substring_outside_signal_safety(tmp_path):
+    p = _write_bundle(tmp_path / "bundle.json", _clean_bundle())
+    out = tmp_path / "out"
+    collect_today_official_risk(
+        asof_date="2026-05-08",
+        bundle_path=p,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+    )
+    for name in (OFFICIAL_RISK_FLAGS_FILENAME, OFFICIAL_RISK_REPORT_FILENAME):
+        text = (out / name).read_text(encoding="utf-8")
+        # Only allowed substring hit for "trade_ticket" is the canonical
+        # signal_safety field ``trade_ticket_generation_allowed``.
+        residual = (
+            text
+            .replace('"trade_ticket_generation_allowed"', "")
+        )
+        assert "trade_ticket" not in residual, (
+            f"{name}: leaked 'trade_ticket' substring outside the canonical "
+            f"signal_safety field."
+        )

@@ -503,3 +503,32 @@ def test_collector_consumes_existing_synthetic_fixture(tmp_path):
     )
     assert result.row_count == 11  # number of rows in the fixture
     assert result.rs_score_hard_gate_count == 0
+
+
+# ---------------------------------------------------------------------
+# 11. Audit reports do NOT contain any field whose name contains the
+#     substring "trade_ticket".  The only allowed substring match is
+#     ``trade_ticket_generation_allowed`` inside the canonical
+#     signal_safety block.
+# ---------------------------------------------------------------------
+
+
+def test_outputs_contain_no_trade_ticket_substring_outside_signal_safety(tmp_path):
+    export = _write_export(tmp_path / "tv_export.json", _minimal_export())
+    out = tmp_path / "out"
+    collect_today_tradingview_scan(
+        asof_date="2026-05-08",
+        export_path=export,
+        output_dir=out,
+        repo_root=REPO_ROOT,
+    )
+    for name in (TRADINGVIEW_SCAN_FILENAME, TRADINGVIEW_REPORT_FILENAME):
+        text = (out / name).read_text(encoding="utf-8")
+        residual = (
+            text
+            .replace('"trade_ticket_generation_allowed"', "")
+        )
+        assert "trade_ticket" not in residual, (
+            f"{name}: leaked 'trade_ticket' substring outside the canonical "
+            f"signal_safety field."
+        )

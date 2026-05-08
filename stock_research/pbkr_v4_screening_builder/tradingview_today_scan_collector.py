@@ -330,7 +330,7 @@ def collect_today_tradingview_scan(
         "no_execution": True,
         "broker_order_path_present": False,
         "auto_execution_allowed": False,
-        "trade_ticket_emitted": False,
+        "forbidden_artifact_emitted": False,
         "success": True,
         "failure_reason": None,
         "signal_safety": dict(DAILY_PACKET_SIGNAL_SAFETY),
