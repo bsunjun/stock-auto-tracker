@@ -1,6 +1,6 @@
 """CLI for the PBKR v4 Screening Builder.
 
-Three subcommands:
+Four subcommands:
 
     screen          — run the screening pipeline against any inputs
                       (offline / fixture / dev).  Output may live under
@@ -23,6 +23,10 @@ Three subcommands:
                       report) under $PBKR_PROCESSED_ROOT/live_screen_inputs.
                       Order / account endpoints are out of scope.
 
+    deepvue-presets — evaluate screenshot Deepvue-style preset filters
+                      using Kiwoom price/volume/AS data and DART-derived
+                      fundamentals for Korean-market candidates.
+
 For backward compatibility, when invoked with no subcommand the CLI
 defaults to ``screen``.
 """
@@ -34,7 +38,10 @@ import os
 import sys
 from pathlib import Path
 
-from .builder import build_screening_run
+from .adapters.dart_fundamentals import load_dart_fundamentals
+from .adapters.kiwoom_rest import load_kiwoom_features, load_kiwoom_universe
+from .builder import _asof_iso, build_screening_run
+from .deepvue_presets import DEFAULT_USD_KRW, evaluate_deepvue_presets
 from .constants import DEFAULT_MIN_TRADING_VALUE, DEFAULT_RS_THRESHOLD, DEFAULT_RS_WEIGHTS
 from .kiwoom_today_universe_collector import (
     DEFAULT_OUTPUT_BASE as COLLECTOR_DEFAULT_OUTPUT_BASE,
@@ -45,10 +52,10 @@ from .live_screening_runner import (
     DEFAULT_OUTPUT_BASE,
     cli_main as live_cli_main,
 )
-from .validator import verify_run_directory
+from .validator import sanitize_payload, verify_run_directory
 
 
-_SUBCOMMANDS = ("screen", "live-screen", "kiwoom-collect")
+_SUBCOMMANDS = ("screen", "live-screen", "kiwoom-collect", "deepvue-presets")
 
 
 def _add_rs_weight_flags(p: argparse.ArgumentParser) -> None:
@@ -67,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(
         dest="command", required=True,
-        metavar="{screen,live-screen,kiwoom-collect}",
+        metavar="{screen,live-screen,kiwoom-collect,deepvue-presets}",
     )
 
     p_screen = sub.add_parser(
@@ -83,6 +90,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_screen.add_argument("--out-dir", default=default_out, help="Local/private output directory (NOT in repo)")
     _add_rs_weight_flags(p_screen)
     p_screen.add_argument("--no-verify", action="store_true", help="Skip post-write verification")
+
+
+    p_deepvue = sub.add_parser(
+        "deepvue-presets",
+        help="Evaluate screenshot Deepvue-style preset filters for Korean equities.",
+    )
+    p_deepvue.add_argument("--kiwoom-features", required=True, help="Kiwoom daily-feature JSON path")
+    p_deepvue.add_argument("--kiwoom-universe", required=True, help="Kiwoom universe close-series JSON path")
+    p_deepvue.add_argument("--dart-fundamentals", required=True, help="DART-derived fundamentals JSON path")
+    p_deepvue.add_argument("--asof", required=True, help="As-of trading date, YYYY-MM-DD")
+    p_deepvue.add_argument("--out-dir", default=default_out, help="Local/private output directory (NOT in repo)")
+    p_deepvue.add_argument("--usd-krw", type=float, default=DEFAULT_USD_KRW, help="FX conversion for USD thresholds into KRW")
+    p_deepvue.add_argument(
+        "--industry-map",
+        default=None,
+        help="Optional private JSON {ticker: industry}; required for industry-rank predicates.",
+    )
 
     p_live = sub.add_parser(
         "live-screen",
@@ -264,6 +288,51 @@ def _screen_main(args: argparse.Namespace, repo_root: Path) -> int:
     return 0 if report["pass"] else 1
 
 
+
+def _deepvue_presets_main(args: argparse.Namespace, repo_root: Path) -> int:
+    out_dir = Path(args.out_dir).expanduser().resolve()
+    try:
+        out_dir.relative_to(repo_root)
+        print(
+            f"refusing to write outputs inside the repository: {out_dir}\n"
+            "Set --out-dir to a local/private path (e.g., /tmp/pbkr_v4_screening_out).",
+            file=sys.stderr,
+        )
+        return 2
+    except ValueError:
+        pass
+
+    asof = _asof_iso(args.asof)
+    kw_pack = load_kiwoom_features(args.kiwoom_features, asof)
+    universe_pack = load_kiwoom_universe(args.kiwoom_universe)
+    dart_pack = load_dart_fundamentals(args.dart_fundamentals, asof)
+
+    ticker_to_industry = {}
+    if args.industry_map:
+        with Path(args.industry_map).expanduser().open(encoding="utf-8") as f:
+            ticker_to_industry = json.load(f)
+        if not isinstance(ticker_to_industry, dict):
+            print("--industry-map must be a JSON object mapping ticker to industry", file=sys.stderr)
+            return 2
+
+    payload = evaluate_deepvue_presets(
+        kiwoom_rows=kw_pack["rows"],
+        dart_rows=dart_pack["rows"],
+        universe=universe_pack["tickers"],
+        ticker_to_industry={str(k): str(v) for k, v in ticker_to_industry.items()},
+        usd_krw=args.usd_krw,
+    )
+    sanitize_payload(payload)
+
+    run_dir = out_dir / args.asof
+    run_dir.mkdir(parents=True, exist_ok=True)
+    out_file = run_dir / "deepvue_preset_screen_results.json"
+    out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    print(f"[deepvue-presets] wrote: {out_file}")
+    print(json.dumps(payload["summary"], indent=2, ensure_ascii=False))
+    return 0
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv if argv is not None else sys.argv[1:])
     repo_root = Path(__file__).resolve().parents[2]
@@ -272,6 +341,8 @@ def main(argv: list[str] | None = None) -> int:
         return _screen_main(args, repo_root)
     if args.command == "live-screen":
         return live_cli_main(args, repo_root)
+    if args.command == "deepvue-presets":
+        return _deepvue_presets_main(args, repo_root)
     if args.command == "kiwoom-collect":
         return collector_cli_main(args, repo_root)
     print(f"unknown command: {args.command}", file=sys.stderr)
