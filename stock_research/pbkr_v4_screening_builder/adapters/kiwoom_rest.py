@@ -54,8 +54,9 @@ def _normalize_row(raw: dict[str, Any]) -> dict[str, Any]:
     high_20d = _f(raw.get("high_20d")) or _max_window(closes_f, 20)
     high_60d = _f(raw.get("high_60d")) or _max_window(closes_f, 60)
 
-    return {
+    row = {
         "ticker": str(raw["ticker"]).strip(),
+        "name": str(raw.get("name") or raw.get("ticker")).strip(),
         "close": close if close is not None else 0.0,
         "open":  _f(raw.get("open")),
         "high":  _f(raw.get("high")),
@@ -71,12 +72,29 @@ def _normalize_row(raw: dict[str, Any]) -> dict[str, Any]:
         "ma21":  _f(raw.get("ma21")),
         "ma50":  _f(raw.get("ma50")),
         "ma120": _f(raw.get("ma120")),
+        "ma150": _f(raw.get("ma150")),
+        "ma200": _f(raw.get("ma200")),
+        "ma30w": _f(raw.get("ma30w")),
+        "ma40w": _f(raw.get("ma40w")),
         "atr14": _f(raw.get("atr14")),
         "recent_low":    _f(raw.get("recent_low")),
         "stop_distance": _f(raw.get("stop_distance")),
         "high_20d": high_20d,
         "high_60d": high_60d,
+        "high_52w": _f(raw.get("high_52w")),
+        "low_52w": _f(raw.get("low_52w")),
+        "weinstein_stage": raw.get("weinstein_stage") or raw.get("stage"),
+        "security_type": raw.get("security_type") or raw.get("include_type") or raw.get("type"),
+        "ipo_date": raw.get("ipo_date") or raw.get("listing_date"),
+        "listing_date": raw.get("listing_date"),
     }
+    for seq_key in ("closes", "highs", "lows", "volumes"):
+        if isinstance(raw.get(seq_key), list):
+            row[seq_key] = [_f(x) for x in raw[seq_key] if _f(x) is not None]
+    for key, value in raw.items():
+        if key.startswith(("avg_volume_", "avg_vol_", "avg_trading_value_", "avg_value_", "adr_pct_", "adr_")):
+            row[key] = _f(value)
+    return row
 
 
 def load_kiwoom_features(path: str | Path, asof: str) -> dict[str, Any]:

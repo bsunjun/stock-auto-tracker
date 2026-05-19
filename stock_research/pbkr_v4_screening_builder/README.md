@@ -237,3 +237,48 @@ Runner contract (enforced):
 In production the four input JSONs come from real adapters
 (TradingView MCP server, Kiwoom OpenAPI REST, KRX / KIND / DART feeds).
 Real input files **stay outside the repo**.
+
+## 8. Deepvue-style preset screens for Korean equities
+
+The module also includes a read-only implementation of the screenshot filters
+for Korean-market candidate generation.  These presets intentionally use
+Kiwoom daily data for price, volume, moving averages, ADR, and relative-strength
+percentiles, plus a private DART-derived fundamentals export for EPS / sales
+fields.  TradingView MCP labels may remain useful for review, but they are not
+required for the hard fundamental gates because TradingView fundamentals for KR
+names can lag.
+
+Run it with private input files outside the repository:
+
+```bash
+python -m stock_research.pbkr_v4_screening_builder.cli deepvue-presets \
+  --kiwoom-features /private/kiwoom_features_latest.json \
+  --kiwoom-universe /private/kiwoom_universe_latest.json \
+  --dart-fundamentals /private/dart_fundamentals_latest.json \
+  --industry-map /private/ticker_to_industry.json \
+  --asof 2026-05-11 \
+  --out-dir /tmp/pbkr_v4_screening_out \
+  --usd-krw 1350
+```
+
+Implemented presets:
+
+* `stage_analysis_leaders`: Weinstein stage 2 / 2A, 20-day average value
+  above USD 20M converted to KRW, common-equity type, 1M/3M absolute-strength
+  gates, and a top-industry-or-elite-1M-AS gate.
+* `canslim_growth`: latest-quarter EPS growth, 3-year average EPS growth,
+  latest-quarter sales growth, 6M strength, proximity to 52-week high,
+  50-day volume, and minimum price gates.
+* `minervini_trend_template`: 50/150/200-day trend-template alignment,
+  rising 200-day average checks, 52-week high/low proximity, 12M strength,
+  and price above 50D/150D/200D/30W/40W averages.
+* `deepvue_leaders`: liquidity, ADR, price, AS, growth/surprise/sales, and
+  recent-IPO-or-elite-AS groups mirroring the screenshot's and/or structure.
+
+The output is `deepvue_preset_screen_results.json`; it remains
+`screening_only`, `candidate_generation_only`, and contains no order or broker
+execution artifacts.  It includes both an audit-style `results` array for every
+screened ticker and a focused `universe` array that keeps only tickers passing
+at least one preset.  Each universe row carries `filter_tags` such as
+`preset:canslim_growth` plus `passed_predicate_tags` so the operator can see
+which screen(s) and individual predicates qualified the ticker.
