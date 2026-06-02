@@ -1,0 +1,73 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "summary": {
+    "telegram_row_count": 2,
+    "report_row_count": 2,
+    "news_row_count": 2,
+    "official_risk_row_count": 2
+  },
+  "telegram_theme_radar": [
+    {
+      "theme_id": "SYN_THEME_AI",
+      "theme_name": "Synthetic AI Theme",
+      "mention_count": 18,
+      "sentiment_label": "positive"
+    },
+    {
+      "theme_id": "SYN_THEME_BATTERY",
+      "theme_name": "Synthetic Battery Theme",
+      "mention_count": 3,
+      "sentiment_label": "neutral"
+    }
+  ],
+  "report_reader": [
+    {
+      "ticker": "SYN0001",
+      "report_count": 4,
+      "last_report_date": "2026-05-07",
+      "consensus_label": "positive"
+    },
+    {
+      "ticker": "SYN0003",
+      "report_count": 1,
+      "last_report_date": "2026-05-02",
+      "consensus_label": "mixed"
+    }
+  ],
+  "gemini_news_grounder": [
+    {
+      "ticker": "SYN0001",
+      "news_count": 6,
+      "sentiment_label": "positive",
+      "grounding_score": 0.84
+    },
+    {
+      "ticker": "SYN0002",
+      "news_count": 2,
+      "sentiment_label": "neutral",
+      "grounding_score": 0.61
+    }
+  ],
+  "official_risk": [
+    {
+      "ticker": "SYN9001",
+      "bucket": "REGULAR_PB_EXCLUDE",
+      "raw_designations": ["synthetic_caution_designation"]
+    },
+    {
+      "ticker": "SYN9002",
+      "bucket": "RISK_FLAG_PULLBACK_WATCH",
+      "raw_designations": ["synthetic_warning_designation"]
+    }
+  ],
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "pbkr_rs_rank_source": "kiwoom_daily_universe",
+  "regime": "stage2",
+  "regime_reason": "Synthetic: indices in uptrend, breadth >50%, MA50>MA200.",
+  "breadth": {
+    "universe_size": 2200,
+    "pct_above_ma50": 58.0,
+    "pct_above_ma200": 52.5,
+    "advance_decline_ratio": 1.45,
+    "new_highs_20d": 88,
+    "new_lows_20d": 22
+  },
+  "indices": [
+    {
+      "index_id": "SYN_KOSPI",
+      "index_name": "Synthetic KOSPI",
+      "trend_label": "uptrend",
+      "above_ma50": true,
+      "above_ma200": true,
+      "ma50_above_ma200": true
+    },
+    {
+      "index_id": "SYN_KOSDAQ",
+      "index_name": "Synthetic KOSDAQ",
+      "trend_label": "transition_up",
+      "above_ma50": true,
+      "above_ma200": false,
+      "ma50_above_ma200": false
+    }
+  ],
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true
+  }
+}

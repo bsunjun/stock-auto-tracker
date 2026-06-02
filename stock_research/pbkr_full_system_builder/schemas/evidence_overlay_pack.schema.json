@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pbkr.local/v1/full-system/evidence_overlay_pack.schema.json",
+  "title": "PBKR Full System v1 — Evidence Overlay Pack",
+  "description": "Funnel stage 5. Aggregates auxiliary evidence sources: Telegram ThemeRadar, ReportReader, Gemini NewsGrounder, and KRX/KIND/DART official risk flags. None of these are hard filters. screening_only=true; candidate_generation_only=true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "asof",
+    "telegram_theme_radar",
+    "report_reader",
+    "gemini_news_grounder",
+    "official_risk",
+    "summary",
+    "signal_safety"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^v1\\.[0-9]+(\\.[0-9]+)?$" },
+    "asof": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "telegram_row_count",
+        "report_row_count",
+        "news_row_count",
+        "official_risk_row_count"
+      ],
+      "properties": {
+        "telegram_row_count": { "type": "integer", "minimum": 0 },
+        "report_row_count": { "type": "integer", "minimum": 0 },
+        "news_row_count": { "type": "integer", "minimum": 0 },
+        "official_risk_row_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "telegram_theme_radar": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["theme_id", "theme_name", "mention_count", "sentiment_label"],
+        "properties": {
+          "theme_id": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "theme_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "mention_count": { "type": "integer", "minimum": 0 },
+          "sentiment_label": {
+            "enum": ["positive", "neutral", "negative", "mixed", "unknown"]
+          }
+        }
+      }
+    },
+    "report_reader": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "report_count"],
+        "properties": {
+          "ticker": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "report_count": { "type": "integer", "minimum": 0 },
+          "last_report_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "consensus_label": {
+            "enum": ["positive", "neutral", "negative", "mixed", "unknown"]
+          }
+        }
+      }
+    },
+    "gemini_news_grounder": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "news_count", "sentiment_label"],
+        "properties": {
+          "ticker": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "news_count": { "type": "integer", "minimum": 0 },
+          "sentiment_label": {
+            "enum": ["positive", "neutral", "negative", "mixed", "unknown"]
+          },
+          "grounding_score": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "official_risk": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "bucket"],
+        "properties": {
+          "ticker": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "bucket": {
+            "enum": [
+              "HARD_EXCLUDE",
+              "REGULAR_PB_EXCLUDE",
+              "EXTREME_RISK_FLAG_WATCH",
+              "RISK_FLAG_PULLBACK_WATCH"
+            ]
+          },
+          "raw_designations": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 80 }
+          }
+        }
+      }
+    },
+    "signal_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screening_only",
+        "candidate_generation_only",
+        "direct_trade_signal",
+        "trade_signal",
+        "automatic_execution_allowed",
+        "trade_ticket_generation_allowed",
+        "human_gate_required"
+      ],
+      "properties": {
+        "screening_only": { "const": true },
+        "candidate_generation_only": { "const": true },
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "enum": [null, false] },
+        "automatic_execution_allowed": { "const": false },
+        "trade_ticket_generation_allowed": { "const": false },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}

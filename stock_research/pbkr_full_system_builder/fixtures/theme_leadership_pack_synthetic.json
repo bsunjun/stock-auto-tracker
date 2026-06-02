@@ -1,0 +1,53 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "pbkr_rs_rank_source": "kiwoom_daily_universe",
+  "summary": {
+    "theme_count": 4,
+    "leading_count": 2,
+    "lagging_count": 1
+  },
+  "themes": [
+    {
+      "theme_id": "SYN_THEME_AI",
+      "theme_name": "Synthetic AI Theme",
+      "leader_count": 1,
+      "median_rank": 95.2,
+      "theme_state": "leading",
+      "telegram_mentions": 18
+    },
+    {
+      "theme_id": "SYN_THEME_SEMI",
+      "theme_name": "Synthetic Semiconductor Theme",
+      "leader_count": 2,
+      "median_rank": 90.65,
+      "theme_state": "leading",
+      "telegram_mentions": 12
+    },
+    {
+      "theme_id": "SYN_THEME_BIO",
+      "theme_name": "Synthetic Bio Theme",
+      "leader_count": 1,
+      "median_rank": 90.7,
+      "theme_state": "mixed",
+      "telegram_mentions": 7
+    },
+    {
+      "theme_id": "SYN_THEME_BATTERY",
+      "theme_name": "Synthetic Battery Theme",
+      "leader_count": 1,
+      "median_rank": 82.0,
+      "theme_state": "lagging",
+      "telegram_mentions": 3
+    }
+  ],
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "pbkr_rs_rank_source": "kiwoom_daily_universe",
+  "tradingview_role": "auxiliary",
+  "rs_threshold": 80.0,
+  "summary": {
+    "universe_size": 2200,
+    "leader_count": 4
+  },
+  "leaders": [
+    {
+      "ticker": "SYN0001",
+      "name": "Synthetic Leader Alpha",
+      "pbkr_rs_rank": 95.2,
+      "sector_id": "SYN_SEC_A",
+      "theme_ids": ["SYN_THEME_AI", "SYN_THEME_SEMI"],
+      "trading_value": 12000000000.0
+    },
+    {
+      "ticker": "SYN0002",
+      "name": "Synthetic Leader Beta",
+      "pbkr_rs_rank": 90.7,
+      "sector_id": "SYN_SEC_B",
+      "theme_ids": ["SYN_THEME_BIO"],
+      "trading_value": 8500000000.0
+    },
+    {
+      "ticker": "SYN0003",
+      "name": "Synthetic Leader Gamma",
+      "pbkr_rs_rank": 86.1,
+      "sector_id": "SYN_SEC_A",
+      "theme_ids": ["SYN_THEME_SEMI"],
+      "trading_value": 6300000000.0
+    },
+    {
+      "ticker": "SYN0004",
+      "name": "Synthetic Leader Delta",
+      "pbkr_rs_rank": 82.0,
+      "sector_id": "SYN_SEC_C",
+      "theme_ids": ["SYN_THEME_BATTERY"],
+      "trading_value": 5400000000.0
+    }
+  ],
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true
+  }
+}

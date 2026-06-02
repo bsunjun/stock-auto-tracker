@@ -1,0 +1,101 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "pbkr_rs_rank_source": "kiwoom_daily_universe",
+  "tradingview_role": "auxiliary",
+  "market_breadth_summary": {
+    "regime": "stage2",
+    "pct_above_ma50": 58.0,
+    "pct_above_ma200": 52.5,
+    "advance_decline_ratio": 1.45
+  },
+  "kr_leader_universe_summary": {
+    "universe_size": 2200,
+    "leader_count": 4,
+    "rs_threshold": 80.0
+  },
+  "sector_leadership_summary": {
+    "sector_count": 3,
+    "leading_count": 1,
+    "lagging_count": 1,
+    "top_leading": [
+      {
+        "sector_id": "SYN_SEC_A",
+        "sector_name": "Synthetic Sector A",
+        "median_rank": 90.65
+      }
+    ]
+  },
+  "theme_leadership_summary": {
+    "theme_count": 4,
+    "leading_count": 2,
+    "lagging_count": 1,
+    "top_leading": [
+      {
+        "theme_id": "SYN_THEME_AI",
+        "theme_name": "Synthetic AI Theme",
+        "median_rank": 95.2
+      },
+      {
+        "theme_id": "SYN_THEME_SEMI",
+        "theme_name": "Synthetic Semiconductor Theme",
+        "median_rank": 90.65
+      }
+    ]
+  },
+  "specialist_screen_summary": {
+    "total": 3,
+    "by_state": {
+      "WATCH_CANDIDATE": 2,
+      "WATCH_ONLY": 1
+    },
+    "by_screen": {
+      "first_pullback": 1,
+      "pre_breakout_watch": 1,
+      "hve_gap_watch": 1
+    },
+    "watch_candidate_top": [
+      {
+        "ticker": "SYN0001",
+        "name": "Synthetic Leader Alpha",
+        "pbkr_rs_rank": 95.2,
+        "state": "WATCH_CANDIDATE",
+        "screen": "first_pullback"
+      },
+      {
+        "ticker": "SYN0002",
+        "name": "Synthetic Leader Beta",
+        "pbkr_rs_rank": 90.7,
+        "state": "WATCH_CANDIDATE",
+        "screen": "pre_breakout_watch"
+      },
+      {
+        "ticker": "SYN0003",
+        "name": "Synthetic Leader Gamma",
+        "pbkr_rs_rank": 86.1,
+        "state": "WATCH_ONLY",
+        "screen": "hve_gap_watch"
+      }
+    ]
+  },
+  "evidence_overlay_summary": {
+    "telegram_row_count": 2,
+    "report_row_count": 2,
+    "news_row_count": 2,
+    "official_risk_row_count": 2,
+    "official_risk_by_bucket": {
+      "REGULAR_PB_EXCLUDE": 1,
+      "RISK_FLAG_PULLBACK_WATCH": 1
+    }
+  },
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true,
+    "operator_decision": null
+  }
+}

@@ -34,3 +34,13 @@ __pycache__/
 # where someone creates such a directory inside the repo by mistake.
 /pbkr_v4_screening_out/
 **/pbkr_v4_screening_out/
+
+# PBKR Full System v1 local outputs. Real outputs land in
+# $PBKR_PROCESSED_ROOT or $PBKR_OUTPUT_ROOT (typically
+# $HOME/trading/phase3/output/...). The full-system writer refuses
+# out_dir paths inside the repo; these patterns are a defense-in-depth
+# backstop.
+/pbkr_full_system/
+**/pbkr_full_system/
+/pbkr_full_system_out/
+**/pbkr_full_system_out/

@@ -1,0 +1,42 @@
+{
+  "schema_version": "v1.0",
+  "asof": "2026-05-08T15:30:00+09:00",
+  "pbkr_rs_rank_source": "kiwoom_daily_universe",
+  "summary": {
+    "sector_count": 3,
+    "leading_count": 1,
+    "lagging_count": 1
+  },
+  "sectors": [
+    {
+      "sector_id": "SYN_SEC_A",
+      "sector_name": "Synthetic Sector A",
+      "leader_count": 2,
+      "median_rank": 90.65,
+      "sector_state": "leading"
+    },
+    {
+      "sector_id": "SYN_SEC_B",
+      "sector_name": "Synthetic Sector B",
+      "leader_count": 1,
+      "median_rank": 90.7,
+      "sector_state": "mixed"
+    },
+    {
+      "sector_id": "SYN_SEC_C",
+      "sector_name": "Synthetic Sector C",
+      "leader_count": 1,
+      "median_rank": 82.0,
+      "sector_state": "lagging"
+    }
+  ],
+  "signal_safety": {
+    "screening_only": true,
+    "candidate_generation_only": true,
+    "direct_trade_signal": false,
+    "trade_signal": false,
+    "automatic_execution_allowed": false,
+    "trade_ticket_generation_allowed": false,
+    "human_gate_required": true
+  }
+}
