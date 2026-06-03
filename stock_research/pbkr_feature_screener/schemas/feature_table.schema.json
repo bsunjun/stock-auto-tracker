@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/schemas/feature_table.schema.json",
+  "title": "PBKR Feature Table v1",
+  "description": "Wide per-(ticker, asof_date) quantitative feature row for the PBKR Future Buyer Momentum OS v3.2 candidate-compression layer. This schema describes a research artifact and MUST NOT be interpreted as a trade signal.",
+  "type": "object",
+  "required": [
+    "ticker",
+    "asof_date",
+    "schema_version",
+    "direct_trade_signal"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "feature_table_v1"
+    },
+    "ticker": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "asof_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "sector": {
+      "type": ["string", "null"]
+    },
+    "direct_trade_signal": {
+      "type": "boolean",
+      "const": false
+    },
+    "trade_signal": {
+      "type": "null"
+    },
+    "close": { "type": ["number", "null"] },
+    "ema20": { "type": ["number", "null"] },
+    "ema50": { "type": ["number", "null"] },
+    "ema150": { "type": ["number", "null"] },
+    "close_vs_ema20_pct": { "type": ["number", "null"] },
+    "close_vs_ema50_pct": { "type": ["number", "null"] },
+
+    "rs_20d": { "type": ["number", "null"] },
+    "rs_60d": { "type": ["number", "null"] },
+    "rs_120d": { "type": ["number", "null"] },
+    "rs_252d": { "type": ["number", "null"] },
+    "rs_60d_percentile": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "sector_rs_20d": { "type": ["number", "null"] },
+    "sector_rs_60d": { "type": ["number", "null"] },
+    "ibdrs_approx": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 99
+    },
+
+    "weekly_return_13w": { "type": ["number", "null"] },
+    "weekly_ma10": { "type": ["number", "null"] },
+    "weekly_ma30": { "type": ["number", "null"] },
+    "weekly_ma10_slope": { "type": ["number", "null"] },
+
+    "latest_sales": { "type": ["number", "null"] },
+    "latest_op": { "type": ["number", "null"] },
+    "latest_eps": { "type": ["number", "null"] },
+    "op_revision_pct": { "type": ["number", "null"] },
+    "eps_revision_pct": { "type": ["number", "null"] },
+    "latest_op_surprise_pct": { "type": ["number", "null"] },
+    "sales_guidance_delta": { "type": ["number", "null"] },
+    "op_guidance_delta": { "type": ["number", "null"] },
+
+    "institution_flow_score": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "financial_investment_consecutive_days": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "private_fund_flow_strength": { "type": ["number", "null"] },
+
+    "official_risk_hard_exclude": { "type": "boolean" },
+    "stop_distance_pct": { "type": ["number", "null"] }
+  }
+}

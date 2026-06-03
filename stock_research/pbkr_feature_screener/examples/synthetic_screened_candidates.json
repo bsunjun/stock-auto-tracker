@@ -1,0 +1,200 @@
+{
+  "schema_version": "screened_candidate_pack_v1",
+  "asof_date": "2026-04-30",
+  "universe_size": 8,
+  "hard_exclude_count": 2,
+  "passing_threshold": 3,
+  "direct_trade_signal": false,
+  "trade_signal": null,
+  "filter_ids": [
+    "ibdrs_approx_top",
+    "rs_60d_top",
+    "estimate_revision_or_surprise",
+    "institution_flow_or_consecutive",
+    "stop_distance_tight"
+  ],
+  "candidates": [
+    {
+      "ticker": "SYN_007",
+      "sector": "SECTOR_A",
+      "pass_count": 5,
+      "screen_score": 5.0,
+      "passed_filters": [
+        "ibdrs_approx_top",
+        "rs_60d_top",
+        "estimate_revision_or_surprise",
+        "institution_flow_or_consecutive",
+        "stop_distance_tight"
+      ],
+      "failed_filters": [],
+      "reasons": [
+        "passed:ibdrs_approx_top",
+        "passed:rs_60d_top",
+        "passed:estimate_revision_or_surprise",
+        "passed:institution_flow_or_consecutive",
+        "passed:stop_distance_tight"
+      ],
+      "features": {
+        "ticker": "SYN_007",
+        "asof_date": "2026-04-30",
+        "sector": "SECTOR_A",
+        "ibdrs_approx": 99,
+        "rs_60d_percentile": 99,
+        "op_revision_pct": 8.0,
+        "latest_op_surprise_pct": 25.0,
+        "institution_flow_score": 90,
+        "financial_investment_consecutive_days": 7,
+        "stop_distance_pct": 2.0,
+        "official_risk_hard_exclude": false,
+        "direct_trade_signal": false
+      },
+      "human_review_required": true
+    },
+    {
+      "ticker": "SYN_001",
+      "sector": "SECTOR_A",
+      "pass_count": 5,
+      "screen_score": 5.0,
+      "passed_filters": [
+        "ibdrs_approx_top",
+        "rs_60d_top",
+        "estimate_revision_or_surprise",
+        "institution_flow_or_consecutive",
+        "stop_distance_tight"
+      ],
+      "failed_filters": [],
+      "reasons": [
+        "passed:ibdrs_approx_top",
+        "passed:rs_60d_top",
+        "passed:estimate_revision_or_surprise",
+        "passed:institution_flow_or_consecutive",
+        "passed:stop_distance_tight"
+      ],
+      "features": {
+        "ticker": "SYN_001",
+        "asof_date": "2026-04-30",
+        "sector": "SECTOR_A",
+        "ibdrs_approx": 92,
+        "rs_60d_percentile": 90,
+        "op_revision_pct": 5.0,
+        "latest_op_surprise_pct": 10.0,
+        "institution_flow_score": 80,
+        "financial_investment_consecutive_days": 5,
+        "stop_distance_pct": 3.0,
+        "official_risk_hard_exclude": false,
+        "direct_trade_signal": false
+      },
+      "human_review_required": true
+    },
+    {
+      "ticker": "SYN_003",
+      "sector": "SECTOR_B",
+      "pass_count": 4,
+      "screen_score": 4.0,
+      "passed_filters": [
+        "ibdrs_approx_top",
+        "rs_60d_top",
+        "estimate_revision_or_surprise",
+        "stop_distance_tight"
+      ],
+      "failed_filters": ["institution_flow_or_consecutive"],
+      "reasons": [
+        "passed:ibdrs_approx_top",
+        "passed:rs_60d_top",
+        "passed:estimate_revision_or_surprise",
+        "passed:stop_distance_tight",
+        "failed:institution_flow_or_consecutive"
+      ],
+      "features": {
+        "ticker": "SYN_003",
+        "asof_date": "2026-04-30",
+        "sector": "SECTOR_B",
+        "ibdrs_approx": 88,
+        "rs_60d_percentile": 88,
+        "op_revision_pct": -2.0,
+        "latest_op_surprise_pct": 20.0,
+        "institution_flow_score": 50,
+        "financial_investment_consecutive_days": 1,
+        "stop_distance_pct": 4.0,
+        "official_risk_hard_exclude": false,
+        "direct_trade_signal": false
+      },
+      "human_review_required": true
+    },
+    {
+      "ticker": "SYN_002",
+      "sector": "SECTOR_A",
+      "pass_count": 4,
+      "screen_score": 4.0,
+      "passed_filters": [
+        "ibdrs_approx_top",
+        "rs_60d_top",
+        "estimate_revision_or_surprise",
+        "institution_flow_or_consecutive"
+      ],
+      "failed_filters": ["stop_distance_tight"],
+      "reasons": [
+        "passed:ibdrs_approx_top",
+        "passed:rs_60d_top",
+        "passed:estimate_revision_or_surprise",
+        "passed:institution_flow_or_consecutive",
+        "failed:stop_distance_tight"
+      ],
+      "features": {
+        "ticker": "SYN_002",
+        "asof_date": "2026-04-30",
+        "sector": "SECTOR_A",
+        "ibdrs_approx": 85,
+        "rs_60d_percentile": 85,
+        "op_revision_pct": 3.0,
+        "latest_op_surprise_pct": 5.0,
+        "institution_flow_score": 75,
+        "financial_investment_consecutive_days": 4,
+        "stop_distance_pct": 8.0,
+        "official_risk_hard_exclude": false,
+        "direct_trade_signal": false
+      },
+      "human_review_required": true
+    },
+    {
+      "ticker": "SYN_005",
+      "sector": "SECTOR_C",
+      "pass_count": 4,
+      "screen_score": 4.0,
+      "passed_filters": [
+        "ibdrs_approx_top",
+        "rs_60d_top",
+        "institution_flow_or_consecutive",
+        "stop_distance_tight"
+      ],
+      "failed_filters": ["estimate_revision_or_surprise"],
+      "reasons": [
+        "passed:ibdrs_approx_top",
+        "passed:rs_60d_top",
+        "passed:institution_flow_or_consecutive",
+        "passed:stop_distance_tight",
+        "failed:estimate_revision_or_surprise"
+      ],
+      "features": {
+        "ticker": "SYN_005",
+        "asof_date": "2026-04-30",
+        "sector": "SECTOR_C",
+        "ibdrs_approx": 82,
+        "rs_60d_percentile": 82,
+        "op_revision_pct": -1.0,
+        "latest_op_surprise_pct": 5.0,
+        "institution_flow_score": 72,
+        "financial_investment_consecutive_days": 2,
+        "stop_distance_pct": 4.0,
+        "official_risk_hard_exclude": false,
+        "direct_trade_signal": false
+      },
+      "human_review_required": true
+    }
+  ],
+  "notes": [
+    "Research artifact — NOT a trade signal.",
+    "PB_READY / PB_TRIGGER are audit metadata, not orders.",
+    "All tickers prefixed SYN_ are synthetic; no real market data."
+  ]
+}

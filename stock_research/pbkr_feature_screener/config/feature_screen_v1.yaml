@@ -1,0 +1,84 @@
+# PBKR Quant Feature Screener — Filter v1
+#
+# This config is consumed by scripts/screen_candidates.py.
+# It defines hard excludes (must pass) and soft filters (scored).
+# It MUST NOT be interpreted as a trade signal.
+#
+# Hard rule: any row with official_risk_hard_exclude == true is
+# removed before soft scoring. A row that survives soft scoring is a
+# *candidate for human review*, not a buy order.
+
+version: 1
+schema_version: "feature_screen_v1"
+direct_trade_signal: false
+trade_signal: null
+
+universe:
+  market: KRX
+  exclude_etfs: true
+  exclude_spacs: true
+  min_market_cap_krw_bn: 100
+
+hard_excludes:
+  - id: risk_hard_exclude
+    expr: "official_risk_hard_exclude == false"
+    description: "KRX 관리종목 / 거래정지 / 감사의견 거절 / 상장폐지 후보 제외"
+
+soft_filters:
+  - id: ibdrs_approx_top
+    expr: "ibdrs_approx >= 80"
+    weight: 1.0
+    description: "Blended RS percentile in top quintile"
+
+  - id: rs_60d_top
+    expr: "rs_60d_percentile >= 80"
+    weight: 1.0
+    description: "60-day RS percentile in top quintile"
+
+  - id: estimate_revision_or_surprise
+    expr: "op_revision_pct > 0 OR latest_op_surprise_pct >= 15"
+    weight: 1.0
+    description: "Positive OP revision or material OP surprise"
+
+  - id: institution_flow_or_consecutive
+    expr: "institution_flow_score >= 70 OR financial_investment_consecutive_days >= 3"
+    weight: 1.0
+    description: "Institutional accumulation footprint"
+
+  - id: stop_distance_tight
+    expr: "stop_distance_pct <= 5"
+    weight: 1.0
+    description: "Stop distance tight enough for risk-budgeted entry by human"
+
+scoring:
+  method: weighted_sum
+  passing_threshold: 3
+  tie_breaker: ibdrs_approx
+
+# IC backtest configuration consumed by scripts/backtest_filter_ic.py.
+backtest:
+  forward_horizons_days: [5, 20, 60]
+  hit_rate_horizon_days: 20
+  min_obs_per_filter: 30
+  cs_normalize: true
+
+# Output identifiers — NOT execution venues.
+outputs:
+  feature_table_id: "feature_table_v1"
+  screened_candidate_pack_id: "screened_candidate_pack_v1"
+  filter_performance_pack_id: "filter_performance_pack_v1"
+
+# Forbidden behaviors (declared explicitly so screen_candidates.py can
+# refuse to emit packs that violate them).
+forbidden:
+  - "direct_trade_signal=true"
+  - "trade_signal truthy"
+  - "buy/sell directive language"
+  - "promote to latest"
+  - "promote to SuperPack"
+  - "rolling --apply"
+  - "real market data commit"
+  - "real PDF commit"
+  - "output CSV/JSON commit"
+  - "API key / token / password storage"
+  - "Drive write / rename / delete"

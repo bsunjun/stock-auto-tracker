@@ -1,0 +1,80 @@
+{
+  "schema_version": "filter_performance_pack_v1",
+  "asof_date": "2026-04-30",
+  "horizons_days": [5, 20, 60],
+  "hit_rate_horizon_days": 20,
+  "direct_trade_signal": false,
+  "trade_signal": null,
+  "filters": [
+    {
+      "filter_id": "ibdrs_approx_top",
+      "expr": "ibdrs_approx >= 80",
+      "n_obs": 8,
+      "ic": {
+        "ic_5d": 0.78,
+        "ic_20d": 0.84,
+        "ic_60d": 0.80
+      },
+      "hit_rate_pos_fwd": 1.0,
+      "notes": [
+        "low_n_obs (<30); IC unreliable for diagnostic use only"
+      ]
+    },
+    {
+      "filter_id": "rs_60d_top",
+      "expr": "rs_60d_percentile >= 80",
+      "n_obs": 8,
+      "ic": {
+        "ic_5d": 0.78,
+        "ic_20d": 0.84,
+        "ic_60d": 0.80
+      },
+      "hit_rate_pos_fwd": 1.0,
+      "notes": [
+        "low_n_obs (<30); IC unreliable for diagnostic use only"
+      ]
+    },
+    {
+      "filter_id": "estimate_revision_or_surprise",
+      "expr": "op_revision_pct > 0 OR latest_op_surprise_pct >= 15",
+      "n_obs": 8,
+      "ic": {
+        "ic_5d": 0.62,
+        "ic_20d": 0.71,
+        "ic_60d": 0.69
+      },
+      "hit_rate_pos_fwd": 1.0,
+      "notes": [
+        "low_n_obs (<30); IC unreliable for diagnostic use only"
+      ]
+    },
+    {
+      "filter_id": "institution_flow_or_consecutive",
+      "expr": "institution_flow_score >= 70 OR financial_investment_consecutive_days >= 3",
+      "n_obs": 8,
+      "ic": {
+        "ic_5d": 0.58,
+        "ic_20d": 0.66,
+        "ic_60d": 0.64
+      },
+      "hit_rate_pos_fwd": 1.0,
+      "notes": [
+        "low_n_obs (<30); IC unreliable for diagnostic use only"
+      ]
+    },
+    {
+      "filter_id": "stop_distance_tight",
+      "expr": "stop_distance_pct <= 5",
+      "n_obs": 8,
+      "ic": {
+        "ic_5d": 0.55,
+        "ic_20d": 0.61,
+        "ic_60d": 0.58
+      },
+      "hit_rate_pos_fwd": 1.0,
+      "notes": [
+        "low_n_obs (<30); IC unreliable for diagnostic use only"
+      ]
+    }
+  ]
+}

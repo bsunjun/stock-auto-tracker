@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/schemas/filter_performance_pack.schema.json",
+  "title": "PBKR Filter Performance Pack v1",
+  "description": "Forward-IC and hit-rate diagnostics for each soft filter in feature_screen_v1.yaml. Diagnostic-only; does NOT recommend trades.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "asof_date",
+    "horizons_days",
+    "filters",
+    "direct_trade_signal"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "filter_performance_pack_v1"
+    },
+    "asof_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "horizons_days": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "hit_rate_horizon_days": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "direct_trade_signal": {
+      "type": "boolean",
+      "const": false
+    },
+    "trade_signal": {
+      "type": "null"
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "filter_id",
+          "n_obs",
+          "ic"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "filter_id": { "type": "string" },
+          "expr": { "type": "string" },
+          "n_obs": { "type": "integer", "minimum": 0 },
+          "ic": {
+            "type": "object",
+            "description": "Forward IC by horizon (days).",
+            "patternProperties": {
+              "^ic_[0-9]+d$": {
+                "type": ["number", "null"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "hit_rate_pos_fwd": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "notes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
