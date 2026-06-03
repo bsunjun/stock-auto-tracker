@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pbkr.local/v4/audit.schema.json",
+  "title": "PBKR v4 Audit Brief",
+  "description": "Output of the Auditor (Claude). Per-entry decisions, rule violations, and counter-thesis. direct_trade_signal must be false. trade_signal must be null. human_gate_required must be true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_id",
+    "session_date",
+    "audited_focus_list_id",
+    "entries",
+    "disclaimers"
+  ],
+  "properties": {
+    "schema_version": { "const": "v4.1" },
+    "audit_id": {
+      "type": "string",
+      "pattern": "^aud-[0-9]{8}-[A-Za-z0-9_-]{2,32}$"
+    },
+    "session_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "audited_focus_list_id": { "type": "string", "maxLength": 64 },
+    "entries": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_ref",
+          "audit_decision",
+          "rule_violations",
+          "counter_thesis",
+          "disclaimers"
+        ],
+        "properties": {
+          "entry_ref": { "type": "string", "maxLength": 64 },
+          "audit_decision": {
+            "enum": ["pass", "block", "revise_required"]
+          },
+          "rule_violations": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "R1", "R2", "R3", "R4", "R5", "R6",
+                "R7", "R8", "R9", "R10", "R11", "R12"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "counter_thesis": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 600,
+            "description": "Required (non-empty) when audit_decision = pass; optional when audit_decision = block."
+          },
+          "risk_notes": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "concentration": { "type": "string", "maxLength": 280 },
+              "correlation": { "type": "string", "maxLength": 280 },
+              "event_window": { "type": "string", "maxLength": 280 }
+            }
+          },
+          "disclaimers": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["direct_trade_signal", "trade_signal", "human_gate_required"],
+            "properties": {
+              "direct_trade_signal": { "const": false },
+              "trade_signal": { "type": "null" },
+              "human_gate_required": { "const": true }
+            }
+          }
+        }
+      }
+    },
+    "summary_note": { "type": "string", "maxLength": 600 },
+    "disclaimers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_trade_signal", "trade_signal", "human_gate_required"],
+      "properties": {
+        "direct_trade_signal": { "const": false },
+        "trade_signal": { "type": "null" },
+        "human_gate_required": { "const": true }
+      }
+    }
+  }
+}
